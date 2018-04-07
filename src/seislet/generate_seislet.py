@@ -9,8 +9,7 @@ LET_FUNCTIONS = {'berlage': berlage_function,
 def gen_seislet(seislet,
                 dt=DEFAULT_DT,
                 ns=DEFAULT_NS,
-                s_let_funcs=LET_FUNCTIONS,
                 **kwargs):
-    signal_function = s_let_funcs[seislet]
+    signal_function = LET_FUNCTIONS[seislet]
     signal = signal_function(dt, ns, **kwargs)
     return signal 
