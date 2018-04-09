@@ -1,38 +1,10 @@
 import numpy as np
+from .units import Units
+
 DEFAULT_DT = .25
 DEFAULT_RECEIVER_NAME = 'name'
 DEFAULT_SOURCE_NAME = 'event'
 DEFAULT_RECEIVER_ORIENTATION = np.ones(3, 3)
-
-
-class Units(object):
-    def __init__(self, distance='m', time='s', amplitude='m/s2', **kwargs):
-        """
-        class for determining the units of measurements
-
-
-        :param distance: 'm', 'km', 'ft'
-        :param time: 's', 'ms',
-        :param amplitude: speed, acceleration, count
-        :param kwargs:
-        """
-        self.distance = distance
-        self.time = time
-        self.amplitude = amplitude
-
-    def _get_description(self):
-
-        return 'Units: \n distance "{}" \n time "{}" \n amplitude "{}"'.format(
-            self.distance,
-            self.time,
-            self.amplitude
-        )
-
-    def __str__(self):
-        return self._get_description()
-
-    def __repr__(self):
-        return self._get_description()
 
 
 class Receiver(object):
@@ -116,40 +88,6 @@ class Velmod(object):
     def __add__(self, other):
 
         return
-
-
-def _plane():
-
-def _flat_horizon(n=(0,0,1), depth=0, anchor=(0,0), dip=0, azimuth=None, **kwargs):
-    def plane(x):
-        return (depth - np.sum(n*x)) / (n[2] + 1e-16)
-    # yield ax + by + cz + d
-    # yield (d - ax - by) / (n[-1] + 1e-16)
-    return plane
-
-def _grid_horizon():
-    return 1
-HORIZON_TYPES = {
-    'flat': _flat_horizon,
-    'f': _flat_horizon,
-    'fh': _flat_horizon,
-    'horizontal': _flat_horizon,
-    'grid': _grid_horizon,
-
-}
-class Horizon(object):
-    def __init__(self, type, *args, **kwargs):
-        self._model = HORIZON_TYPES[type](**kwargs)
-        self._properties = kwargs
-
-        self.type = type
-        self.units = Units(**kwargs)
-
-    def fit(self, x, y):k
-        self._model = 1
-
-    def predict(self, x):
-        return self._model(x)
 
 
 class Layer(object):
