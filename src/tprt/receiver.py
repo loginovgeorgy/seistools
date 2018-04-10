@@ -1,5 +1,6 @@
 import numpy as np
 from .units import Units
+from .utils import plot_points_3d
 
 DEFAULT_DT = .25
 DEFAULT_RECEIVER_NAME = 'geophone'
@@ -43,3 +44,9 @@ class Receiver(object):
 
     def __repr__(self):
         return self._get_description()
+
+    def plot(self, **kwargs):
+        plot_points_3d(self.location, **kwargs)
+        # TODO prettify using plt.show()
+
+

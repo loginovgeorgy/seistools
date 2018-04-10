@@ -1,5 +1,6 @@
 import numpy as np
 from .units import Units
+from .utils import plot_points_3d
 
 DEFAULT_SOURCE_NAME = 'event'
 DEFAULT_MOMENT_TENSOR = np.eye(3, 3)
@@ -42,6 +43,9 @@ class Source(object):
 
     def __repr__(self):
         return self._get_description()
+
+    def plot(self, **kwargs):
+        plot_points_3d(self.location, **kwargs)
 
 
 

@@ -1,15 +1,21 @@
 import numpy as np
 from .units import Units
+import pylab as plt
+from mpl_toolkits.mplot3d import Axes3D
 
 
-def _flat_horizon(*args, depth=0, anchor=(0, 0), dip=0, azimuth=0, **kwargs):
+def _flat_horizon(depth=0, anchor=(0, 0), dip=0, azimuth=0, *args, **kwargs):
     # TODO: make n defined by azimuth ans dip
-    n = np.float32([[0], [0], [1]])
+    dip = np.deg2rad(dip)
+    azimuth = np.deg2rad(azimuth)
+    n = np.array([np.sin(dip)*np.cos(azimuth), np.sin(dip)*np.sin(azimuth)], ndmin=2)
+    n3 = np.cos(dip)
+    anchor = np.array(anchor, ndmin=2)
 
     def plane(x, *args, **kwargs):
-        x[:, 0] -= anchor[0]
-        x[:, 1] -= anchor[1]
-        z = (depth - (x * n[:2]).sum()) / (n[2] + 1e-16)
+        x = np.array(x, ndmin=2)
+        x -= anchor
+        z = (depth - (x * n).sum(axis=1, keepdims=True)) / (n3 + 1e-16)
         return z
     return plane
 
@@ -29,35 +35,62 @@ HORIZON_FIT = {
 
 
 class Horizon(object):
-    def __init__(self,  *args, kind='fh', name='flat', **kwargs):
-        self.predict = None
-        self._fit = HORIZON_FIT[kind](**kwargs)
-        self._args = args
-        self._kwargs = kwargs
-
+    def __init__(self, kind='fh', name='flat', *args, **kwargs):
         self.kind = kind
         self.units = Units(**kwargs)
         self.name = name
+        self.predict = None
+        self._kwargs = kwargs
+        self.fit(*args, **kwargs)
 
-    def fit(self, x, y):
-        self.predict = self._fit(x, y)
+    def fit(self, *args, **kwargs):
+        self.predict = HORIZON_FIT[self.kind](*args, **kwargs)
+
+    def plot(self, x=None, extent=(0, 100, 0, 100), ns=10, ax=None, **kwargs):
+        if not np.any(x):
+            _x, _y = np.meshgrid(
+                np.linspace(extent[0], extent[1], ns),
+                np.linspace(extent[2], extent[3], ns)
+            )
+            x = np.vstack((_x.ravel(), _y.ravel())).T
+
+        z = self.predict(x)
+
+        # TODO prettify using plt.show()
+        if not np.any(ax):
+            fig = plt.figure()
+            ax = Axes3D(fig)
+
+        self._plot_horizon_3d(x, z, ax=ax)
+
+    @staticmethod
+    def _plot_horizon_3d(x, z, ax=None):
+        ax.plot_trisurf(x[:, 0], x[:, 1], np.squeeze(z))
 
 
-def _iso_model(*args, vp=3500, vs=3500, **kwargs):
+def _iso_model(vp=3500, vs=3500, *args, **kwargs):
     def velocity(*args):
         return {'vp': vp, 'vs': vs}
     return velocity
 
 
-LAYER_FIT = {
+LAYER_KIND = {
     'iso': _iso_model,
     'ani': None,
 }
 
 
 class Layer(object):
-    def __init__(self, *args, kind='iso', name='flat', **kwargs):
-        self.fit = LAYER_FIT[kind](*args, **kwargs)
+    def __init__(self, kind='iso', name='flat', *args, **kwargs):
+        self.kind = kind
         self.top = Horizon(**kwargs)
         self.units = Units(**kwargs)
         self.name = name
+        self.predict = None
+        self.args = args
+        self.kwargs = kwargs
+        self.fit(*args, **kwargs)
+
+    def fit(self, *args, **kwargs):
+        self.predict = LAYER_KIND[self.kind](*args, **kwargs)
+
