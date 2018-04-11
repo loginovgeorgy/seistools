@@ -15,16 +15,24 @@ class Ray(object):
     def _get_segments(self, vel_mod):
         sou = np.array(self.source.location, ndmin=2)
         segments = []
+        p0 = 0
         for layer in vel_mod:
+            # TODO: check case if receiver lies on horizon
+            # TODO: is_ray_intersect_surf must be applied to segment
             is_intersect, p = is_ray_intersect_surf(self, layer.top)
             if not is_intersect:
                 continue
-
+            # TODO: 'is_ray_intersect_surf' must be applied to segment.Temporary solution: p -= p0
+            # TODO: solution does not work if source is upper the receiver
+            p -= p0
+            p0 = p
             rec = self.predict(*p, r0=sou)
             segments.append(Segment(sou, rec, layer))
             sou = rec
 
         rec = self.receiver.location
+        # vel_mod
+        # rec_layer = vel_mod[0]
         rec_layer = self._get_location_layer(rec, vel_mod)
         segments.append(Segment(sou, rec, rec_layer))
         return segments

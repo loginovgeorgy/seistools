@@ -1,3 +1,7 @@
+from .horizon import Horizon
+from .units import Units
+
+
 def _iso_model(vp=3500, vs=3500, *args, **kwargs):
     def velocity(*args):
         return {'vp': vp, 'vs': vs}
