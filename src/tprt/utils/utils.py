@@ -26,14 +26,17 @@ def plot_line_3d(location, **kwargs):
     ax.plot3D(*location, **kwargs)
 
 
-def is_ray_intersect_surf(ray, top, eps=1e-8):
+def is_ray_intersect_surf(sou, ray, d, top, eps=1e-8):
 
-    def loss(p):
-        (x, y, z) = ray.predict(*p)
+    def loss(r):
+        (x, y, z) = sou + r * ray
 
         return np.squeeze((top.predict([x, y]) - z)**2)
 
-    x0 = ray.distance/2
-    xs = least_squares(loss, x0, bounds=([eps], [ray.distance]))
+    x0 = d / 2
+    xs = least_squares(loss, x0, bounds=([eps], [d]))
+    rec = np.array(sou + xs.x * ray, ndmin=1)
+    return xs.cost < eps, rec
 
-    return xs.cost < eps, xs.x
+
+

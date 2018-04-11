@@ -28,6 +28,7 @@ class Source(object):
         self.location = np.array(location).ravel()
         self.name = name
         self.units = Units(**kwargs)
+        self.layer = None
 
         # TODO class for seismic source mechanism
         self.mechanism = mechanism

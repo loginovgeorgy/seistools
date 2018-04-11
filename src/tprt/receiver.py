@@ -31,6 +31,7 @@ class Receiver(object):
         self.name = name
         self.dt = dt
         self.units = Units(**kwargs)
+        self.layer = None
 
     def _get_description(self):
         return 'Receiver "{}", loc ({}) \n{}'.format(
