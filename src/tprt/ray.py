@@ -77,12 +77,13 @@ class Ray(object):
         # TODO prettify the way of segments update
         new_segments = []
         for segment, rec in zip(self.segments, self._trajectory[1:]):
+
             vector = rec - sou
             distance = np.sqrt((vector ** 2).sum())
-            vector /= distance
+            vector = vector / distance
 
             new_segments.append(Segment(sou, rec, segment.velocity, segment.horizon))
-            time += (distance / segment.velocity()[vtype])
+            time += (distance / segment.velocity(vector)[vtype])
             sou = rec
         self.segments = new_segments
         return time
@@ -90,9 +91,10 @@ class Ray(object):
     def optimize(self, vtype='vp'):
         # TODO: Add derivatives and Snels Law check
         x0 = self._trajectory[1:-1, :2]
-        if not np.any(x0):
-            return self.travel_time(vtype=vtype)
         fun = partial(self.travel_time, vtype=vtype)
+        if not np.any(x0):
+            return fun()
+
         xs = minimize(fun, x0.ravel())
         time = xs.fun
 
