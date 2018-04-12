@@ -6,8 +6,8 @@ import sys
 
 from src.tprt import Receiver, Layer, Source, Units, Horizon, Ray
 
-source = Source([0, 0, 175])
-print(Source)
+source = Source([0, 0, 0])
+print(source)
 
 receivers = []
 for depth in [0, 30, 60, 90, 120, 150, 180, 210]:
@@ -18,7 +18,12 @@ print(receivers[0])
 # TODO: make class for vel_mod, for now init at least one horizon upper the top receiver
 # TODO: check procedure of "is_ray_intersect_boundary"
 vel_mod = []
-for vp, vs, depth, name in zip([3500, 3300, 2800, 2700, 2500], [2700, 2550, 2150, 1900, 1700], [20, 50, 105, 150, 215], ['1', '2', '3', '4', '5']):
+for vp, vs, depth, name in zip(
+        [3000, 3300, 2800, 2700, 2500], # vp
+        [2700, 2550, 2150, 1900, 1700], # vs
+        [20, 30, 70, 150, 215], # depth
+        ['1', '2', '3', '4', '5'] #name
+):
     vel_mod.append(Layer(vp=vp, vs=vs, depth=depth, dip=0, azimuth=30, name=name))
 
 
@@ -32,7 +37,7 @@ for l in vel_mod:
 
 source.plot(ax=ax, color='r', marker='p', s=50)
 for ray, rec in zip(rays, receivers):
-
+    ray.optimize()
     rec.plot(ax=ax, color='k', marker='^', s=50)
     # keep segments colored to check correctness of procedure
     ray.plot(ax=ax)
