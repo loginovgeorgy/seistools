@@ -74,13 +74,17 @@ class Ray(object):
 
         time = 0
         sou = self._trajectory[0]
+        # TODO prettify the way of segments update
+        new_segments = []
         for segment, rec in zip(self.segments, self._trajectory[1:]):
             vector = rec - sou
             distance = np.sqrt((vector ** 2).sum())
             vector /= distance
+
+            new_segments.append(Segment(sou, rec, segment.velocity, segment.horizon))
             time += (distance / segment.velocity()[vtype])
             sou = rec
-
+        self.segments = new_segments
         return time
 
     def optimize(self, vtype='vp'):
@@ -91,6 +95,7 @@ class Ray(object):
         fun = partial(self.travel_time, vtype=vtype)
         xs = minimize(fun, x0.ravel())
         time = xs.fun
+
         return time
 
     def plot(self, style='trj', **kwargs):
