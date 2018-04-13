@@ -18,15 +18,17 @@ print(receivers[0])
 # TODO: make class for vel_mod, for now init at least one horizon upper the top receiver
 # TODO: check procedure of "is_ray_intersect_boundary"
 vel_mod = []
-for vp, vs, depth, name in zip(
-        [3000, 3300, 2800, 2700, 2500], # vp
-        [2700, 2550, 2150, 1900, 1700], # vs
-        [20, 30, 70, 150, 215], # depth
-        ['1', '2', '3', '4', '5'] #name
+for vp, vs, depth, name, dip, az in zip(
+        [1000, 3500, 1500, 2500], # vp
+        [2700, 2500, 2100, 1000], # vs
+        [20, 50, 120, 250], # depth
+        ['1', '2', '3', '4'], #name
+        [0, 15, 45, 0], #dip
+        [0, 5, 15, 0]  #azimuth
 ):
-    vel_mod.append(Layer(vp=vp, vs=vs, depth=depth, dip=0, azimuth=30, name=name))
+    vel_mod.append(Layer(vp=vp, vs=vs, depth=depth, dip=dip, azimuth=az, name=name))
 
-
+#vel_mod.append(Layer(vp=vp, vs=vs, depth=240, dip=0, azimuth=0, name=name))
 rays = [Ray(source, rec, vel_mod) for rec in receivers]
 
 fig = plt.figure()
@@ -41,6 +43,8 @@ for ray, rec in zip(rays, receivers):
     rec.plot(ax=ax, color='k', marker='^', s=50)
     # keep segments colored to check correctness of procedure
     ray.plot(ax=ax)
-
-
 plt.show()
+
+for i in range(len(rays[-1].segments)):
+    print(rays[-1].segments[i].source)
+
