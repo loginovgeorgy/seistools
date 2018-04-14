@@ -7,7 +7,6 @@ def _iso_model(vp=3500, vs=3500, *args, **kwargs):
         return {'vp': vp, 'vs': vs}
     return velocity
 
-
 LAYER_KIND = {
     'iso': _iso_model,
     'ani': None,

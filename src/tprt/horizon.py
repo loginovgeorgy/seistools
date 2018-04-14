@@ -19,7 +19,7 @@ def _flat_horizon(depth=0, anchor=(0, 0), dip=0, azimuth=0, *args, **kwargs):
         return z
     return plane
 
-def _flat_gradient(dip=0, azimuth=0, *args): # Добавил метод для расчета нормали по азимуту и углу
+def _flat_gradient(dip=0, azimuth=0, *args, **kwargs): # Добавил метод для расчета нормали по азимуту и углу
     n = np.zeros(3)
     n[0] = np.sin(dip) * np.cos(azimuth)
     n[1] = np.sin(dip) * np.sin(azimuth)
@@ -59,6 +59,7 @@ class Horizon(object):
         self.gradient = None
         self._kwargs = kwargs
         self.fit(*args, **kwargs)
+        self.grad(*args, **kwargs)
 
     def fit(self, *args, **kwargs):
         self.predict = HORIZON_FIT[self.kind](*args, **kwargs)

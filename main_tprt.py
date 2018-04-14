@@ -23,8 +23,8 @@ for vp, vs, depth, name, dip, az in zip(
         [2700, 2500, 2100, 1000], # vs
         [20, 50, 120, 250], # depth
         ['1', '2', '3', '4'], #name
-        [0, 15, 45, 0], #dip
-        [0, 5, 15, 0]  #azimuth
+        [0, 0, 0, 0], #dip
+        [0, 0, 0, 0]  #azimuth
 ):
     vel_mod.append(Layer(vp=vp, vs=vs, depth=depth, dip=dip, azimuth=az, name=name))
 
@@ -40,11 +40,20 @@ for l in vel_mod:
 source.plot(ax=ax, color='r', marker='p', s=50)
 for ray, rec in zip(rays, receivers):
     ray.optimize()
+    #ray.check_snellius(eps=1)
     rec.plot(ax=ax, color='k', marker='^', s=50)
     # keep segments colored to check correctness of procedure
     ray.plot(ax=ax)
 plt.show()
 
+rays[-3].check_snellius(eps=1e-2)
+
+
+
+R = []
 for i in range(len(rays[-1].segments)):
-    print(rays[-1].segments[i].source)
+    R.append(rays[-1].segments[i].source)
+R.append(rays[-1].segments[-1].receiver)
+R = np.array(R)
+print(R)
 

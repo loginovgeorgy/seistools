@@ -3,6 +3,7 @@ from .utils import is_ray_intersect_surf, plot_line_3d
 from scipy.optimize import least_squares
 from scipy.optimize import minimize
 from functools import partial
+from pylab import *
 
 
 class Ray(object):
@@ -37,15 +38,16 @@ class Ray(object):
         for x in intersections:
             rec = x[0]
             hor = x[1].top.predict
+            hor_normal = x[1].top.gradient
             vec = (rec - sou)
             vec /= np.sqrt((vec**2).sum())
             layer = self._get_location_layer(sou + vec, vel_mod)
-            segments.append(Segment(sou, rec, layer.predict, hor))
+            segments.append(Segment(sou, rec, layer.predict, hor, hor_normal))
             sou = rec
 
         rec = np.array(self.receiver.location, ndmin=1)
         layer = self._get_location_layer(rec, vel_mod)
-        segments.append(Segment(sou, rec, layer.predict, layer.top.predict))
+        segments.append(Segment(sou, rec, layer.predict, layer.top.predict, layer.top.gradient))
 
         return segments
 
@@ -82,7 +84,7 @@ class Ray(object):
             distance = np.sqrt((vector ** 2).sum())
             vector = vector / distance
 
-            new_segments.append(Segment(sou, rec, segment.velocity, segment.horizon))
+            new_segments.append(Segment(sou, rec, segment.velocity, segment.horizon, segment.horizon_normal))
             time += (distance / segment.velocity(vector)[vtype])
             sou = rec
         self.segments = new_segments
@@ -107,9 +109,43 @@ class Ray(object):
         for s in self.segments:
             plot_line_3d(s.segment.T, **kwargs)
 
+    def check_snellius(self, eps=1e-4, *args, **kwargs):
+        m = len(self.segments) - 1
+        p = []
+        for i in range(m+1):
+            p.append(self.segments[i].source)
+        p.append(self.segments[-1].receiver)
+        p = np.array(p, ndmin=2)
+
+        normal = np.array([self.segments[k].horizon_normal for k in range(m+1)])
+        v = np.array([self.segments[k].velocity(*args)['vp'] for k in range(m+1)])
+
+
+        critic = []
+        snell = []
+        for i in range(m):
+            r = p[i + 1] - p[i]
+            r_1 = p[i + 2] - p[i + 1]
+
+            r = r / np.linalg.norm(r)
+            r_1 = r_1 / np.linalg.norm(r_1)
+            normal_r = normal[i] / np.linalg.norm(normal[i])
+
+            sin_r_1 = np.sqrt(1 - r_1.dot(normal_r) ** 2)
+            sin_r = np.sqrt(1 - r.dot(normal_r) ** 2)
+
+            if (v[i] < v[i + 1]):
+                critic.append(sin_r >= v[i] / v[i + 1])
+            else:
+                critic.append(False)
+            snell.append(abs(sin_r / sin_r_1 - v[i] / v[i + 1]) <= eps)
+            if np.array(snell).any() == False:
+                raise SnelliusError('При точности {} на границе {} нарушен закон Снеллиуса'.format(eps, i + 1))
+            elif np.array(critic).any() == True:
+                raise SnelliusError('На границе {} достигнут критический угол'.format(i + 1))
 
 class Segment(object):
-    def __init__(self, source, receiver, velocity, horizon):
+    def __init__(self, source, receiver, velocity, horizon_predict, horizon_normal, *args,**kwargs):
         self.source = source
         self.receiver = receiver
         self.segment = np.vstack((source, receiver))
@@ -117,7 +153,8 @@ class Segment(object):
         self.distance = np.sqrt((vec**2).sum())
         self.vector = vec / self.distance
         self.velocity = velocity
-        self.horizon = horizon
+        self.horizon = horizon_predict
+        self.horizon_normal = horizon_normal
 
     def __repr__(self):
         return self.segment
@@ -126,4 +163,5 @@ class Segment(object):
         return self.segment
 
 
-
+class SnelliusError(Exception):
+    pass;
