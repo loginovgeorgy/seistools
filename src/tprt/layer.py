@@ -15,9 +15,9 @@ LAYER_KIND = {
 
 
 class Layer(object):
-    def __init__(self, kind='iso', name='flat', *args, **kwargs):
+    def __init__(self, vp, vs, depth, dip, azimuth, kind='iso', name='flat', *args, **kwargs):
         self.kind = kind
-        self.top = Horizon(**kwargs)
+        self.top = Horizon(depth, dip, azimuth)
         self.units = Units(**kwargs)
         self.name = name
         self.predict = None

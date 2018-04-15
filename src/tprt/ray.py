@@ -58,8 +58,8 @@ class Ray(object):
 
     @staticmethod
     def _get_location_layer(x, vel_mod):
-        higher = [l for l in vel_mod if l.top.predict(x[:2]) > x[-1]]
-        distance = [(l.top.predict(x[:2]) - x[-1]) for l in higher]
+        higher = [l for l in vel_mod if l.top.idc.get_depth(x[:2]) > x[-1]]
+        distance = [(l.top.idc.get_depth(x[:2]) - x[-1]) for l in higher]
         layer = higher[np.array(distance).argmin()]
 
         return layer
