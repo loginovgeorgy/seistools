@@ -90,14 +90,14 @@ class Ray(object):
         self.segments = new_segments
         return time
 
-    def optimize(self, vtype='vp'):
+    def optimize(self, vtype='vp', method="Nelder-Mead", tol=1-32):
         # TODO: Add derivatives and Snels Law check
         x0 = self._trajectory[1:-1, :2]
         fun = partial(self.travel_time, vtype=vtype)
         if not np.any(x0):
             return fun()
 
-        xs = minimize(fun, x0.ravel())
+        xs = minimize(fun, x0.ravel(), method=method, tol=tol)
         time = xs.fun
 
         return time
