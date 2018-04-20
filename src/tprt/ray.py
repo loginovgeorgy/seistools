@@ -109,23 +109,22 @@ class Ray(object):
         for s in self.segments:
             plot_line_3d(s.segment.T, **kwargs)
 
-    def check_snellius(self, eps=1e-4, *args, **kwargs):
-        m = len(self.segments) - 1
-        p = []
-        for i in range(m+1):
-            p.append(self.segments[i].source)
-        p.append(self.segments[-1].receiver)
-        p = np.array(p, ndmin=2)
+    def check_snellius(self, eps=1e-5, *args, **kwargs):
+        amount = len(self.segments) - 1
+        points = []
+        for i in range(amount+1):
+            points.append(self.segments[i].source)
+        points.append(self.segments[-1].receiver)
+        points = np.array(points, ndmin=2)
 
-        normal = np.array([self.segments[k].horizon_normal for k in range(m+1)])
-        v = np.array([self.segments[k].velocity(*args)['vp'] for k in range(m+1)])
-
+        normal = np.array([self.segments[k].horizon_normal for k in range(amount)])
+        v = np.array([self.segments[k].velocity(*args)['vp'] for k in range(amount+1)])
 
         critic = []
         snell = []
-        for i in range(m):
-            r = p[i + 1] - p[i]
-            r_1 = p[i + 2] - p[i + 1]
+        for i in range(amount):
+            r = points[i + 1] - points[i]
+            r_1 = points[i + 2] - points[i + 1]
 
             r = r / np.linalg.norm(r)
             r_1 = r_1 / np.linalg.norm(r_1)
@@ -138,11 +137,11 @@ class Ray(object):
                 critic.append(sin_r >= v[i] / v[i + 1])
             else:
                 critic.append(False)
+            if np.array(critic).any() == True:
+                raise SnelliusError('На границе {} достигнут критический угол'.format(i + 1))
             snell.append(abs(sin_r / sin_r_1 - v[i] / v[i + 1]) <= eps)
             if np.array(snell).any() == False:
                 raise SnelliusError('При точности {} на границе {} нарушен закон Снеллиуса'.format(eps, i + 1))
-            elif np.array(critic).any() == True:
-                raise SnelliusError('На границе {} достигнут критический угол'.format(i + 1))
 
 class Segment(object):
     def __init__(self, source, receiver, velocity, horizon_predict, horizon_normal, *args,**kwargs):

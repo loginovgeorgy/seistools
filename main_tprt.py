@@ -4,7 +4,7 @@ import numpy as np
 import os
 import sys
 
-from src.tprt import Receiver, Layer, Source, Units, Horizon, Ray
+from src.tprt import Receiver, Layer, Source, Units, Horizon, Ray, get_ray_xyz, get_ray_xy
 
 source = Source([0, 0, 0])
 print(source)
@@ -19,16 +19,15 @@ print(receivers[0])
 # TODO: check procedure of "is_ray_intersect_boundary"
 vel_mod = []
 for vp, vs, depth, name, dip, az in zip(
-        [1000, 3500, 1500, 2500], # vp
-        [2700, 2500, 2100, 1000], # vs
-        [20, 50, 120, 250], # depth
+        [1400, 2500, 2000, 2100], # vp
+        [1000, 2000, 700, 1300], # vs
+        [80, 250, 120, 250], # depth
         ['1', '2', '3', '4'], #name
         [0, 0, 0, 0], #dip
-        [0, 0, 0, 0]  #azimuth
+        [0, 0]  #azimuth
 ):
     vel_mod.append(Layer(vp=vp, vs=vs, depth=depth, dip=dip, azimuth=az, name=name))
 
-#vel_mod.append(Layer(vp=vp, vs=vs, depth=240, dip=0, azimuth=0, name=name))
 rays = [Ray(source, rec, vel_mod) for rec in receivers]
 
 fig = plt.figure()
@@ -36,18 +35,25 @@ ax = Axes3D(fig)
 for l in vel_mod:
     l.top.plot(ax=ax)
 
+# R = []
+# for i in range(len(rays[-1].segments)):
+#     R.append(rays[-1].segments[i].source)
+# R.append(rays[-1].segments[-1].receiver)
+# R = np.array(R)
+# print(R)
 
 source.plot(ax=ax, color='r', marker='p', s=50)
-for ray, rec in zip(rays, receivers):
+for i, (ray, rec) in enumerate(zip(rays, receivers)):
+    #get_ray_xy(ray)
     ray.optimize()
-    #ray.check_snellius(eps=1)
+    try:
+        ray.check_snellius(eps=1e-5)
+    except:
+        print('Вдоль луча под номером {} до приемника {} не выполняется закон Cнеллиуса'.format(i+1, rec.location))
     rec.plot(ax=ax, color='k', marker='^', s=50)
     # keep segments colored to check correctness of procedure
-    ray.plot(ax=ax)
+    ray.plot(ax=ax,style='s')
 plt.show()
-
-rays[-3].check_snellius(eps=1e-2)
-
 
 
 R = []

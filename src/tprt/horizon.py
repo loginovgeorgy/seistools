@@ -21,6 +21,8 @@ def _flat_horizon(depth=0, anchor=(0, 0), dip=0, azimuth=0, *args, **kwargs):
 
 def _flat_gradient(dip=0, azimuth=0, *args, **kwargs): # Добавил метод для расчета нормали по азимуту и углу
     n = np.zeros(3)
+    dip = np.deg2rad(dip)
+    azimuth = np.deg2rad(azimuth)
     n[0] = np.sin(dip) * np.cos(azimuth)
     n[1] = np.sin(dip) * np.sin(azimuth)
     n[2] = np.cos(dip)
