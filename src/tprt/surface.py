@@ -10,12 +10,12 @@ IDC_TYPES = {
 '''
 
 
-class IntersectionDepthCalculator:
+class Surface:
     def get_depth(self, x):
         pass
 
 
-class FlatHorizonIDC(IntersectionDepthCalculator):
+class FlatSurface(Surface):
     def __init__(self, depth=0, anchor=(0, 0), dip=0, azimuth=0):
         self.depth = depth
         dip = np.deg2rad(dip)
@@ -31,7 +31,7 @@ class FlatHorizonIDC(IntersectionDepthCalculator):
         return z
 
 
-class GridHorizonIDC(IntersectionDepthCalculator):
+class GridHorizonSurface(Surface):
     def get_depth(self, x):
         return 1
 

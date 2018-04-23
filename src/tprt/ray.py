@@ -36,16 +36,16 @@ class Ray(object):
         sou = np.array(self.source.location, ndmin=1)
         for x in intersections:
             rec = x[0]
-            hor = x[1].top.predict
+            hor = x[1].top.get_depth
             vec = (rec - sou)
             vec /= np.sqrt((vec**2).sum())
             layer = self._get_location_layer(sou + vec, vel_mod)
-            segments.append(Segment(sou, rec, layer.predict, hor))
+            segments.append(Segment(sou, rec, layer.get_velocity, hor))
             sou = rec
 
         rec = np.array(self.receiver.location, ndmin=1)
         layer = self._get_location_layer(rec, vel_mod)
-        segments.append(Segment(sou, rec, layer.predict, layer.top.predict))
+        segments.append(Segment(sou, rec, layer.get_velocity, layer.top.get_depth))
 
         return segments
 
@@ -58,8 +58,8 @@ class Ray(object):
 
     @staticmethod
     def _get_location_layer(x, vel_mod):
-        higher = [l for l in vel_mod if l.top.idc.get_depth(x[:2]) > x[-1]]
-        distance = [(l.top.idc.get_depth(x[:2]) - x[-1]) for l in higher]
+        higher = [l for l in vel_mod if l.top.get_depth(x[:2]) > x[-1]]
+        distance = [(l.top.get_depth(x[:2]) - x[-1]) for l in higher]
         layer = higher[np.array(distance).argmin()]
 
         return layer

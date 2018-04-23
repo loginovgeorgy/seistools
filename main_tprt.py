@@ -4,7 +4,7 @@ import numpy as np
 import os
 import sys
 
-from src.tprt import Receiver, Layer, Source, Units, Horizon, Ray
+from src.tprt import Receiver, Layer, Source, Units, Horizon, Ray, FlatSurface, ISOVelocity
 
 source = Source([0, 0, 0])
 print(source)
@@ -19,12 +19,12 @@ print(receivers[0])
 # TODO: check procedure of "is_ray_intersect_boundary"
 vel_mod = []
 for vp, vs, depth, name in zip(
-        [3000, 3300, 2800, 2700, 2500], # vp
+        [1000, 3300, 2800, 2700, 2500], # vp
         [2700, 2550, 2150, 1900, 1700], # vs
         [20, 30, 70, 150, 215], # depth
         ['1', '2', '3', '4', '5'] #name
 ):
-    vel_mod.append(Layer(vp=vp, vs=vs, depth=depth, dip=0, azimuth=30, name=name))
+    vel_mod.append(Layer(ISOVelocity(vp, vs), Horizon(FlatSurface(depth=depth, dip=0, azimuth=30)), name=name))
 
 
 rays = [Ray(source, rec, vel_mod) for rec in receivers]

@@ -2,18 +2,19 @@ import numpy as np
 import pylab as plt
 from mpl_toolkits.mplot3d import Axes3D
 
-from src.tprt.intersection_depth_calculator import FlatHorizonIDC
+from src.tprt.surface import FlatSurface
 from .units import Units
 
 
 class Horizon(object):
-    def __init__(self, depth, dip, azimuth, kind='fh', name='flat', *args, **kwargs):
+    def __init__(self, surface, kind='fh', name='flat'):
         self.kind = kind
-        self.units = Units(**kwargs)
+        self.units = Units()
         self.name = name
-        self.predict = None
-        self._kwargs = kwargs
-        self.idc = FlatHorizonIDC(depth=depth, dip=dip, azimuth=azimuth)
+        self.surface = surface
+
+    def get_depth(self, x):
+        return self.surface.get_depth(x)
 
     def plot(self, x=None, extent=(0, 100, 0, 100), ns=10, ax=None):
         if not np.any(x):
@@ -23,7 +24,7 @@ class Horizon(object):
             )
             x = np.vstack((_x.ravel(), _y.ravel())).T
 
-        z = self.idc.get_depth(x)
+        z = self.surface.get_depth(x)
 
         # TODO prettify using plt.show()
         if not np.any(ax):

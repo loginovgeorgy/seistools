@@ -1,7 +1,7 @@
 import numpy as np
 
 class Units(object):
-    def __init__(self, distance='m', time='s', amplitude='m/s2', **kwargs):
+    def __init__(self, distance='m', time='s', amplitude='m/s2'):
         """
         class for determining the units of measurements
 
