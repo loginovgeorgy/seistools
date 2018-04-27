@@ -1,9 +1,9 @@
 import numpy as np
 import pylab as plt
 from mpl_toolkits.mplot3d import Axes3D
-
 from src.tprt.surface import FlatSurface
 from .units import Units
+
 
 
 class Horizon(object):
@@ -15,6 +15,7 @@ class Horizon(object):
 
     def get_depth(self, x):
         return self.surface.get_depth(x)
+
 
     def plot(self, x=None, extent=(0, 100, 0, 100), ns=10, ax=None):
         if not np.any(x):
