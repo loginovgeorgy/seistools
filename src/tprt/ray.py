@@ -37,17 +37,17 @@ class Ray(object):
         sou = np.array(self.source.location, ndmin=1)
         for x in intersections:
             rec = x[0]
-            hor = x[1].top.predict
-            hor_normal = x[1].top.gradient
+            hor = x[1].top.get_depth
+            hor_normal = x[1].top.surface.normal
             vec = (rec - sou)
             vec /= np.sqrt((vec**2).sum())
             layer = self._get_location_layer(sou + vec, vel_mod)
-            segments.append(Segment(sou, rec, layer.predict, hor, hor_normal))
+            segments.append(Segment(sou, rec, layer.get_velocity, hor, hor_normal))
             sou = rec
 
         rec = np.array(self.receiver.location, ndmin=1)
         layer = self._get_location_layer(rec, vel_mod)
-        segments.append(Segment(sou, rec, layer.predict, layer.top.predict, layer.top.gradient))
+        segments.append(Segment(sou, rec, layer.get_velocity, layer.top.get_depth, layer.top.surface.normal))
 
         return segments
 
@@ -60,8 +60,8 @@ class Ray(object):
 
     @staticmethod
     def _get_location_layer(x, vel_mod):
-        higher = [l for l in vel_mod if l.top.predict(x[:2]) > x[-1]]
-        distance = [(l.top.predict(x[:2]) - x[-1]) for l in higher]
+        higher = [l for l in vel_mod if l.top.get_depth(x[:2]) > x[-1]]
+        distance = [(l.top.get_depth(x[:2]) - x[-1]) for l in higher]
         layer = higher[np.array(distance).argmin()]
 
         return layer
@@ -118,7 +118,7 @@ class Ray(object):
         points = np.array(points, ndmin=2)
 
         normal = np.array([self.segments[k].horizon_normal for k in range(amount)])
-        v = np.array([self.segments[k].velocity(*args)['vp'] for k in range(amount+1)])
+        v = np.array([self.segments[k].velocity(points)['vp'] for k in range(amount+1)])
 
         critic = []
         snell = []
@@ -144,7 +144,7 @@ class Ray(object):
                 raise SnelliusError('При точности {} на границе {} нарушен закон Снеллиуса'.format(eps, i + 1))
 
 class Segment(object):
-    def __init__(self, source, receiver, velocity, horizon_predict, horizon_normal, *args,**kwargs):
+    def __init__(self, source, receiver, velocity, horizon, horizon_normal):
         self.source = source
         self.receiver = receiver
         self.segment = np.vstack((source, receiver))
@@ -152,7 +152,7 @@ class Segment(object):
         self.distance = np.sqrt((vec**2).sum())
         self.vector = vec / self.distance
         self.velocity = velocity
-        self.horizon = horizon_predict
+        self.horizon = horizon
         self.horizon_normal = horizon_normal
 
     def __repr__(self):

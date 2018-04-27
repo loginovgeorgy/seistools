@@ -2,27 +2,14 @@ from .horizon import Horizon
 from .units import Units
 
 
-def _iso_model(vp=3500, vs=3500, *args, **kwargs):
-    def velocity(*args):
-        return {'vp': vp, 'vs': vs}
-    return velocity
-
-LAYER_KIND = {
-    'iso': _iso_model,
-    'ani': None,
-}
-
-
 class Layer(object):
-    def __init__(self, kind='iso', name='flat', *args, **kwargs):
+    def __init__(self, velocity, horizon, kind='iso', name='flat'):
         self.kind = kind
-        self.top = Horizon(**kwargs)
-        self.units = Units(**kwargs)
+        self.velocity = velocity
+        self.top = horizon
+        self.units = Units()
         self.name = name
         self.predict = None
-        self.args = args
-        self.kwargs = kwargs
-        self.fit(*args, **kwargs)
 
-    def fit(self, *args, **kwargs):
-        self.predict = LAYER_KIND[self.kind](*args, **kwargs)
+    def get_velocity(self, x):
+        return self.velocity.get_velocity(x)
