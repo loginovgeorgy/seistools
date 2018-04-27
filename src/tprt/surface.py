@@ -21,8 +21,8 @@ class FlatSurface(Surface):
         dip = np.deg2rad(dip)
         azimuth = np.deg2rad(azimuth)
         self.normal = np.array([np.sin(dip)*np.cos(azimuth), np.sin(dip)*np.sin(azimuth), np.cos(dip)])
-        self.n = np.array(self.normal[0,:-1], ndmin=2)
-        self.n3 = self.normal[0,-1]
+        self.n = np.array(self.normal[:-1], ndmin=2)
+        self.n3 = self.normal[-1]
         self.anchor = np.array(anchor, ndmin=2)
 
     def get_depth(self, x):

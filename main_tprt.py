@@ -22,12 +22,12 @@ print(receivers[0])
 vel_mod = []
 
 for vp, vs, depth, name in zip(
-        [1000, 3300, 2800, 2700, 2500], # vp
+        [1000, 3300, 2800, 2300, 1800], # vp
         [2700, 2550, 2150, 1900, 1700], # vs
         [20, 30, 70, 150, 215], # depth
         ['1', '2', '3', '4', '5'] #name
 ):
-    vel_mod.append(Layer(ISOVelocity(vp, vs), Horizon(FlatSurface(depth=depth, dip=0, azimuth=30)), name=name))
+    vel_mod.append(Layer(ISOVelocity(vp, vs), Horizon(FlatSurface(depth=depth, dip=0, azimuth=0)), name=name))
 
 rays = [Ray(source, rec, vel_mod) for rec in receivers]
 
@@ -45,10 +45,10 @@ for l in vel_mod:
 
 source.plot(ax=ax, color='r', marker='p', s=50)
 for i, (ray, rec) in enumerate(zip(rays, receivers)):
-    #get_ray_xy(ray)
     ray.optimize()
+    #ray.check_snellius()
     try:
-        ray.check_snellius(eps=1e-5)
+        ray.check_snellius(eps=1e-6)
     except:
         print('Вдоль луча под номером {} до приемника {} не выполняется закон Cнеллиуса'.format(i+1, rec.location))
     rec.plot(ax=ax, color='k', marker='^', s=50)
