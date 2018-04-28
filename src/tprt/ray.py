@@ -25,7 +25,7 @@ class Ray(object):
         distance = []
 
         for layer in vel_mod:
-            rec = is_ray_intersect_surf(source, receiver, layer.top)
+            rec = layer.top.surface.intersect(source, receiver)
             if len(rec)==0:
                 continue
             dist = np.sqrt(((source - rec) ** 2).sum())
