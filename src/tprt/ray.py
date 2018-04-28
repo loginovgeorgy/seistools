@@ -4,6 +4,7 @@ from scipy.optimize import least_squares
 from scipy.optimize import minimize
 from functools import partial
 
+from .Reflection_And_Transmission_Coefficients import Reflection_And_Transmission_Coefficients_By_Honest_Solving
 
 class Ray(object):
     def __init__(self, sou, rec, vel_mod):
@@ -107,9 +108,35 @@ class Ray(object):
         for s in self.segments:
             plot_line_3d(s.segment.T, **kwargs)
 
+    def Reflection_And_Transmission_Coefficients(self):
+
+        Reflection_Coefficients = np.zeros((len(self.segments),3)) #We shall write here reflection coefficients at every boundary.
+        Transmission_Coefficients = np.zeros((len(self.segments),3)) #We shall write here transmission coefficients at every boundary.
+
+        for i in range(len(self.segments)-1): #"minus one" because the last segment ends in the receiver.
+
+            Angle_Of_Incidence_Deg = np.degrees(np.arccos(-self.segments[i].vector.dot(np.array([0,0,1]))))  # Very long formula. But the formula for coefficients
+            #accepts angle in degrees only. EXACT NORMAL VECTOR TO THE SURFACE NEEDED!!!
+
+            #Let's create an array of coefficients at the current boundary.
+            #For I don't see different velocities in the "segments" I shall consider the existing "velocity" as Vp
+            #and derive the Vs by dividing Vp by 2.
+            New_Coefficients = Reflection_And_Transmission_Coefficients_By_Honest_Solving(self.segments[i].density, self.segments[i + 1].density,
+                                                                                          self.segments[i].velocity, self.segments[i].velocity / 2,
+                                                                                          self.segments[i + 1].velocity, self.segments[i + 1].velocity / 2,
+                                                                                          0, Angle_Of_Incidence_Deg) #Correct Vp and Vs are needed!!!
+
+            #Let's add new coefficients at the current boundary to the array of coefficients in the whole medium.
+            for j in range(3):
+
+                Reflection_Coefficients[i,j] = New_Coefficients[j]
+                Transmission_Coefficients[i,j] = New_Coefficients[j+2]
+
+        #Let's return two arrays of coefficients occuring on the ray's path.
+        return Reflection_Coefficients, Transmission_Coefficients
 
 class Segment(object):
-    def __init__(self, source, receiver, velocity, horizon):
+    def __init__(self, source, receiver, velocity, density, horizon):
         self.source = source
         self.receiver = receiver
         self.segment = np.vstack((source, receiver))
@@ -117,6 +144,7 @@ class Segment(object):
         self.distance = np.sqrt((vec**2).sum())
         self.vector = vec / self.distance
         self.velocity = velocity
+        self.density = density
         self.horizon = horizon
 
     def __repr__(self):
@@ -124,6 +152,3 @@ class Segment(object):
 
     def __str__(self):
         return self.segment
-
-
-
