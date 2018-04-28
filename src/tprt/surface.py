@@ -33,6 +33,9 @@ class FlatSurface(Surface):
 
 
 class GridHorizonSurface(Surface):
+    def __init__(self, points):
+        self.points = points
+
     def get_depth(self, x):
         return 1
 
