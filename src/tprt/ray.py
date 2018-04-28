@@ -17,6 +17,7 @@ class Ray(object):
         self._v0 = _v0/self.distance
         self.segments = self._get_segments(vel_mod)
         self._trajectory = self._get_trajectory()
+        self.Reflection_Coefficients, self.Transmission_Coefficients = self.Reflection_And_Transmission_Coefficients()
 
     def _get_segments(self, vel_mod):
         # TODO: make more pythonic
@@ -121,12 +122,10 @@ class Ray(object):
             #accepts angle in degrees only. EXACT NORMAL VECTOR TO THE SURFACE NEEDED!!!
 
             #Let's create an array of coefficients at the current boundary.
-            #For I don't see different velocities in the "segments" I shall consider the existing "velocity" as Vp
-            #and derive the Vs by dividing Vp by 2.
             New_Coefficients = Reflection_And_Transmission_Coefficients_By_Honest_Solving(self.segments[i].density, self.segments[i + 1].density,
-                                                                                          self.segments[i].velocity, self.segments[i].velocity / 2,
-                                                                                          self.segments[i + 1].velocity, self.segments[i + 1].velocity / 2,
-                                                                                          0, Angle_Of_Incidence_Deg) #Correct Vp and Vs are needed!!!
+                                                                                          self.segments[i].velocity.get_velocity()['vp'], self.segments[i].velocity.get_velocity()['vs'],
+                                                                                          self.segments[i + 1].velocity.get_velocity()['vp'], self.segments[i + 1].velocity.get_velocity()['vs'],
+                                                                                          0, Angle_Of_Incidence_Deg)
 
             #Let's add new coefficients at the current boundary to the array of coefficients in the whole medium.
             for j in range(3):
