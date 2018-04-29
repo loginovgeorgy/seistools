@@ -1,5 +1,5 @@
 import numpy as np
-from .utils import is_ray_intersect_surf, plot_line_3d
+from .utils import plot_line_3d
 from scipy.optimize import least_squares
 from scipy.optimize import minimize
 from functools import partial
