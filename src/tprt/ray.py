@@ -48,6 +48,7 @@ class Ray(object):
             segments.append(Segment(sou, rec, layer.get_velocity, layer.density, hor, hor_normal))
             sou = rec
 
+        rec = np.array(self.receiver.location, ndmin=1)
         layer = self._get_location_layer(rec, vel_mod)
         segments.append(Segment(sou, rec, layer.get_velocity, layer.density, layer.top.get_depth, layer.top.surface.normal))
 
