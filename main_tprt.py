@@ -57,11 +57,11 @@ for i, (ray, rec) in enumerate(zip(rays, receivers)):
     ray.plot(ax=ax,style='s')
 plt.show()
 
-
+n=1
 R = []
-for i in range(len(rays[-1].segments)):
-    R.append(rays[-1].segments[i].source)
-R.append(rays[-1].segments[-1].receiver)
+for i in range(len(rays[n].segments)):
+    R.append(rays[n].segments[i].source)
+R.append(rays[n].segments[n].receiver)
 R = np.array(R)
 print(R)
 
