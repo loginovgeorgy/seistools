@@ -21,13 +21,14 @@ print(receivers[0])
 # TODO: check procedure of "is_ray_intersect_boundary"
 vel_mod = []
 
-for vp, vs, depth, name in zip(
+for vp, vs, Density, depth, name in zip(
         [1000, 3300, 2800, 2300, 1800], # vp
-        [2700, 2550, 2150, 1900, 1700], # vs
+        [500, 1650, 1400, 1150, 900], # vs
+        [2500,2500,2500,2500,2500], #Density
         [20, 30, 70, 150, 215], # depth
         ['1', '2', '3', '4', '5'] #name
 ):
-    vel_mod.append(Layer(ISOVelocity(vp, vs), Horizon(FlatSurface(depth=depth, dip=0, azimuth=0)), name=name))
+    vel_mod.append(Layer(ISOVelocity(vp, vs), Density, Horizon(FlatSurface(depth=depth, dip=0, azimuth=0)), name=name)) #Let's set the density equal to 2500 kg/m**3 for all layers.
 
 rays = [Ray(source, rec, vel_mod) for rec in receivers]
 

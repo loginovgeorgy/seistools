@@ -1,3 +1,5 @@
+from .Cij_Matrix import Cij, Cijkl
+from .Waves_Velocities_And_Polarizations_In_Isotropic_Case import Polarizations_By_Christoffel_Equation
 from .Reflection_And_Transmission_Coefficients_By_Honest_Solving import Reflection_And_Transmission_Coefficients_By_Honest_Solving
 
-__all__ = ['Reflection_And_Transmission_Coefficients_By_Honest_Solving']
+__all__ = ['Cij', 'Cijkl', 'Polarizations_By_Christoffel_Equation','Reflection_And_Transmission_Coefficients_By_Honest_Solving']

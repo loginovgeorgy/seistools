@@ -44,12 +44,12 @@ class Ray(object):
             vec = (rec - sou)
             vec /= np.sqrt((vec**2).sum())
             layer = self._get_location_layer(sou + vec, vel_mod)
-            segments.append(Segment(sou, rec, layer.get_velocity, hor, hor_normal))
+            segments.append(Segment(sou, rec, layer.get_velocity, layer.density, hor, hor_normal))
             sou = rec
 
         rec = np.array(self.receiver.location, ndmin=1)
         layer = self._get_location_layer(rec, vel_mod)
-        segments.append(Segment(sou, rec, layer.get_velocity, layer.top.get_depth, layer.top.surface.normal))
+        segments.append(Segment(sou, rec, layer.get_velocity, layer.density, layer.top.get_depth, layer.top.surface.normal))
 
         return segments
 
@@ -86,7 +86,7 @@ class Ray(object):
             distance = np.sqrt((vector ** 2).sum())
             vector = vector / distance
 
-            new_segments.append(Segment(sou, rec, segment.velocity, segment.horizon))
+            new_segments.append(Segment(sou, rec, segment.velocity, segment.density, segment.horizon, segment.horizon_normal))
             time += (distance / segment.velocity(vector)[vtype])
             sou = rec
         self.segments = new_segments
@@ -113,25 +113,28 @@ class Ray(object):
 
     def Reflection_And_Transmission_Coefficients(self):
 
-        Reflection_Coefficients = np.zeros((len(self.segments),3)) #We shall write here reflection coefficients at every boundary.
-        Transmission_Coefficients = np.zeros((len(self.segments),3)) #We shall write here transmission coefficients at every boundary.
+        Reflection_Coefficients = np.zeros((len(self.segments) - 1,3),dtype = complex) #We shall write here reflection coefficients at every boundary.
+        Transmission_Coefficients = np.zeros((len(self.segments) - 1,3),dtype = complex) #We shall write here transmission coefficients at every boundary.
+        #"minus one" because the last segment ends in the receiver.
 
         for i in range(len(self.segments)-1): #"minus one" because the last segment ends in the receiver.
-
-            Angle_Of_Incidence_Deg = np.degrees(np.arccos(-self.segments[i].vector.dot(np.array([0,0,1]))))  # Very long formula. But the formula for coefficients
-            #accepts angle in degrees only. EXACT NORMAL VECTOR TO THE SURFACE NEEDED!!!
-
+            Angle_Of_Incidence_Deg = np.degrees(np.arccos(abs(self.segments[i].vector.dot(self.segments[i].horizon_normal))))  # Very long formula. But the formula for coefficients
+            #accepts angle in degrees only. Using of "abs" prevents problems with the direction of the "horizon_normal".
+            a1 = self.segments[i].velocity(1)['vp']
+            a2 = self.segments[i].velocity(1)['vs']
+            a3 = self.segments[i+1].velocity(1)['vp']
+            a4 = self.segments[i+1].velocity(1)['vs']
             #Let's create an array of coefficients at the current boundary.
             New_Coefficients = Reflection_And_Transmission_Coefficients_By_Honest_Solving(self.segments[i].density, self.segments[i + 1].density,
-                                                                                          self.segments[i].velocity.get_velocity()['vp'], self.segments[i].velocity.get_velocity()['vs'],
-                                                                                          self.segments[i + 1].velocity.get_velocity()['vp'], self.segments[i + 1].velocity.get_velocity()['vs'],
-                                                                                          0, Angle_Of_Incidence_Deg)
+                                                                                          self.segments[i].velocity(1)['vp'], self.segments[i].velocity(1)['vs'],
+                                                                                          self.segments[i + 1].velocity(1)['vp'], self.segments[i + 1].velocity(1)['vs'],
+                                                                                          0, Angle_Of_Incidence_Deg) #I consider the incident wave as P-wave.
 
             #Let's add new coefficients at the current boundary to the array of coefficients in the whole medium.
             for j in range(3):
 
                 Reflection_Coefficients[i,j] = New_Coefficients[j]
-                Transmission_Coefficients[i,j] = New_Coefficients[j+2]
+                Transmission_Coefficients[i,j] = New_Coefficients[j+3]
 
         #Let's return two arrays of coefficients occuring on the ray's path.
         return Reflection_Coefficients, Transmission_Coefficients

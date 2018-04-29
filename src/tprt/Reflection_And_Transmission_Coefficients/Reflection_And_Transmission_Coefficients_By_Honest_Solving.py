@@ -42,8 +42,8 @@
 import numpy as np
 import cmath as cm
 
-from Cij_Matrix import *
-from Waves_Velocities_And_Polarizations_In_Isotropic_Case import *
+from .Cij_Matrix import *
+from .Waves_Velocities_And_Polarizations_In_Isotropic_Case import *
 
 def Reflection_And_Transmission_Coefficients_By_Honest_Solving(σ1,σ2,Vp1,Vs1,Vp2,Vs2,Wave_Type,Angle_Deg):
     
