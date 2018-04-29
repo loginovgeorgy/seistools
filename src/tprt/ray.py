@@ -1,5 +1,5 @@
 import numpy as np
-from .utils import is_ray_intersect_surf, plot_line_3d
+from .utils import plot_line_3d
 from scipy.optimize import least_squares
 from scipy.optimize import minimize
 from functools import partial
@@ -20,12 +20,13 @@ class Ray(object):
     def _get_segments(self, vel_mod):
         # TODO: make more pythonic
         source = np.array(self.source.location, ndmin=1)
+        receiver = np.array(self.receiver.location, ndmin=1)
         intersections = []
         distance = []
 
         for layer in vel_mod:
-            is_intersect, rec = is_ray_intersect_surf(source, self._v0, self.distance, layer.top)
-            if not is_intersect:
+            rec = layer.top.surface.intersect(source, receiver)
+            if len(rec)==0:
                 continue
             dist = np.sqrt(((source - rec) ** 2).sum())
             intersections.append((rec, layer))
@@ -45,9 +46,8 @@ class Ray(object):
             segments.append(Segment(sou, rec, layer.get_velocity, hor, hor_normal))
             sou = rec
 
-        rec = np.array(self.receiver.location, ndmin=1)
-        layer = self._get_location_layer(rec, vel_mod)
-        segments.append(Segment(sou, rec, layer.get_velocity, layer.top.get_depth, layer.top.surface.normal))
+        layer = self._get_location_layer(receiver, vel_mod)
+        segments.append(Segment(sou, receiver, layer.get_velocity, layer.top.get_depth, layer.top.surface.normal))
 
         return segments
 
