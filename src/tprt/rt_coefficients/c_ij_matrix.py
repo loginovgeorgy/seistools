@@ -72,9 +72,9 @@ def c_ijkl(c_ij):
             for k in range(3):
                 for l in range(3):
                     
-                    I = voigt_notation(i, j)
-                    J = voigt_notation(k, l)
+                    from_i = voigt_notation(i, j)
+                    from_j = voigt_notation(k, l)
                     
-                    c_ijkl[i, j, k, l] = c_ij[I, J]
+                    c_ijkl[i, j, k, l] = c_ij[from_i, from_j]
                     
     return c_ijkl
