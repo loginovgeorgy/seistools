@@ -1,5 +1,6 @@
 import numpy as np
-import cmath as cm
+
+# среда ИЗОТРОПНАЯ
 
 # на вход нижеописанной функции подаются:
 # Velocities - 1x2-вектор скоростей в следующием порядке: [Vp,Vs1]
@@ -8,31 +9,32 @@ import cmath as cm
 # на выходе будет:
 # Cij - 6x6-матрица упругих модулей среды
 
-def Cij(Velocities,Density):
+
+def Cij(Velocities, Density):
     
-#     в изотропном случае в данной матрице будет всего два независимых элемента. Однако для удобсвта введём три:
+    # в изотропном случае в данной матрице будет всего два независимых элемента. Однако для удобсвта введём три:
     c00 = Density*(Velocities[0]**2)
     c33 = Density*(Velocities[1]**2)
     c01 = c00 - 2*c33
     
-#     заполняем матрицу:
+    # заполняем матрицу:
 
-    Cij = np.zeros((6,6))
+    Cij = np.zeros((6, 6))
 
-    Cij[0,0] = c00
-    Cij[1,1] = c00
-    Cij[2,2] = c00
+    Cij[0, 0] = c00
+    Cij[1, 1] = c00
+    Cij[2, 2] = c00
 
-    Cij[3,3] = c33
-    Cij[4,4] = c33
-    Cij[5,5] = c33
+    Cij[3, 3] = c33
+    Cij[4, 4] = c33
+    Cij[5, 5] = c33
 
-    Cij[0,1] = c01
-    Cij[0,2] = c01
-    Cij[1,2] = c01
-    Cij[1,0] = c01
-    Cij[2,0] = c01
-    Cij[2,1] = c01
+    Cij[0, 1] = c01
+    Cij[0, 2] = c01
+    Cij[1, 2] = c01
+    Cij[1, 0] = c01
+    Cij[2, 0] = c01
+    Cij[2, 1] = c01
     
     return Cij
 
@@ -43,35 +45,36 @@ def Cij(Velocities,Density):
 # 11 -> 1; 22 -> 2; 33 -> 3;
 # 23,32 -> 4; 13,31 -> 5; 12,21 -> 6.
 
-# НО: в "Питоне" индексы начинаются с нуля, а НЕ с единицы. Поэтому наша форма этой нотации будет несколько отличатся от заданной выше:
-# у всех чисел нужно отнять по единице.
+# НО: в "Питоне" индексы начинаются с нуля, а НЕ с единицы.
+# Поэтому наша форма этой нотации будет несколько отличатся от заданной выше: у всех чисел нужно отнять по единице.
+
 
 # Поэтому сначала зададим эти переходы как функцию индексов i и j:
-
-def Voigt_Notation(i,j):
+def Voigt_Notation(i, j):
     if i == j:
         return i
     else:
-        if [i,j] == [1,2] or [i,j] == [2,1]:
+        if [i, j] == [1, 2] or [i, j] == [2, 1]:
             return 3
-        if [i,j] == [0,2] or [i,j] == [2,0]:
+        if [i, j] == [0, 2] or [i, j] == [2, 0]:
             return 4
-        if [i,j] == [0,1] or [i,j] == [1,0]:
+        if [i, j] == [0, 1] or [i, j] == [1, 0]:
             return 5
+
 
 # А теперь перйдём к восстановлению тензора Cijkl:
 def Cijkl(Cij):
     
-    Cijkl = np.zeros((3,3,3,3))
+    Cijkl = np.zeros((3, 3, 3, 3))
     
     for i in range(3):
         for j in range(3):
             for k in range(3):
                 for l in range(3):
                     
-                    I = Voigt_Notation(i,j)
-                    J = Voigt_Notation(k,l)
+                    I = Voigt_Notation(i, j)
+                    J = Voigt_Notation(k, l)
                     
-                    Cijkl[i,j,k,l] = Cij[I,J]
+                    Cijkl[i, j, k, l] = Cij[I, J]
                     
     return Cijkl

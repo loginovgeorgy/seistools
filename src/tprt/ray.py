@@ -5,7 +5,7 @@ from scipy.optimize import minimize
 from functools import partial
 from pylab import *
 
-from .Reflection_And_Transmission_Coefficients import Reflection_And_Transmission_Coefficients_By_Honest_Solving
+from .Reflection_And_Transmission_Coefficients import RT_Coefficients
 
 class Ray(object):
     def __init__(self, sou, rec, vel_mod):
@@ -17,7 +17,7 @@ class Ray(object):
         self._v0 = _v0/self.distance
         self.segments = self._get_segments(vel_mod)
         self._trajectory = self._get_trajectory()
-        self.Reflection_Coefficients, self.Transmission_Coefficients = self.Reflection_And_Transmission_Coefficients()
+        self.Reflection_Coefficients, self.Transmission_Coefficients = self.RT_Coefficients()
 
     def _get_segments(self, vel_mod):
         # TODO: make more pythonic
@@ -45,12 +45,12 @@ class Ray(object):
             vec = (rec - sou)
             vec /= np.sqrt((vec**2).sum())
             layer = self._get_location_layer(sou + vec, vel_mod)
-            segments.append(Segment(sou, rec, layer.get_velocity, layer.density, hor, hor_normal))
+            segments.append(Segment(sou, rec, layer.get_velocity, layer, hor, hor_normal))
             sou = rec
 
         rec = np.array(self.receiver.location, ndmin=1)
         layer = self._get_location_layer(rec, vel_mod)
-        segments.append(Segment(sou, rec, layer.get_velocity, layer.density, layer.top.get_depth, layer.top.surface.normal))
+        segments.append(Segment(sou, rec, layer.get_velocity, layer, layer.top.get_depth, layer.top.surface.normal))
 
         return segments
 
@@ -87,7 +87,9 @@ class Ray(object):
             distance = np.sqrt((vector ** 2).sum())
             vector = vector / distance
 
-            new_segments.append(Segment(sou, rec, segment.velocity, segment.density, segment.horizon, segment.horizon_normal))
+            new_segments.append(Segment(sou, rec, segment.velocity, segment, segment.horizon, segment.horizon_normal))
+            # here I pass segment itself as an argument because in the constructor of the "Segment" class we call
+            # .density field of the corresponding argument. segment (which is passed) possesses such field.
             time += (distance / segment.velocity(vector)[vtype])
             sou = rec
         self.segments = new_segments
@@ -112,32 +114,33 @@ class Ray(object):
         for s in self.segments:
             plot_line_3d(s.segment.T, **kwargs)
 
-    def Reflection_And_Transmission_Coefficients(self):
+    def RT_Coefficients(self):
 
-        Reflection_Coefficients = np.zeros((len(self.segments) - 1,3),dtype = complex) #We shall write here reflection coefficients at every boundary.
-        Transmission_Coefficients = np.zeros((len(self.segments) - 1,3),dtype = complex) #We shall write here transmission coefficients at every boundary.
-        #"minus one" because the last segment ends in the receiver.
+        Reflection_Coefficients = np.zeros((len(self.segments) - 1, 3), dtype=complex) # сюда мы будем записывать коэффициенты отражения на каждой границе
+        Transmission_Coefficients = np.zeros((len(self.segments) - 1, 3), dtype=complex) # сюда мы будем записывать коэффициенты прохождения на каждой границе
+        # "минус один", т.к. последний сегмент кончается в приёмнике, а не на границе раздела
 
-        for i in range(len(self.segments)-1): #"minus one" because the last segment ends in the receiver.
-            Angle_Of_Incidence_Deg = np.degrees(np.arccos(abs(self.segments[i].vector.dot(self.segments[i].horizon_normal))))  # Very long formula. But the formula for coefficients
-            #accepts angle in degrees only. Using of "abs" prevents problems with the direction of the "horizon_normal".
-            a1 = self.segments[i].velocity(1)['vp']
-            a2 = self.segments[i].velocity(1)['vs']
-            a3 = self.segments[i+1].velocity(1)['vp']
-            a4 = self.segments[i+1].velocity(1)['vs']
-            #Let's create an array of coefficients at the current boundary.
-            New_Coefficients = Reflection_And_Transmission_Coefficients_By_Honest_Solving(self.segments[i].density, self.segments[i + 1].density,
+        for i in range(len(self.segments)-1): #"минус один" - по той же причине
+            Angle_Of_Incidence_Deg = np.degrees(np.arccos(abs(self.segments[i].vector.dot(self.segments[i].horizon_normal))))  # очень длинная формула. Но она оправдана:
+            # np.degrees self.segments[i].vector.dot(self.segments[i].horizon_normal)- т.к. формула для расчёта коэффициентов принимает на вход угол падения в градусах
+            # self.segments[i].vector.dot(self.segments[i].horizon_normal) - скалярное произведение направляющего вектора сегмента и вектора нормали к границе
+            # np.arccos - т.к. оба вышеупомянутых вектора единичны. Их скалярное произведение - косинус угла падения
+            # abs - чтобы избежать проблем с выбором нормали к границе; угол падения - всегда острый
+
+            # создадим массив коэффициентов на данной границе:
+            New_Coefficients = RT_Coefficients(self.segments[i].density, self.segments[i + 1].density,
                                                                                           self.segments[i].velocity(1)['vp'], self.segments[i].velocity(1)['vs'],
                                                                                           self.segments[i + 1].velocity(1)['vp'], self.segments[i + 1].velocity(1)['vs'],
-                                                                                          0, Angle_Of_Incidence_Deg) #I consider the incident wave as P-wave.
+                                                                                          0, Angle_Of_Incidence_Deg) # пока что я рассматриваю падающую волну как P-волну
 
-            #Let's add new coefficients at the current boundary to the array of coefficients in the whole medium.
+            # и присоединим коэффициенты из полученного массива к "глобальным" массивам коэффициентов для всего луча:
+            # (индексация связана с порядком следования коэффициентов на выходи функции RT_Coefficients)
             for j in range(3):
 
-                Reflection_Coefficients[i,j] = New_Coefficients[j]
-                Transmission_Coefficients[i,j] = New_Coefficients[j+3]
+                Reflection_Coefficients[i, j] = New_Coefficients[j]
+                Transmission_Coefficients[i, j] = New_Coefficients[j+3]
 
-        #Let's return two arrays of coefficients occuring on the ray's path.
+        # возвращаем массивы коэффициентов отражения и прохождения, возникших на пути луча:
         return Reflection_Coefficients, Transmission_Coefficients
 
     def check_snellius(self, eps=1e-5, *args, **kwargs):
@@ -175,7 +178,8 @@ class Ray(object):
                 raise SnelliusError('При точности {} на границе {} нарушен закон Снеллиуса'.format(eps, i + 1))
 
 class Segment(object):
-    def __init__(self, source, receiver, velocity, density, horizon, horizon_normal):
+    def __init__(self, source, receiver, velocity, layer, horizon, horizon_normal): # maybe in future all arguments will
+        # be taken from a layer passed in this constructor
         self.source = source
         self.receiver = receiver
         self.segment = np.vstack((source, receiver))
@@ -183,7 +187,7 @@ class Segment(object):
         self.distance = np.sqrt((vec**2).sum())
         self.vector = vec / self.distance
         self.velocity = velocity
-        self.density = density
+        self.density = layer.density
         self.horizon = horizon
         self.horizon_normal = horizon_normal
 
