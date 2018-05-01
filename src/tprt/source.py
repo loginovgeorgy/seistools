@@ -47,7 +47,3 @@ class Source(object):
 
     def plot(self, **kwargs):
         plot_points_3d(self.location, **kwargs)
-
-
-
-
