@@ -21,13 +21,15 @@ print(receivers[0])
 # TODO: check procedure of "is_ray_intersect_boundary"
 vel_mod = []
 
-for vp, vs, depth, name in zip(
+for vp, vs, depth, name, dip, azimuth in zip(
         [1000, 3300, 2800, 2300, 1800], # vp
         [2700, 2550, 2150, 1900, 1700], # vs
-        [20, 30, 70, 150, 215], # depth
-        ['1', '2', '3', '4', '5'] #name
+        [20, 70, 120, 180, 250],    # depth
+        ['1', '2', '3', '4', '5'],  # name
+        [0, 0, 15, 0, 0],         # dip
+        [0, 0, 90, 0, 0]          # azimuth
 ):
-    vel_mod.append(Layer(ISOVelocity(vp, vs), Horizon(FlatSurface(depth=depth, dip=0, azimuth=0)), name=name))
+    vel_mod.append(Layer(ISOVelocity(vp, vs), Horizon(FlatSurface(depth=depth, dip=dip, azimuth=azimuth)), name=name))
 
 rays = [Ray(source, rec, vel_mod) for rec in receivers]
 
@@ -53,10 +55,10 @@ for i, (ray, rec) in enumerate(zip(rays, receivers)):
         print('Вдоль луча под номером {} до приемника {} не выполняется закон Cнеллиуса'.format(i+1, rec.location))
     rec.plot(ax=ax, color='k', marker='^', s=50)
     # keep segments colored to check correctness of procedure
-    ray.plot(ax=ax,style='s')
+    ray.plot(ax=ax)
 plt.show()
 
-n=1
+n=-1
 R = []
 for i in range(len(rays[n].segments)):
     R.append(rays[n].segments[i].source)
@@ -64,3 +66,4 @@ R.append(rays[n].segments[n].receiver)
 R = np.array(R)
 print(R)
 
+print(rays[-1].dtravel())
