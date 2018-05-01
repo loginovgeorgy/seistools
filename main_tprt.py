@@ -2,8 +2,8 @@ import pylab as plt
 from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 import os
-import sys
-
+import matplotlib
+print(matplotlib.get_backend())
 from src.tprt import Receiver, Layer, Source, Units, Horizon, Ray
 
 source = Source([0, 0, 0])
@@ -28,6 +28,7 @@ for vp, vs, depth, name in zip(
 
 
 rays = [Ray(source, rec, vel_mod) for rec in receivers]
+travel_time = [ray.optimize() for ray in rays]
 
 fig = plt.figure()
 ax = Axes3D(fig)
@@ -37,10 +38,8 @@ for l in vel_mod:
 
 source.plot(ax=ax, color='r', marker='p', s=50)
 for ray, rec in zip(rays, receivers):
-    ray.optimize()
     rec.plot(ax=ax, color='k', marker='^', s=50)
     # keep segments colored to check correctness of procedure
     ray.plot(ax=ax)
-
 
 plt.show()
