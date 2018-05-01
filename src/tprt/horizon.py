@@ -17,7 +17,7 @@ class Horizon(object):
         return self.surface.get_depth(x)
 
 
-    def plot(self, x=None, extent=(0, 100, 0, 100), ns=10, ax=None):
+    def plot(self, x=None, extent=(0, 100, 0, 100), ns=2, ax=None):
         if not np.any(x):
             _x, _y = np.meshgrid(
                 np.linspace(extent[0], extent[1], ns),
