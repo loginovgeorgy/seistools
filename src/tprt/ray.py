@@ -1,11 +1,9 @@
 import numpy as np
 from .utils import plot_line_3d
-from scipy.optimize import least_squares
 from scipy.optimize import minimize
 from functools import partial
-from pylab import *
+from .rt_coefficients import rt_coefficients
 
-from .Reflection_And_Transmission_Coefficients import RT_Coefficients
 
 class Ray(object):
     def __init__(self, sou, rec, vel_mod):
@@ -17,7 +15,7 @@ class Ray(object):
         self._v0 = _v0/self.distance
         self.segments = self._get_segments(vel_mod)
         self._trajectory = self._get_trajectory()
-        self.Reflection_Coefficients, self.Transmission_Coefficients = self.RT_Coefficients()
+        self.Reflection_Coefficients, self.Transmission_Coefficients = self.rt_coefficients()
 
     def _get_segments(self, vel_mod):
         # TODO: make more pythonic
@@ -28,7 +26,7 @@ class Ray(object):
 
         for layer in vel_mod:
             rec = layer.top.surface.intersect(source, receiver)
-            if len(rec)==0:
+            if len(rec) == 0:
                 continue
             dist = np.sqrt(((source - rec) ** 2).sum())
             intersections.append((rec, layer))
@@ -114,36 +112,36 @@ class Ray(object):
         for s in self.segments:
             plot_line_3d(s.segment.T, **kwargs)
 
-    def RT_Coefficients(self):
+    def rt_coefficients(self):
 
-        Reflection_Coefficients = np.zeros((len(self.segments) - 1, 3), dtype=complex) # сюда мы будем записывать коэффициенты отражения на каждой границе
-        Transmission_Coefficients = np.zeros((len(self.segments) - 1, 3), dtype=complex) # сюда мы будем записывать коэффициенты прохождения на каждой границе
+        reflection_coefficients = np.zeros((len(self.segments) - 1, 3), dtype=complex) # сюда мы будем записывать коэффициенты отражения на каждой границе
+        transmission_coefficients = np.zeros((len(self.segments) - 1, 3), dtype=complex) # сюда мы будем записывать коэффициенты прохождения на каждой границе
         # "минус один", т.к. последний сегмент кончается в приёмнике, а не на границе раздела
 
-        for i in range(len(self.segments)-1): #"минус один" - по той же причине
-            Angle_Of_Incidence_Deg = np.degrees(np.arccos(abs(self.segments[i].vector.dot(self.segments[i].horizon_normal))))  # очень длинная формула. Но она оправдана:
+        for i in range(len(self.segments)-1):  # "минус один" - по той же причине
+            angle_of_incidence_deg = np.degrees(np.arccos(abs(self.segments[i].vector.dot(self.segments[i].horizon_normal))))  # очень длинная формула. Но она оправдана:
             # np.degrees self.segments[i].vector.dot(self.segments[i].horizon_normal)- т.к. формула для расчёта коэффициентов принимает на вход угол падения в градусах
             # self.segments[i].vector.dot(self.segments[i].horizon_normal) - скалярное произведение направляющего вектора сегмента и вектора нормали к границе
             # np.arccos - т.к. оба вышеупомянутых вектора единичны. Их скалярное произведение - косинус угла падения
             # abs - чтобы избежать проблем с выбором нормали к границе; угол падения - всегда острый
 
             # создадим массив коэффициентов на данной границе:
-            New_Coefficients = RT_Coefficients(self.segments[i].density, self.segments[i + 1].density,
-                                                                                          self.segments[i].velocity(1)['vp'], self.segments[i].velocity(1)['vs'],
-                                                                                          self.segments[i + 1].velocity(1)['vp'], self.segments[i + 1].velocity(1)['vs'],
-                                                                                          0, Angle_Of_Incidence_Deg) # пока что я рассматриваю падающую волну как P-волну
+            new_coefficients = rt_coefficients(self.segments[i].density, self.segments[i + 1].density,
+                                               self.segments[i].velocity(1)['vp'], self.segments[i].velocity(1)['vs'],
+                                               self.segments[i + 1].velocity(1)['vp'], self.segments[i + 1].velocity(1)['vs'],
+                                               0, angle_of_incidence_deg) # пока что я рассматриваю падающую волну как P-волну
 
             # и присоединим коэффициенты из полученного массива к "глобальным" массивам коэффициентов для всего луча:
             # (индексация связана с порядком следования коэффициентов на выходи функции RT_Coefficients)
             for j in range(3):
 
-                Reflection_Coefficients[i, j] = New_Coefficients[j]
-                Transmission_Coefficients[i, j] = New_Coefficients[j+3]
+                reflection_coefficients[i, j] = new_coefficients[j]
+                transmission_coefficients[i, j] = new_coefficients[j+3]
 
         # возвращаем массивы коэффициентов отражения и прохождения, возникших на пути луча:
-        return Reflection_Coefficients, Transmission_Coefficients
+        return reflection_coefficients, transmission_coefficients
 
-    def check_snellius(self, eps=1e-5, *args, **kwargs):
+    def check_snellius(self, eps=1e-5):
         amount = len(self.segments) - 1
         points = []
         for i in range(amount+1):
@@ -167,19 +165,19 @@ class Ray(object):
             sin_r_1 = np.sqrt(1 - r_1.dot(normal_r) ** 2)
             sin_r = np.sqrt(1 - r.dot(normal_r) ** 2)
 
-            if (v[i] < v[i + 1]):
+            if v[i] < v[i + 1]:
                 critic.append(sin_r >= v[i] / v[i + 1])
             else:
                 critic.append(False)
-            if np.array(critic).any() == True:
+            if np.array(critic).any():
                 raise SnelliusError('На границе {} достигнут критический угол'.format(i + 1))
             snell.append(abs(sin_r / sin_r_1 - v[i] / v[i + 1]) <= eps)
-            if np.array(snell).any() == False:
+            if not np.array(snell).any():
                 raise SnelliusError('При точности {} на границе {} нарушен закон Снеллиуса'.format(eps, i + 1))
 
+
 class Segment(object):
-    def __init__(self, source, receiver, velocity, layer, horizon, horizon_normal): # maybe in future all arguments will
-        # be taken from a layer passed in this constructor
+    def __init__(self, source, receiver, velocity, layer, horizon, horizon_normal):
         self.source = source
         self.receiver = receiver
         self.segment = np.vstack((source, receiver))

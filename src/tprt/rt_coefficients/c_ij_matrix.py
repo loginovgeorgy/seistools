@@ -10,33 +10,33 @@ import numpy as np
 # Cij - 6x6-матрица упругих модулей среды
 
 
-def Cij(Velocities, Density):
+def c_ij(velocities, density):
     
     # в изотропном случае в данной матрице будет всего два независимых элемента. Однако для удобсвта введём три:
-    c00 = Density*(Velocities[0]**2)
-    c33 = Density*(Velocities[1]**2)
+    c00 = density*(velocities[0]**2)
+    c33 = density*(velocities[1]**2)
     c01 = c00 - 2*c33
     
     # заполняем матрицу:
 
-    Cij = np.zeros((6, 6))
+    c_ij = np.zeros((6, 6))
 
-    Cij[0, 0] = c00
-    Cij[1, 1] = c00
-    Cij[2, 2] = c00
+    c_ij[0, 0] = c00
+    c_ij[1, 1] = c00
+    c_ij[2, 2] = c00
 
-    Cij[3, 3] = c33
-    Cij[4, 4] = c33
-    Cij[5, 5] = c33
+    c_ij[3, 3] = c33
+    c_ij[4, 4] = c33
+    c_ij[5, 5] = c33
 
-    Cij[0, 1] = c01
-    Cij[0, 2] = c01
-    Cij[1, 2] = c01
-    Cij[1, 0] = c01
-    Cij[2, 0] = c01
-    Cij[2, 1] = c01
+    c_ij[0, 1] = c01
+    c_ij[0, 2] = c01
+    c_ij[1, 2] = c01
+    c_ij[1, 0] = c01
+    c_ij[2, 0] = c01
+    c_ij[2, 1] = c01
     
-    return Cij
+    return c_ij
 
 # Следующей функции на вход подаётся матрица Cij, а на выходе будет 3x3x3x3-тензор упругих модулей среды Cijkl
 # Используется так называемая нотация Фойгта, согласно которой элементы тензора Cijkl связаны с элементами матрицы Cij
@@ -50,7 +50,7 @@ def Cij(Velocities, Density):
 
 
 # Поэтому сначала зададим эти переходы как функцию индексов i и j:
-def Voigt_Notation(i, j):
+def voigt_notation(i, j):
     if i == j:
         return i
     else:
@@ -63,18 +63,18 @@ def Voigt_Notation(i, j):
 
 
 # А теперь перйдём к восстановлению тензора Cijkl:
-def Cijkl(Cij):
+def c_ijkl(c_ij):
     
-    Cijkl = np.zeros((3, 3, 3, 3))
+    c_ijkl = np.zeros((3, 3, 3, 3))
     
     for i in range(3):
         for j in range(3):
             for k in range(3):
                 for l in range(3):
                     
-                    I = Voigt_Notation(i, j)
-                    J = Voigt_Notation(k, l)
+                    I = voigt_notation(i, j)
+                    J = voigt_notation(k, l)
                     
-                    Cijkl[i, j, k, l] = Cij[I, J]
+                    c_ijkl[i, j, k, l] = c_ij[I, J]
                     
-    return Cijkl
+    return c_ijkl

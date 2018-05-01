@@ -1,19 +1,10 @@
 import numpy as np
 from scipy.spatial import Delaunay
-'''
-IDC_TYPES = {
-    'flat': _flat_horizon,
-    'f': _flat_horizon,
-    'fh': _flat_horizon,
-    'horizontal': _flat_horizon,
-    'grid': _grid_horizon,
-}
-'''
-
 
 class Surface:
     def get_depth(self, x):
         pass
+
     def intersect(self, sou, rec):
         pass
 
@@ -46,7 +37,8 @@ class FlatSurface(Surface):
             p1, p2, p3 = points[index]
 
             N = np.cross(p2 - p1, p3 - p1)
-            if np.dot(rec - sou, N) == 0: break
+            if np.dot(rec - sou, N) == 0:
+                break
             p0 = sou + np.dot(p1 - sou, N) / np.dot(rec - sou, N) * (rec - sou)
 
             x_max, x_min = max(sou[0], rec[0]), min(sou[0], rec[0])
@@ -76,17 +68,17 @@ class GridHorizonSurface(Surface):
         for index in tri.simplices:
             p1, p2, p3 = points[index]
 
-            N = np.cross(p2 - p1, p3 - p1)
-            p0 = sou + np.dot(p1 - sou, N) / np.dot(rec - sou, N) * (rec - sou)
+            n = np.cross(p2 - p1, p3 - p1)
+            p0 = sou + np.dot(p1 - sou, n) / np.dot(rec - sou, n) * (rec - sou)
 
             x_max, x_min = max(sou[0], rec[0]), min(sou[0], rec[0])
             y_max, y_min = max(sou[1], rec[1]), min(sou[1], rec[1])  # Т.к. у нас отрезок, а не бесконечная линия
             z_max, z_min = max(sou[2], rec[2]), min(sou[2], rec[2])  # то создадим ограничения
 
             if (np.dot(np.cross(p2 - p1, p0 - p1),
-                       N) >= 0 and  # Эти условия проверяют лежит ли точка в заданном треугольнике
-                    np.dot(np.cross(p3 - p2, p0 - p2), N) >= 0 and
-                    np.dot(np.cross(p1 - p3, p0 - p3), N) >= 0 and
+                       n) >= 0 and  # Эти условия проверяют лежит ли точка в заданном треугольнике
+                    np.dot(np.cross(p3 - p2, p0 - p2), n) >= 0 and
+                    np.dot(np.cross(p1 - p3, p0 - p3), n) >= 0 and
                     x_min < p0[0] < x_max and
                     y_min < p0[1] < y_max and
                     z_min < p0[2] < z_max):
@@ -94,5 +86,3 @@ class GridHorizonSurface(Surface):
                 break
         intersection = np.array(intersection, ndmin=1)
         return intersection
-
-
