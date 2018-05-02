@@ -18,14 +18,18 @@ class Horizon(object):
 
 
     def plot(self, x=None, extent=(0, 100, 0, 100), ns=2, ax=None):
-        if not np.any(x):
-            _x, _y = np.meshgrid(
-                np.linspace(extent[0], extent[1], ns),
-                np.linspace(extent[2], extent[3], ns)
-            )
-            x = np.vstack((_x.ravel(), _y.ravel())).T
+        if not self.kind == 'grid':
+            if not np.any(x):
+                _x, _y = np.meshgrid(
+                    np.linspace(extent[0], extent[1], ns),
+                    np.linspace(extent[2], extent[3], ns)
+                )
+                x = np.vstack((_x.ravel(), _y.ravel())).T
 
-        z = self.surface.get_depth(x)
+            z = self.surface.get_depth(x)
+        else:
+            x = self.surface.points[:,:-1]
+            z = self.surface.points[:,-1]
 
         # TODO prettify using plt.show()
         if not np.any(ax):
