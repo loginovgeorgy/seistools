@@ -52,7 +52,8 @@ class FlatSurface(Surface):
             p1, p2, p3 = points[index]
 
             N = np.cross(p2 - p1, p3 - p1)
-            if np.dot(rec - sou, N) == 0: break
+            if np.dot(rec - sou, N) == 0:
+                break
             p0 = sou + np.dot(p1 - sou, N) / np.dot(rec - sou, N) * (rec - sou)
 
             x_max, x_min = max(sou[0], rec[0]), min(sou[0], rec[0])
@@ -74,10 +75,10 @@ class GridSurface(Surface):
         self.gradient = gradient
 
     def get_depth(self, x):
-        return 1
+        return self.points[0,-1]
 
     def get_gradient(self, x):
-        return 1
+        return self.gradient
 
     def intersect(self, sou, rec):
         points = self.points
@@ -87,6 +88,8 @@ class GridSurface(Surface):
             p1, p2, p3 = points[index]
 
             N = np.cross(p2 - p1, p3 - p1)
+            if np.dot(rec - sou, N) == 0:
+                break
             p0 = sou + np.dot(p1 - sou, N) / np.dot(rec - sou, N) * (rec - sou)
 
             x_max, x_min = max(sou[0], rec[0]), min(sou[0], rec[0])
