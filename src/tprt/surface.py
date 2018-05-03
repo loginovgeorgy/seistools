@@ -7,6 +7,8 @@ class Surface:
 
     def intersect(self, sou, rec):
         pass
+    def get_gradient(self, x):
+        pass
 
 
 class FlatSurface(Surface):
@@ -18,12 +20,16 @@ class FlatSurface(Surface):
         self.n = np.array(self.normal[:-1], ndmin=2)
         self.n3 = self.normal[-1]
         self.anchor = np.array(anchor, ndmin=2)
+        self.gradient = self.get_gradient
 
     def get_depth(self, x):
         x = np.array(x, ndmin=2)
         x -= self.anchor
         z = (self.depth - (x * self.n).sum(axis=1, keepdims=True)) / (self.n3 + 1e-16)
         return z
+
+    def get_gradient(self, x):
+        return -self.normal[:-1]
 
     def intersect(self, sou, rec):
         points = np.zeros((3, len(sou)))
@@ -36,30 +42,34 @@ class FlatSurface(Surface):
         for index in tri.simplices:
             p1, p2, p3 = points[index]
 
-            N = np.cross(p2 - p1, p3 - p1)
-            if np.dot(rec - sou, N) == 0:
+            n = np.cross(p2 - p1, p3 - p1)
+            if np.dot(rec - sou, n) == 0:
                 break
-            p0 = sou + np.dot(p1 - sou, N) / np.dot(rec - sou, N) * (rec - sou)
+            p0 = sou + np.dot(p1 - sou, n) / np.dot(rec - sou, n) * (rec - sou)
 
             x_max, x_min = max(sou[0], rec[0]), min(sou[0], rec[0])
             y_max, y_min = max(sou[1], rec[1]), min(sou[1], rec[1])  # Т.к. у нас отрезок, а не бесконечная линия
             z_max, z_min = max(sou[2], rec[2]), min(sou[2], rec[2])  # то создадим ограничения
 
             if (x_min < p0[0] < x_max and
-                    y_min < p0[1] < y_max and
-                    z_min < p0[2] < z_max):
+                y_min < p0[1] < y_max and
+                z_min < p0[2] < z_max):
                 intersection = p0
                 break
         intersection = np.array(intersection, ndmin=1)
         return intersection
 
 
-class GridHorizonSurface(Surface):
-    def __init__(self, points):
-        self.points = points
+class GridSurface(Surface):
+    def __init__(self, points, gradient=None):
+        self.points = np.array(points, ndmin=2)
+        self.gradient = gradient
 
     def get_depth(self, x):
-        return 1
+        return self.points[0,-1]
+
+    def get_gradient(self, x):
+        return self.gradient
 
     def intersect(self, sou, rec):
         points = self.points
@@ -67,21 +77,21 @@ class GridHorizonSurface(Surface):
         intersection = []
         for index in tri.simplices:
             p1, p2, p3 = points[index]
-
             n = np.cross(p2 - p1, p3 - p1)
+            if np.dot(rec - sou, n) == 0:
+                break
             p0 = sou + np.dot(p1 - sou, n) / np.dot(rec - sou, n) * (rec - sou)
 
             x_max, x_min = max(sou[0], rec[0]), min(sou[0], rec[0])
-            y_max, y_min = max(sou[1], rec[1]), min(sou[1], rec[1])  # Т.к. у нас отрезок, а не бесконечная линия
-            z_max, z_min = max(sou[2], rec[2]), min(sou[2], rec[2])  # то создадим ограничения
+            y_max, y_min = max(sou[1], rec[1]), min(sou[1], rec[1])
+            z_max, z_min = max(sou[2], rec[2]), min(sou[2], rec[2])
 
-            if (np.dot(np.cross(p2 - p1, p0 - p1),
-                       n) >= 0 and  # Эти условия проверяют лежит ли точка в заданном треугольнике
-                    np.dot(np.cross(p3 - p2, p0 - p2), n) >= 0 and
-                    np.dot(np.cross(p1 - p3, p0 - p3), n) >= 0 and
-                    x_min < p0[0] < x_max and
-                    y_min < p0[1] < y_max and
-                    z_min < p0[2] < z_max):
+            if (np.dot(np.cross(p2 - p1, p0 - p1), n) >= 0 and
+                np.dot(np.cross(p3 - p2, p0 - p2), n) >= 0 and
+                np.dot(np.cross(p1 - p3, p0 - p3), n) >= 0 and
+                x_min < p0[0] < x_max and
+                y_min < p0[1] < y_max and
+                z_min < p0[2] < z_max):
                 intersection = p0
                 break
         intersection = np.array(intersection, ndmin=1)

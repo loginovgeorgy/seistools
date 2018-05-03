@@ -14,3 +14,6 @@ class Layer(object):
 
     def get_velocity(self, x):
         return self.velocity.get_velocity(x)
+
+    def get_dv(self, x):
+        return self.velocity.get_dv(x)
