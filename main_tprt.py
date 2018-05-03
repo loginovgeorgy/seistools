@@ -38,12 +38,6 @@ ax = Axes3D(fig)
 for l in vel_mod:
     l.top.plot(ax=ax)
 
-# R = []
-# for i in range(len(rays[-1].segments)):
-#     R.append(rays[-1].segments[i].source)
-# R.append(rays[-1].segments[-1].receiver)
-# R = np.array(R)
-# print(R)
 
 source.plot(ax=ax, color='r', marker='p', s=50)
 for i, (ray, rec) in enumerate(zip(rays, receivers)):
