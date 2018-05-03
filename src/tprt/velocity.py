@@ -1,3 +1,4 @@
+import numpy as np
 
 class Velocity:
     def get_velocity(self, x):
