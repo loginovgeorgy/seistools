@@ -49,5 +49,3 @@ class Receiver(object):
     def plot(self, **kwargs):
         plot_points_3d(self.location, **kwargs)
         # TODO prettify using plt.show()
-
-

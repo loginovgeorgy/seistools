@@ -3,9 +3,10 @@ from .units import Units
 
 
 class Layer(object):
-    def __init__(self, velocity, horizon, kind='iso', name='flat'):
+    def __init__(self, velocity, density, horizon, kind='iso', name='flat'):
         self.kind = kind
         self.velocity = velocity
+        self.density = density
         self.top = horizon
         self.units = Units()
         self.name = name

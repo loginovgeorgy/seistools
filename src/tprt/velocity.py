@@ -1,11 +1,3 @@
-'''
-LAYER_KIND = {
-    'iso': _iso_model,
-    'ani': None,
-}
-'''
-
-
 class Velocity:
     def get_velocity(self, x):
         pass
