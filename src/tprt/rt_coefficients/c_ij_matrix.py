@@ -3,11 +3,11 @@ import numpy as np
 # среда ИЗОТРОПНАЯ
 
 # на вход нижеописанной функции подаются:
-# Velocities - 1x2-вектор скоростей в следующием порядке: [Vp,Vs1]
-# Density - скалярная величина, плотность среды
+# velocities - 1x2-вектор скоростей в следующием порядке: [vp,vs]
+# density - скалярная величина, плотность среды
 
 # на выходе будет:
-# Cij - 6x6-матрица упругих модулей среды
+# c_ij - 6x6-матрица упругих модулей среды
 
 
 def c_ij(velocities, density):
@@ -19,28 +19,29 @@ def c_ij(velocities, density):
     
     # заполняем матрицу:
 
-    c_ij = np.zeros((6, 6))
+    c_ij1 = np.zeros((6, 6)) # index "1" beside "c_ij" marks that this is a variable,
+    # not a function defined above
 
-    c_ij[0, 0] = c00
-    c_ij[1, 1] = c00
-    c_ij[2, 2] = c00
+    c_ij1[0, 0] = c00
+    c_ij1[1, 1] = c00
+    c_ij1[2, 2] = c00
 
-    c_ij[3, 3] = c33
-    c_ij[4, 4] = c33
-    c_ij[5, 5] = c33
+    c_ij1[3, 3] = c33
+    c_ij1[4, 4] = c33
+    c_ij1[5, 5] = c33
 
-    c_ij[0, 1] = c01
-    c_ij[0, 2] = c01
-    c_ij[1, 2] = c01
-    c_ij[1, 0] = c01
-    c_ij[2, 0] = c01
-    c_ij[2, 1] = c01
+    c_ij1[0, 1] = c01
+    c_ij1[0, 2] = c01
+    c_ij1[1, 2] = c01
+    c_ij1[1, 0] = c01
+    c_ij1[2, 0] = c01
+    c_ij1[2, 1] = c01
     
-    return c_ij
+    return c_ij1
 
-# Следующей функции на вход подаётся матрица Cij, а на выходе будет 3x3x3x3-тензор упругих модулей среды Cijkl
-# Используется так называемая нотация Фойгта, согласно которой элементы тензора Cijkl связаны с элементами матрицы Cij
-# следующими соотношениями: (слева - пары ij или kl из Cijkl, а справа - индескы i или j из Cij)
+# Следующей функции на вход подаётся матрица c_ij, а на выходе будет 3x3x3x3-тензор упругих модулей среды c_ijkl
+# Используется так называемая нотация Фойгта, согласно которой элементы тензора c_ijkl связаны с элементами матрицы c_ij
+# следующими соотношениями: (слева - пары ij или kl из c_ijkl, а справа - индескы i или j из c_ij)
 
 # 11 -> 1; 22 -> 2; 33 -> 3;
 # 23,32 -> 4; 13,31 -> 5; 12,21 -> 6.
@@ -62,10 +63,11 @@ def voigt_notation(i, j):
             return 5
 
 
-# А теперь перйдём к восстановлению тензора Cijkl:
-def c_ijkl(c_ij):
+# А теперь перйдём к восстановлению тензора c_ijkl:
+def c_ijkl(c_ij1): # index "1" beside "c_ij" marks that this is a variable,
+    # not a function defined above
     
-    c_ijkl = np.zeros((3, 3, 3, 3))
+    c_ijkl1 = np.zeros((3, 3, 3, 3)) # the same index with the same purpose
     
     for i in range(3):
         for j in range(3):
@@ -75,6 +77,6 @@ def c_ijkl(c_ij):
                     from_i = voigt_notation(i, j)
                     from_j = voigt_notation(k, l)
                     
-                    c_ijkl[i, j, k, l] = c_ij[from_i, from_j]
+                    c_ijkl1[i, j, k, l] = c_ij1[from_i, from_j]
                     
-    return c_ijkl
+    return c_ijkl1

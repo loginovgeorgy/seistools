@@ -15,7 +15,7 @@ class Ray(object):
         self._v0 = _v0/self.distance
         self.segments = self._get_segments(vel_mod)
         self._trajectory = self._get_trajectory()
-        self.Reflection_Coefficients, self.Transmission_Coefficients = self.rt_coefficients()
+        self.reflection_coefficients, self.transmission_coefficients = self.ampl_coefficients()
 
     def _get_segments(self, vel_mod):
         # TODO: make more pythonic
@@ -140,10 +140,10 @@ class Ray(object):
         for s in self.segments:
             plot_line_3d(s.segment.T, **kwargs)
 
-    def rt_coefficients(self):
+    def ampl_coefficients(self):
 
-        reflection_coefficients = np.zeros((len(self.segments) - 1, 3), dtype=complex) # сюда мы будем записывать коэффициенты отражения на каждой границе
-        transmission_coefficients = np.zeros((len(self.segments) - 1, 3), dtype=complex) # сюда мы будем записывать коэффициенты прохождения на каждой границе
+        r_coefficients = np.zeros((len(self.segments) - 1, 3), dtype=complex) # сюда мы будем записывать коэффициенты отражения на каждой границе
+        t_coefficients = np.zeros((len(self.segments) - 1, 3), dtype=complex) # сюда мы будем записывать коэффициенты прохождения на каждой границе
         # "минус один", т.к. последний сегмент кончается в приёмнике, а не на границе раздела
 
         for i in range(len(self.segments)-1):  # "минус один" - по той же причине
@@ -160,14 +160,14 @@ class Ray(object):
                                                0, angle_of_incidence_deg) # пока что я рассматриваю падающую волну как P-волну
 
             # и присоединим коэффициенты из полученного массива к "глобальным" массивам коэффициентов для всего луча:
-            # (индексация связана с порядком следования коэффициентов на выходи функции RT_Coefficients)
+            # (индексация связана с порядком следования коэффициентов на выходи функции rt_coefficients)
             for j in range(3):
 
-                reflection_coefficients[i, j] = new_coefficients[j]
-                transmission_coefficients[i, j] = new_coefficients[j+3]
+                r_coefficients[i, j] = new_coefficients[j]
+                t_coefficients[i, j] = new_coefficients[j+3]
 
         # возвращаем массивы коэффициентов отражения и прохождения, возникших на пути луча:
-        return reflection_coefficients, transmission_coefficients
+        return r_coefficients, t_coefficients
 
     def check_snellius(self, eps=1e-5):
         amount = len(self.segments) - 1             # Amount of boundaries
