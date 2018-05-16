@@ -1,4 +1,3 @@
-from .horizon import Horizon
 from .units import Units
 
 
@@ -17,3 +16,6 @@ class Layer(object):
 
     def get_dv(self, x):
         return self.velocity.get_dv(x)
+
+    def get_density(self):
+        return self.density

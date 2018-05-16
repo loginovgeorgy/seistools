@@ -1,7 +1,7 @@
 import pylab as plt
 from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
-from src.tprt import Receiver, Layer, Source, Horizon, Ray, FlatSurface, ISOVelocity, ISODensity
+from src.tprt import Receiver, Layer, Source, Ray, FlatHorizon, ISOVelocity
 from src.tprt.ray import SnelliusError
 
 source = Source([0, 0, 0])
@@ -26,7 +26,7 @@ for vp, vs, depth, name, density, dip, azimuth in zip(
         [0, 0, 15, 0, 0],         # dip
         [0, 0, 90, 0, 0]          # azimuth
 ):
-    vel_mod.append(Layer(ISOVelocity(vp, vs), ISODensity(density), Horizon(FlatSurface(depth=depth, dip=dip, azimuth=azimuth)), name=name))
+    vel_mod.append(Layer(ISOVelocity(vp, vs), density, FlatHorizon(depth=depth, dip=dip, azimuth=azimuth), name=name))
 
 
 rays = [Ray(source, rec, vel_mod) for rec in receivers]
@@ -40,7 +40,6 @@ for l in vel_mod:
 source.plot(ax=ax, color='r', marker='p', s=50)
 for i, (ray, rec) in enumerate(zip(rays, receivers)):
     ray.optimize()
-    # ray.check_snellius()
     try:
         ray.check_snellius(eps=1e-6)
     except SnelliusError as e:
@@ -60,4 +59,3 @@ print(R)
 
 
 print(rays[-1].dtravel())
-

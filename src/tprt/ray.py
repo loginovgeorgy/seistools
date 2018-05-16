@@ -25,7 +25,7 @@ class Ray(object):
         distance = []
 
         for layer in vel_mod:
-            rec = layer.top.surface.intersect(source, receiver)
+            rec = layer.top.intersect(source, receiver)
             if len(rec) == 0:
                 continue
             dist = np.sqrt(((source - rec) ** 2).sum())
@@ -43,11 +43,11 @@ class Ray(object):
             vec = (rec - sou)
             vec /= np.sqrt((vec**2).sum())
             layer = self._get_location_layer(sou + vec, vel_mod)
-            segments.append(Segment(sou, rec, layer.velocity, layer.density, hor))
+            segments.append(Segment(sou, rec, layer, hor))
             sou = rec
 
         layer = self._get_location_layer(receiver, vel_mod)
-        segments.append(Segment(sou, receiver, layer.velocity, layer.density, layer.top))
+        segments.append(Segment(sou, receiver, layer, layer.top))
 
         return segments
 
@@ -83,10 +83,10 @@ class Ray(object):
             vector = rec - sou
             distance = np.sqrt((vector ** 2).sum())
             vector = vector / distance
-            new_segments.append(Segment(sou, rec, segment.velocity, segment.density, segment.horizon))
+            new_segments.append(Segment(sou, rec, segment.layer, segment.horizon))
             # here I pass segment itself as an argument because in the constructor of the "Segment" class we call
             # .density field of the corresponding argument. segment (which is passed) possesses such field.
-            time += (distance / segment.velocity.get_velocity(vector)[vtype])
+            time += (distance / segment.layer.velocity.get_velocity(vector)[vtype])
             sou = rec
         self.segments = new_segments
         return time
@@ -94,7 +94,7 @@ class Ray(object):
     def dtravel(self, r=None, vtype='vp'):
 
         amount_of_borders = len(self.segments) - 1
-        dt = np.zeros((amount_of_borders,2))        # there is only two derivatives of time, over dx and dy
+        dt = np.zeros((amount_of_borders, 2))        # there is only two derivatives of time, over dx and dy
         if not np.any(r):
             r = self._trajectory                    # if points are not given, they will be trajectory by default
         for ind_border in range(amount_of_borders):
@@ -102,16 +102,16 @@ class Ray(object):
 
             vector = np.array([x[1]-x[0], x[2]-x[1]])
             distance = np.array([np.sqrt((vector[0]**2).sum()), np.sqrt((vector[1]**2).sum())])
-            gradient = self.segments[ind_border].horizon.surface.get_gradient(x[1])
+            gradient = self.segments[ind_border].horizon.get_gradient(x[1])
             vector[0], vector[1] = vector[0]/distance[0], vector[1]/distance[1]
 
             v = np.zeros(2)
-            v[0] = self.segments[ind_border].velocity.get_velocity(vector[0])[vtype]
-            v[1] = self.segments[ind_border + 1].velocity.get_velocity(vector[1])[vtype]
+            v[0] = self.segments[ind_border].layer.velocity.get_velocity(vector[0])[vtype]
+            v[1] = self.segments[ind_border + 1].layer.velocity.get_velocity(vector[1])[vtype]
 
             dv = np.zeros((2,2))
-            dv[0] = self.segments[ind_border].velocity.get_dv(vector[0])[vtype]
-            dv[1] = self.segments[ind_border + 1].velocity.get_dv(vector[1])[vtype]
+            dv[0] = self.segments[ind_border].layer.velocity.get_dv(vector[0])[vtype]
+            dv[1] = self.segments[ind_border + 1].layer.velocity.get_dv(vector[1])[vtype]
 
             dt[ind_border] += (x[1,:-1] - x[0,:-1] + (x[1,-1]-x[0,-1])*gradient)/distance[0]/v[0]
             dt[ind_border] -= distance[0] * dv[0] / (v[0] ** 2)
@@ -147,16 +147,16 @@ class Ray(object):
         # "минус один", т.к. последний сегмент кончается в приёмнике, а не на границе раздела
 
         for i in range(len(self.segments)-1):  # "минус один" - по той же причине
-            angle_of_incidence_deg = np.degrees(np.arccos(abs(self.segments[i].vector.dot(self.segments[i].horizon.surface.normal))))  # очень длинная формула. Но она оправдана:
+            angle_of_incidence_deg = np.degrees(np.arccos(abs(self.segments[i].vector.dot(self.segments[i].horizon.normal))))  # очень длинная формула. Но она оправдана:
             # np.degrees self.segments[i].vector.dot(self.segments[i].horizon_normal)- т.к. формула для расчёта коэффициентов принимает на вход угол падения в градусах
             # self.segments[i].vector.dot(self.segments[i].horizon_normal) - скалярное произведение направляющего вектора сегмента и вектора нормали к границе
             # np.arccos - т.к. оба вышеупомянутых вектора единичны. Их скалярное произведение - косинус угла падения
             # abs - чтобы избежать проблем с выбором нормали к границе; угол падения - всегда острый
 
             # создадим массив коэффициентов на данной границе:
-            new_coefficients = rt_coefficients(self.segments[i].density.get_density(1), self.segments[i + 1].density.get_density(1),
-                                               self.segments[i].velocity.get_velocity(1)['vp'], self.segments[i].velocity.get_velocity(1)['vs'],
-                                               self.segments[i + 1].velocity.get_velocity(1)['vp'], self.segments[i + 1].velocity.get_velocity(1)['vs'],
+            new_coefficients = rt_coefficients(self.segments[i].layer.get_density(), self.segments[i + 1].layer.get_density(),
+                                               self.segments[i].layer.velocity.get_velocity(1)['vp'], self.segments[i].layer.velocity.get_velocity(1)['vs'],
+                                               self.segments[i + 1].layer.velocity.get_velocity(1)['vp'], self.segments[i + 1].layer.velocity.get_velocity(1)['vs'],
                                                0, angle_of_incidence_deg) # пока что я рассматриваю падающую волну как P-волну
 
             # и присоединим коэффициенты из полученного массива к "глобальным" массивам коэффициентов для всего луча:
@@ -177,8 +177,8 @@ class Ray(object):
         points.append(self.segments[-1].receiver)
         points = np.array(points, ndmin=2)          # Points of the trajectory
 
-        normal = np.array([self.segments[k].horizon.surface.normal for k in range(amount)])     # Normal vectors of each boundary
-        v = np.array([self.segments[k].velocity.get_velocity((points[k+1]-points[k])/((points[k+1]-points[k])**2).sum())['vp'] for k in range(amount+1)])
+        normal = np.array([self.segments[k].horizon.normal for k in range(amount)])     # Normal vectors of each boundary
+        v = np.array([self.segments[k].layer.velocity.get_velocity((points[k+1]-points[k])/((points[k+1]-points[k])**2).sum())['vp'] for k in range(amount+1)])
 
         critic = []
         snell = []
@@ -193,9 +193,8 @@ class Ray(object):
             sin_r_1 = np.sqrt(1 - r_1.dot(normal_r) ** 2)   # sin of angle between normal and r_1
             sin_r = np.sqrt(1 - r.dot(normal_r) ** 2)       # -//- and r
 
-            if (v[i] < v[i + 1]):
+            if v[i] < v[i + 1]:
                 critic.append(sin_r >= v[i] / v[i + 1])     # checking of critic angle
-
             else:
                 critic.append(False)
 
@@ -209,16 +208,15 @@ class Ray(object):
 
 
 class Segment(object):
-    def __init__(self, source, receiver, velocity, density, horizon):
+    def __init__(self, source, receiver, layer, horizon):
         self.source = source
         self.receiver = receiver
         self.segment = np.vstack((source, receiver))
         vec = receiver - source
         self.distance = np.sqrt((vec**2).sum())
         self.vector = vec / self.distance
-        self.velocity = velocity                        # Now, it will be the whole object of type of Velocity
+        self.layer = layer
         self.horizon = horizon                          # Now, it will be the whole object of type of Horizon
-        self.density = density                          # Now, it will be the whole object of type of Density
 
     def __repr__(self):
         return self.segment
