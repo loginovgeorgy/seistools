@@ -1,5 +1,3 @@
-import numpy as np
-
 class Units(object):
     def __init__(self, distance='m', time='s', amplitude='m/s2'):
         """
@@ -9,7 +7,6 @@ class Units(object):
         :param distance: 'm', 'km', 'ft'
         :param time: 's', 'ms',
         :param amplitude: speed, acceleration, count
-        :param kwargs:
         """
         self.distance = distance
         self.time = time
