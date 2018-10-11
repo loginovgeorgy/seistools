@@ -27,8 +27,11 @@ anchor =    [(0,0), (0,0), (0,0), (0,0), (0,0)]
 dip =       np.array([0, 0, 15, 0, 0])  # dip
 azimuth =   np.array([0, 0, 90, 0, 0])  # azimuth
 
+# Это list из горизонтов, в данном случае только flat. Если требуется grid_horizon то можно воткнуть его куда нужно
+# Главное соблюдать сортированность по глубине
+horizons = Velocity_model.make_flat_horizons(depth, anchor, dip, azimuth)
 
-vel_mod = Velocity_model(velocities, density, name, depth, anchor, dip, azimuth)
+vel_mod = Velocity_model(velocities, density, name, horizons)
 
 rays = [Ray(source, rec, vel_mod) for rec in receivers]
 

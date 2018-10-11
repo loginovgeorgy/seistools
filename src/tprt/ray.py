@@ -31,7 +31,7 @@ class Ray(object):
         source = np.array(self.source.location, ndmin=1)
         receiver = np.array(self.receiver.location, ndmin=1)
         intersections = []
-        # НУЖНО НАПИСАТЬ 
+        # НУЖНО НАПИСАТЬ
         layer = self._get_location_layer(receiver, vel_mod)
         segments.append(Segment(sou, receiver, layer))
 

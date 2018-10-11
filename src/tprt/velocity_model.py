@@ -5,14 +5,15 @@ from .units import Units
 from src.tprt import Layer, FlatHorizon
 
 class Velocity_model(object):
-    def __init__(self, velocity, density, name, depth, anchor, dip, azimuth):
-        self.horizons = self.make_horizons(depth, anchor, dip, azimuth)
-        layers = self.make_layers(velocity, density, name)
-        self.top_layer = layers[0]
-        self.mid_layers = layers[1:-1]
-        self.bottom_layer = layers[-1]
+    def __init__(self, velocity, density, name, horizons):
+        self.horizons = horizons
+        self.top_layer = None
+        self.mid_layers = []
+        self.bottom_layer = None
+        self.split_layers(self.make_layers(velocity, density, name))
 
-    def make_horizons(self, depths, anchors, dips, azimuths):        # Подразумеватся что все отсортировано по глубине от 0 до ...
+    @staticmethod
+    def make_flat_horizons(depths, anchors, dips, azimuths):        # Подразумеватся что все отсортировано по глубине от 0 до ...
         FlatHorizons = []
         for depth, anchor, dip, azimuth in zip(depths, anchors, dips, azimuths):
             FlatHorizons.append(FlatHorizon(depth, anchor, dip, azimuth))
@@ -27,6 +28,15 @@ class Velocity_model(object):
             else: bottom = None
             Layers.append(Layer(velocity, density, top, bottom, name=name))
         return Layers
+
+    def split_layers(self, all_layers):
+        self.top_layer = all_layers[0]
+        self.mid_layers = all_layers[1:-1]
+        if len(all_layers) == 1:
+            self.bottom_layer = None
+        else:
+            self.bottom_layer = all_layers[-1]
+
 
     def add_horizon(self, Horizon):
         self.horizons.append(Horizon)
