@@ -21,7 +21,7 @@ vp =        np.array([1000, 3300, 2800, 2300, 1800])  # vp
 vs =        np.array([700, 2550, 2150, 1900, 1000])  # vs
 velocities = np.array([ISOVelocity(vp[i], vs[i]) for i in range(len(vp))])
 depth =     np.array([20, 70, 120, 180])  # depth
-name =      np.array(['1', '2', '3', '4', '5'])  # name
+name =      np.array(['0', '1', '2', '3', '4'])  # name
 density =   np.array([2500, 2500, 2500, 2500, 2500])  # Density
 anchor =    [(0,0), (0,0), (0,0), (0,0), (0,0)]
 dip =       np.array([0, 0, 15, 0, 0])  # dip
@@ -34,6 +34,15 @@ horizons = Velocity_model.make_flat_horizons(depth, anchor, dip, azimuth)
 vel_mod = Velocity_model(velocities, density, name, horizons)
 
 rays = [Ray(source, rec, vel_mod) for rec in receivers]
+raycode = [[1, 3, 0],
+           [1, 2, 0],
+           [1, 1, 0],
+           [-1, 1, 0],
+           [-1, 2, 0],
+           [1, 2, 0],
+           [-1, 2, 0]]
+
+rays.append(Ray(source, Receiver([100, 100, 90]), vel_mod, raycode))
 
 fig = plt.figure()
 ax = Axes3D(fig)
@@ -52,9 +61,12 @@ for i, (ray, rec) in enumerate(zip(rays, receivers)):
     rec.plot(ax=ax, color='k', marker='^', s=50)
     # keep segments colored to check correctness of procedure
     ray.plot(ax=ax)
+rays[-1].optimize()
+rays[-1].plot(ax=ax)
 plt.show()
 
-n=4
+
+n=-1
 print(rays[n]._get_trajectory())
 #
 #

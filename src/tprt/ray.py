@@ -4,6 +4,7 @@ from scipy.optimize import minimize
 from functools import partial
 from .rt_coefficients import rt_coefficients
 
+WAVECODE = {0: 'vp', 1: 'vs', 2: 'vs'}
 
 class Ray(object):
     def __init__(self, sou, rec, vel_mod, raycode=None):
@@ -27,13 +28,30 @@ class Ray(object):
 
     def _get_init_segments(self, vel_mod, raycode):
         if raycode==None: return self._get_forward(vel_mod)
-
-        source = np.array(self.source.location, ndmin=1)
+        sou = np.array(self.source.location, ndmin=1)
         receiver = np.array(self.receiver.location, ndmin=1)
-        intersections = []
-        # НУЖНО НАПИСАТЬ
-        layer = self._get_location_layer(receiver, vel_mod)
-        segments.append(Segment(sou, receiver, layer))
+        dist = np.sqrt(((sou-receiver)**2).sum())
+        segments = []
+        # МНОГО, ОЧЕНЬ МНОГО if'ов
+        for k, (sign, i, vtype) in enumerate(raycode):
+            last = k==len(raycode)-1
+            if i==0:
+                layer = vel_mod.top_layer
+            elif 0 < i < len(vel_mod.mid_layers)+1:
+                layer = vel_mod.mid_layers[i-1]
+            else:
+                layer = vel_mod.bottom_layer
+
+            new_sou = (sou+dist/20)
+            if sign>0 and not last:
+                rec = np.array([new_sou[0], new_sou[1], layer.top.get_depth(new_sou[:2])])       # ЭТО ОСТАЕТСЯ ОТКРЫТЫМ ВОПРОСОМ
+            elif sign<0 and not last:
+                rec = np.array([new_sou[0], new_sou[1], layer.bottom.get_depth(new_sou[:2])])
+            else:
+                rec = receiver
+
+            segments.append(Segment(sou, rec, layer, vtype=WAVECODE[vtype]))
+            sou = rec
 
         return segments
 
