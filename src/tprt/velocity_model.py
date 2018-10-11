@@ -6,29 +6,24 @@ from src.tprt import Layer, FlatHorizon
 
 class Velocity_model(object):
     def __init__(self, velocity, density, name, depth, anchor, dip, azimuth):
-        self.velocities = velocity
-        self.densities  = density
-        self.names      = name
-        self.depths     = depth
-        self.anchors    = anchor
-        self.dips       = dip
-        self.azimuths   = azimuth
+        self.horizons = self.make_horizons(depth, anchor, dip, azimuth)
+        layers = self.make_layers(velocity, density, name)
+        self.top_layer = layers[0]
+        self.mid_layers = layers[1:-1]
+        self.bottom_layer = layers[-1]
 
-        self.horizons = self.make_horizons()
-        self.layers = self.make_layers()
-
-    def make_horizons(self):        # Подразумеватся что все отсортировано по глубине от 0 до ...
+    def make_horizons(self, depths, anchors, dips, azimuths):        # Подразумеватся что все отсортировано по глубине от 0 до ...
         FlatHorizons = []
-        if (self.depths).any()!=0: FlatHorizons.append(FlatHorizon())       # Все-таки я считаю, что нужно хранить дневную поверхность
-        for depth, anchor, dip, azimuth in zip(self.depths, self.anchors, self.dips, self.azimuths):
+        for depth, anchor, dip, azimuth in zip(depths, anchors, dips, azimuths):
             FlatHorizons.append(FlatHorizon(depth, anchor, dip, azimuth))
         return FlatHorizons
 
-    def make_layers(self):
+    def make_layers(self, velocities, densities, names):            # Подразумеавется, что все подано в нужной последовательности
         Layers = []
-        for i, (velocity, density, name) in enumerate(zip(self.velocities, self.densities, self.names)):
-            top = self.horizons[i]
-            if (i+1)<len(self.horizons): bottom = self.horizons[i+1]
+        for i, (velocity, density, name) in enumerate(zip(velocities, densities, names)):
+            if i!=0: top = self.horizons[i-1]
+            else: top = None
+            if i<len(self.horizons): bottom = self.horizons[i]
             else: bottom = None
             Layers.append(Layer(velocity, density, top, bottom, name=name))
         return Layers
@@ -37,7 +32,7 @@ class Velocity_model(object):
         self.horizons.append(Horizon)
 
     def add_layer(self, Layer):
-        self.layers.append(Layer)
+        self.mid_layers.append(Layer)
 
     def __repr__(self):
         return self.layers
