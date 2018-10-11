@@ -4,7 +4,7 @@ import numpy as np
 from src.tprt import Receiver, Layer, Source, Ray, FlatHorizon, ISOVelocity, Velocity_model
 from src.tprt.ray import SnelliusError
 
-source = Source([0, 0, 5])
+source = Source([40, 60, 130])
 print(source)
 
 receivers = []
@@ -20,12 +20,13 @@ print(receivers[0])
 vp =        np.array([1000, 3300, 2800, 2300, 1800])  # vp
 vs =        np.array([700, 2550, 2150, 1900, 1000])  # vs
 velocities = np.array([ISOVelocity(vp[i], vs[i]) for i in range(len(vp))])
-depth =     np.array([20, 70, 120, 180, 250])  # depth
+depth =     np.array([20, 70, 120, 180])  # depth
 name =      np.array(['1', '2', '3', '4', '5'])  # name
 density =   np.array([2500, 2500, 2500, 2500, 2500])  # Density
-anchor =    [(0,0),(0,0),(0,0),(0,0),(0,0)]
+anchor =    [(0,0), (0,0), (0,0), (0,0), (0,0)]
 dip =       np.array([0, 0, 15, 0, 0])  # dip
 azimuth =   np.array([0, 0, 90, 0, 0])  # azimuth
+
 
 vel_mod = Velocity_model(velocities, density, name, depth, anchor, dip, azimuth)
 
@@ -33,31 +34,25 @@ rays = [Ray(source, rec, vel_mod) for rec in receivers]
 
 fig = plt.figure()
 ax = Axes3D(fig)
-for l in vel_mod.layers:
+for l in vel_mod.mid_layers+[vel_mod.bottom_layer]:
     l.top.plot(ax=ax)
-vel_mod.layers[-1].bottom.plot(ax=ax)
 
 #rays[-1].optimize()
 
 source.plot(ax=ax, color='r', marker='p', s=50)
 for i, (ray, rec) in enumerate(zip(rays, receivers)):
     ray.optimize()
-    try:
-        ray.check_snellius(eps=1e-7)
-    except SnelliusError as e:
-        print('Вдоль луча под номером {} до приемника {} не выполняется закон Cнеллиуса'.format(i+1, rec.location))
+    # try:
+    #     ray.check_snellius(eps=1e-7)
+    # except SnelliusError as e:
+    #     print('Вдоль луча под номером {} до приемника {} не выполняется закон Cнеллиуса'.format(i+1, rec.location))
     rec.plot(ax=ax, color='k', marker='^', s=50)
     # keep segments colored to check correctness of procedure
     ray.plot(ax=ax)
 plt.show()
 
-n=-1
-R = []
-for i in range(len(rays[n].segments)):
-    R.append(rays[n].segments[i].source)
-R.append(rays[n].segments[n].receiver)
-R = np.array(R)
-print(R)
-
-
-print(rays[-1].dtravel())
+n=4
+print(rays[n]._get_trajectory())
+#
+#
+# print(rays[-1].dtravel())
