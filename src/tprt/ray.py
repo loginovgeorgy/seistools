@@ -6,93 +6,113 @@ from .rt_coefficients import rt_coefficients
 
 
 class Ray(object):
-    def __init__(self, sou, rec, vel_mod, wavecode=None):
+    def __init__(self, sou, rec, vel_mod, raycode=None):
         self.source = sou
         self.receiver = rec
-        self.vel_mod = vel_mod.layers       # Нужно ли хранить всю модель?
-        self.wavecode = wavecode
-
-        self._r0 = sou.location                 # ????
-        _v0 = rec.location - sou.location       # ????
-        self.distance = np.sqrt((_v0**2).sum()) # ????
-        self._v0 = _v0/self.distance            # ????
-        self.segments = self._get_init_segments()
-        self._trajectory = self._get_trajectory()
-
+        self.raycode = raycode
+        self.begin_segment = None
+        self.mid_segments = []
+        self.end_segment = None
+        self.split_segments(self._get_init_segments(vel_mod, raycode))
         #self.reflection_coefficients, self.transmission_coefficients = self.ampl_coefficients()
 
-    def _get_init_segments(self):
+
+    def split_segments(self, all_segments):
+        self.begin_segment = all_segments[0]
+        self.mid_segments = all_segments[1:-1]
+        if len(all_segments) == 1:
+            self.end_segment = None
+        else:
+            self.end_segment = all_segments[-1]
+
+    def _get_init_segments(self, vel_mod, raycode):
+        if raycode==None: return self._get_forward(vel_mod)
+
+        source = np.array(self.source.location, ndmin=1)
+        receiver = np.array(self.receiver.location, ndmin=1)
+        intersections = []
+        # НУЖНО НАПИСАТЬ 
+        layer = self._get_location_layer(receiver, vel_mod)
+        segments.append(Segment(sou, receiver, layer))
+
+        return segments
+
+    def _get_forward(self, vel_mod):
         # TODO: make more pythonic
         source = np.array(self.source.location, ndmin=1)
         receiver = np.array(self.receiver.location, ndmin=1)
         intersections = []
         distance = []
 
-        for layer in self.vel_mod:
-            rec = layer.bottom.intersect(source, receiver)
+        for hor in vel_mod.horizons:
+            rec = hor.intersect(source, receiver)
             if len(rec) == 0:
                 continue
             dist = np.sqrt(((rec - source) ** 2).sum())
-            intersections.append((rec, layer))
+            intersections.append(rec)
             distance.append(dist)
 
         intersections = [x for _, x in sorted(zip(distance, intersections))]
 
         segments = []
         sou = np.array(self.source.location, ndmin=1)
-        for x in intersections:
-            rec = x[0]
-
-            vec = (rec - sou)
-            vec /= np.sqrt((vec**2).sum())
-            layer = self._get_location_layer(sou + vec, self.vel_mod)
+        for rec in intersections:
+            layer = self._get_location_layer(sou/2 + rec/2, vel_mod)
             segments.append(Segment(sou, rec, layer))
             sou = rec
-
-        layer = self._get_location_layer(receiver, self.vel_mod)
+        layer = self._get_location_layer(receiver, vel_mod)
         segments.append(Segment(sou, receiver, layer))
 
         return segments
 
     def _get_trajectory(self):
         # TODO: make more "pythonic"
-        trj = self.segments[0].source
-        for x in self.segments:
-            trj = np.vstack((trj, x.receiver))
+        trj = np.array(self.source.location, ndmin=1)
+        for i, x in enumerate(self.mid_segments):
+            trj = np.vstack((trj, x.source))
+            if i==len(self.mid_segments)-1:
+                trj = np.vstack((trj, x.receiver))
+        trj = np.vstack((trj,np.array(self.receiver.location, ndmin=1)))
         return trj
 
     @staticmethod
     def _get_location_layer(x, vel_mod): # ВАЖНО! ПОГРАНИЧНЫЕ СЛУЧАИ ЗАГЛУБЛЯЮТСЯ
-        for l in vel_mod:
+        if (vel_mod.top_layer.bottom.get_depth(x[:2]) > x[2] + 1e-8): return vel_mod.top_layer
+
+        for l in vel_mod.mid_layers:
             if (l.bottom.get_depth(x[:2]) > x[2]+1e-8 > l.top.get_depth(x[:2])): return l
 
-    def travel_time(self, x=None, vtype='vp'):
+        if (vel_mod.bottom_layer.top.get_depth(x[:2]) < x[2] + 1e-8): return vel_mod.bottom_layer
+
+    def travel_time(self, x=None):
         # TODO: make more pythonic and faster
         # Если даны новые координаты траектории, тогда обновляются сегменты и следовательно траектория
         if np.any(x):
             new_segments = []
-            sou = self._get_trajectory()[0]
-            for seg, rec in zip(self.segments, np.reshape(x, (-1, 2))):
+            sou = self.begin_segment.source
+            for seg, rec in zip([self.begin_segment] + self.mid_segments, np.reshape(x, (-1, 2))):
                 receiver = np.array([rec[0], rec[1], seg.end_horizon.get_depth(rec)])
 
                 new_segments.append(Segment(sou, receiver, seg.layer))
                 sou = receiver
-            new_segments.append(Segment(sou, self.segments[-1].receiver, self.segments[-1].layer))
-            self.segments = new_segments
-            self._trajectory = self._get_trajectory()
+            new_segments.append(Segment(sou, self.end_segment.receiver, self.end_segment.layer))
+            self.split_segments(new_segments)
 
         time = 0
-        for segment in self.segments:
-            time += (segment.distance / segment.layer.velocity.get_velocity(segment.vector)[vtype])
+        time += self.begin_segment.time
+        for segment in self.mid_segments:
+            time += segment.time
+        if self.end_segment!=None: time += self.end_segment.time
 
         return time
 
+    # НУЖНО ПЕРЕПИСАТЬ
     def dtravel(self, r=None, vtype='vp'):
 
         amount_of_borders = len(self.segments) - 1
         dt = np.zeros((amount_of_borders, 2))        # there is only two derivatives of time, over dx and dy
         if not np.any(r):
-            r = self._trajectory                    # if points are not given, they will be trajectory by default
+            r = self._get_trajectory()                    # if points are not given, they will be trajectory by default
         for ind_border in range(amount_of_borders):
             x = r[ind_border:ind_border+3]          # The points along the ray around given point
 
@@ -117,15 +137,14 @@ class Ray(object):
             # I request so that anybody will check it
         return dt
 
-    def optimize(self, vtype='vp', method="Nelder-Mead", tol=1e-32):
+    def optimize(self, method="Nelder-Mead", tol=1e-32):
         # TODO: Add derivatives and Snels Law check
         x0 = self._get_trajectory()[1:-1, :2]
 
-        fun = partial(self.travel_time, vtype=vtype)
         if not np.any(x0):
-            return fun()
+            return self.travel_time()
 
-        xs = minimize(fun, x0.ravel(), method=method, tol=tol)
+        xs = minimize(self.travel_time, x0.ravel(), method=method, tol=tol)
         time = xs.fun
 
         return time
@@ -166,6 +185,7 @@ class Ray(object):
         # возвращаем массивы коэффициентов отражения и прохождения, возникших на пути луча:
         return r_coefficients, t_coefficients
 
+    # НУЖНО ПЕРЕПИСАТЬ
     def check_snellius(self, eps=1e-5):
         amount = len(self.segments) - 1             # Amount of boundaries
 
@@ -202,22 +222,23 @@ class Ray(object):
 
 
 class Segment(object):
-    def __init__(self, source, receiver, layer):
+    def __init__(self, source, receiver, layer, vtype='vp'):
         self.source = source                # Just np.array([x0,y0,z0]), it's not Object of type Source
         self.receiver = receiver            # Just np.array([x1,y1,z1]), it's not Object of type Receivers
-        self.segment = np.vstack((source, receiver))
-        vec = receiver - source
-        self.distance = np.sqrt((vec**2).sum())
-        self.vector = vec / self.distance
+        self.distance = np.sqrt(((receiver - source)**2).sum())
+        self.vector = (receiver - source) / (self.distance+1e-16)
+        self.vtype = vtype
         self.layer = layer
+        self.time = self.distance / self.layer.get_velocity(self.vector)[self.vtype]
         self.begin_horizon = self._what_horizon(source)                          # object of type of Horizon
         self.end_horizon = self._what_horizon(receiver)                          # object of type of Horizon
+
 
     def _what_horizon(self, point):
         top = self.layer.top
         bottom = self.layer.bottom
-        if top == None: return top
-        if bottom == None: return bottom
+        if top == None: return bottom
+        if bottom == None: return top
         dist_top = abs(top.get_depth(point[:2]) - point[2])
         dist_bottom = abs(bottom.get_depth(point[:2]) - point[2])
         if dist_top<dist_bottom: return top
