@@ -1,15 +1,17 @@
 import pylab as plt
 from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
-from src.tprt import Receiver, Layer, Source, Ray, FlatHorizon, ISOVelocity
+from src.tprt import Receiver, Layer, Source, Ray, FlatHorizon, GridHorizon, ISOVelocity
 from src.tprt.ray import SnelliusError
 
 source = Source([0, 0, 0])
 print(source)
 
 receivers = []
-for depth in [0, 30, 60, 90, 120, 150, 180, 210]:
+for depth in [10, 30, 60, 90, 120, 150, 180, 240]:
     receivers.append(Receiver([100, 100, depth]))
+
+# receivers.append(Receiver([100,100,500]))
 
 print(receivers[0])
 
@@ -17,17 +19,31 @@ print(receivers[0])
 # TODO: check procedure of "is_ray_intersect_boundary"
 vel_mod = []
 
-for vp, vs, depth, name, density, dip, azimuth in zip(
-        [1000, 3300, 2800, 2300, 1800], # vp
-        [700, 2550, 2150, 1900, 1000], # vs
-        [20, 70, 120, 180, 250],    # depth
-        ['1', '2', '3', '4', '5'],  # name
-        [2500, 2500, 2500, 2500, 2500],  # Density
-        [0, 0, 15, 0, 0],         # dip
-        [0, 0, 90, 0, 0]          # azimuth
-):
-    vel_mod.append(Layer(ISOVelocity(vp, vs), density, FlatHorizon(depth=depth, dip=dip, azimuth=azimuth), name=name))
+X = np.linspace(0, 100, 10)
+Y = np.linspace(0, 100, 10)
 
+Z = np.zeros((X.shape[0], Y.shape[0]))
+
+for i in range(X.shape[0]):
+    for j in range(Y.shape[0]):
+
+        Z[i, j] = (X[i] - 50) * (X[i] - 50) / 5000 + (Y[j] - 50) * (Y[j] - 50) / 5000  + 0 * X[i] * Y[j] + 100
+
+
+# for vp, vs, depth, name, density, dip, azimuth in zip(
+#         [1000, 3300, 2800, 2300, 1800], # vp
+#         [700, 2550, 2150, 1900, 1000], # vs
+#         [0, 70, 120, 180, 250],    # depth
+#         ['1', '2', '3', '4', '5'],  # name
+#         [2500, 2500, 2500, 2500, 2500],  # Density
+#         [0, 0, 0, 0, 0],         # dip
+#         [0, 0, 90, 0, 0]          # azimuth
+# ):
+#     vel_mod.append(Layer(ISOVelocity(vp, vs), density, FlatHorizon(depth=depth, dip=dip, azimuth=azimuth), name=name))
+
+vel_mod.append(Layer(ISOVelocity(1000,500), 2500, GridHorizon(X, Y, Z), name = '6'))
+
+vel_mod.append(Layer(ISOVelocity(3000, 1500), 2500, FlatHorizon(depth=500, dip=0, azimuth=0), name=1))
 
 rays = [Ray(source, rec, vel_mod) for rec in receivers]
 

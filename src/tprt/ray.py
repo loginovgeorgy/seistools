@@ -15,7 +15,6 @@ class Ray(object):
         self._v0 = _v0/self.distance
         self.segments = self._get_segments(vel_mod)
         self._trajectory = self._get_trajectory()
-        self.reflection_coefficients, self.transmission_coefficients = self.ampl_coefficients()
 
     def _get_segments(self, vel_mod):
         # TODO: make more pythonic
@@ -140,35 +139,6 @@ class Ray(object):
         for s in self.segments:
             plot_line_3d(s.segment.T, **kwargs)
 
-    def ampl_coefficients(self):
-
-        r_coefficients = np.zeros((len(self.segments) - 1, 3), dtype=complex) # сюда мы будем записывать коэффициенты отражения на каждой границе
-        t_coefficients = np.zeros((len(self.segments) - 1, 3), dtype=complex) # сюда мы будем записывать коэффициенты прохождения на каждой границе
-        # "минус один", т.к. последний сегмент кончается в приёмнике, а не на границе раздела
-
-        for i in range(len(self.segments)-1):  # "минус один" - по той же причине
-            angle_of_incidence_deg = np.degrees(np.arccos(abs(self.segments[i].vector.dot(self.segments[i].horizon.normal))))  # очень длинная формула. Но она оправдана:
-            # np.degrees self.segments[i].vector.dot(self.segments[i].horizon_normal)- т.к. формула для расчёта коэффициентов принимает на вход угол падения в градусах
-            # self.segments[i].vector.dot(self.segments[i].horizon_normal) - скалярное произведение направляющего вектора сегмента и вектора нормали к границе
-            # np.arccos - т.к. оба вышеупомянутых вектора единичны. Их скалярное произведение - косинус угла падения
-            # abs - чтобы избежать проблем с выбором нормали к границе; угол падения - всегда острый
-
-            # создадим массив коэффициентов на данной границе:
-            new_coefficients = rt_coefficients(self.segments[i].layer.get_density(), self.segments[i + 1].layer.get_density(),
-                                               self.segments[i].layer.velocity.get_velocity(1)['vp'], self.segments[i].layer.velocity.get_velocity(1)['vs'],
-                                               self.segments[i + 1].layer.velocity.get_velocity(1)['vp'], self.segments[i + 1].layer.velocity.get_velocity(1)['vs'],
-                                               0, angle_of_incidence_deg) # пока что я рассматриваю падающую волну как P-волну
-
-            # и присоединим коэффициенты из полученного массива к "глобальным" массивам коэффициентов для всего луча:
-            # (индексация связана с порядком следования коэффициентов на выходи функции rt_coefficients)
-            for j in range(3):
-
-                r_coefficients[i, j] = new_coefficients[j]
-                t_coefficients[i, j] = new_coefficients[j+3]
-
-        # возвращаем массивы коэффициентов отражения и прохождения, возникших на пути луча:
-        return r_coefficients, t_coefficients
-
     def check_snellius(self, eps=1e-5):
         amount = len(self.segments) - 1             # Amount of boundaries
         points = []
@@ -177,7 +147,7 @@ class Ray(object):
         points.append(self.segments[-1].receiver)
         points = np.array(points, ndmin=2)          # Points of the trajectory
 
-        normal = np.array([self.segments[k].horizon.normal for k in range(amount)])     # Normal vectors of each boundary
+        normal = np.array([self.segments[k].horizon.get_normal(self.segments[k].source[0],self.segments[k].source[1]) for k in range(amount)])     # Normal vectors of each boundary
         v = np.array([self.segments[k].layer.velocity.get_velocity((points[k+1]-points[k])/((points[k+1]-points[k])**2).sum())['vp'] for k in range(amount+1)])
 
         critic = []
