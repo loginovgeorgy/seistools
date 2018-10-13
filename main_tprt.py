@@ -5,6 +5,7 @@ from src.tprt import Receiver, Layer, Source, Ray, FlatHorizon, ISOVelocity, Vel
 from src.tprt.ray import SnelliusError
 
 source = Source([40, 60, 130])
+
 print(source)
 
 receivers = []
@@ -34,20 +35,21 @@ horizons = Velocity_model.make_flat_horizons(depth, anchor, dip, azimuth)
 vel_mod = Velocity_model(velocities, density, name, horizons)
 
 rays = [Ray(source, rec, vel_mod) for rec in receivers]
-raycode = [[1, 3, 0],
-           [1, 2, 0],
-           [1, 1, 0],
-           [-1, 1, 0],
+
+raycode = [[-1, 3, 0],
            [-1, 2, 0],
+           [-1, 1, 0],
+           [1, 1, 0],
            [1, 2, 0],
-           [-1, 2, 0]]
+           [-1, 2, 0],
+           [1, 2, 0]]
 
 rays.append(Ray(source, Receiver([100, 100, 90]), vel_mod, raycode))
 
 fig = plt.figure()
 ax = Axes3D(fig)
-for l in vel_mod.mid_layers+[vel_mod.bottom_layer]:
-    l.top.plot(ax=ax)
+for l in vel_mod.layers[:-1]:
+    l.bottom.plot(ax=ax)
 
 #rays[-1].optimize()
 
