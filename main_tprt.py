@@ -55,11 +55,7 @@ for l in vel_mod.layers[:-1]:
 
 source.plot(ax=ax, color='r', marker='p', s=50)
 for i, (ray, rec) in enumerate(zip(rays, receivers)):
-    ray.optimize()
-    # try:
-    #     ray.check_snellius(eps=1e-7)
-    # except SnelliusError as e:
-    #     print('Вдоль луча под номером {} до приемника {} не выполняется закон Cнеллиуса'.format(i+1, rec.location))
+    ray.optimize(penalty=False)
     rec.plot(ax=ax, color='k', marker='^', s=50)
     # keep segments colored to check correctness of procedure
     ray.plot(ax=ax)
@@ -67,9 +63,7 @@ rays[-1].optimize()
 rays[-1].plot(ax=ax)
 plt.show()
 
-
 n=-1
 print(rays[n]._get_trajectory())
-#
-#
-# print(rays[-1].dtravel())
+print(rays[n].check_snellius())
+print(rays[n].dtravel())

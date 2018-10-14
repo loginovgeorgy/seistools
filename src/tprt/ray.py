@@ -126,14 +126,14 @@ class Ray(object):
         return time
 
     # НУЖНО ПЕРЕПИСАТЬ
-    def dtravel(self, r=None, vtype='vp'):
+    def dtravel(self, r=None):
 
         amount_of_borders = len(self.segments) - 1
-        dt = np.zeros((amount_of_borders, 2))        # there is only two derivatives of time, over dx and dy
+        dt = np.zeros((amount_of_borders, 2))             # Производные по dx & dy соответственно, на каждой пересекающей луч границе
         if not np.any(r):
-            r = self._get_trajectory()                    # if points are not given, they will be trajectory by default
+            r = self._get_trajectory()                    # Если не даны координаты, то берется по-умолчанию
         for ind_border in range(amount_of_borders):
-            x = r[ind_border:ind_border+3]          # The points along the ray around given point
+            x = r[ind_border:ind_border+3]                # The points along the ray around given point
 
             vector = np.array([x[1]-x[0], x[2]-x[1]])
             distance = np.array([np.sqrt((vector[0]**2).sum()), np.sqrt((vector[1]**2).sum())])
@@ -141,29 +141,33 @@ class Ray(object):
             vector[0], vector[1] = vector[0]/distance[0], vector[1]/distance[1]
 
             v = np.zeros(2)
-            v[0] = self.segments[ind_border].layer.velocity.get_velocity(vector[0])[vtype]
-            v[1] = self.segments[ind_border + 1].layer.velocity.get_velocity(vector[1])[vtype]
+            v[0] = self.segments[ind_border].layer.get_velocity(vector[0])[self.segments[ind_border].vtype]
+            v[1] = self.segments[ind_border + 1].layer.get_velocity(vector[1])[self.segments[ind_border + 1].vtype]
 
             dv = np.zeros((2,2))
-            dv[0] = self.segments[ind_border].layer.velocity.get_dv(vector[0])[vtype]
-            dv[1] = self.segments[ind_border + 1].layer.velocity.get_dv(vector[1])[vtype]
+            dv[0] = self.segments[ind_border].layer.get_dv(vector[0])[self.segments[ind_border].vtype]
+            dv[1] = self.segments[ind_border + 1].layer.get_dv(vector[1])[self.segments[ind_border + 1].vtype]
 
             dt[ind_border] += (x[1,:-1] - x[0,:-1] + (x[1,-1]-x[0,-1])*gradient)/distance[0]/v[0]
             dt[ind_border] -= distance[0] * dv[0] / (v[0] ** 2)
             dt[ind_border] -= (x[2,:-1] - x[1,:-1] + (x[2,-1]-x[1,-1])*gradient)/distance[1]/v[1]
             dt[ind_border] += distance[1] * dv[1] / (v[1] ** 2)
-            # I will attach a photo with the formula of calculating this derivative of time
-            # I request so that anybody will check it
         return dt
 
-    def optimize(self, method="Nelder-Mead", tol=1e-32):
+    def optimize(self, method="Nelder-Mead", tol=1e-32, penalty=False):
         # TODO: Add derivatives and Snels Law check
         x0 = self._get_trajectory()[1:-1, :2]
 
         if not np.any(x0):
             return self.travel_time()
 
-        xs = minimize(self.travel_time, x0.ravel(), method=method, tol=tol)
+        def _fun(x):                # Добавлена штрафная функция, которая представлена разницей отношений синусов к скоростям в соседних слоях
+            return self.travel_time(x)+((self.check_snellius())).sum()
+
+        fun = self.travel_time
+        if penalty: fun = _fun
+
+        xs = minimize(fun, x0.ravel(), method=method, tol=tol)
         time = xs.fun
 
         return time
@@ -174,6 +178,37 @@ class Ray(object):
             return
         for s in self.segments:
             plot_line_3d(s.segment.T, **kwargs)
+
+    def check_snellius(self, eps=1e-5):
+        amount = len(self.segments) - 1             # Amount of boundaries
+
+        critic = []
+        snell = []
+
+        for i in range(amount):
+            r = self.segments[i].vector           # vector before boundary
+            r_1 = self.segments[i+1].vector       # vector after boundary
+
+            normal_r = self.segments[i].end_horizon.normal
+            #normal_r /= np.linalg.norm(normal_r)
+
+            sin_r = np.sqrt(1 - r.dot(normal_r) ** 2)       # -//- and r
+            sin_r_1 = np.sqrt(1 - r_1.dot(normal_r) ** 2)   # sin of angle between normal and r_1
+
+            v = self.segments[i].layer.get_velocity(r)[self.segments[i].vtype]
+            v_1 = self.segments[i+1].layer.get_velocity(r_1)[self.segments[i+1].vtype]
+
+            if v < v_1:
+                critic.append(sin_r >= v / v_1)     # checking of critic angle
+            else:
+                critic.append(False)
+
+            # if np.array(critic).any():
+            #     raise SnelliusError('На границе {} достигнут критический угол'.format(i + 1))
+
+            snell.append(abs(sin_r / v - sin_r_1 / v_1))
+
+        return np.array(snell)
 
     def ampl_coefficients(self):
 
@@ -203,41 +238,6 @@ class Ray(object):
 
         # возвращаем массивы коэффициентов отражения и прохождения, возникших на пути луча:
         return r_coefficients, t_coefficients
-
-    # НУЖНО ПЕРЕПИСАТЬ
-    def check_snellius(self, eps=1e-5):
-        amount = len(self.segments) - 1             # Amount of boundaries
-
-        points = self._get_trajectory()             # Points of the trajectory
-
-        normal = np.array([self.segments[k].end_horizon.normal for k in range(amount)])     # Normal vectors of each boundary
-        v = np.array([self.segments[k].layer.velocity.get_velocity(self.segments[k].vector)['vp'] for k in range(amount+1)])
-
-        critic = []
-        snell = []
-        for i in range(amount):
-            r = points[i + 1] - points[i]           # vector before boundary
-            r_1 = points[i + 2] - points[i + 1]     # vector after boundary
-
-            r = r / np.linalg.norm(r)
-            r_1 = r_1 / np.linalg.norm(r_1)
-            normal_r = normal[i] / np.linalg.norm(normal[i])
-
-            sin_r_1 = np.sqrt(1 - r_1.dot(normal_r) ** 2)   # sin of angle between normal and r_1
-            sin_r = np.sqrt(1 - r.dot(normal_r) ** 2)       # -//- and r
-
-            if v[i] < v[i + 1]:
-                critic.append(sin_r >= v[i] / v[i + 1])     # checking of critic angle
-            else:
-                critic.append(False)
-
-            if np.array(critic).any():
-                raise SnelliusError('На границе {} достигнут критический угол'.format(i + 1))
-
-            snell.append(abs(sin_r / sin_r_1 - v[i] / v[i + 1]) <= eps)
-
-            if not np.array(snell).any():
-                raise SnelliusError('При точности {} на границе {} нарушен закон Снеллиуса'.format(eps, i + 1))
 
 
 class Segment(object):
