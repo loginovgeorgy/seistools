@@ -127,34 +127,31 @@ class Ray(object):
 
     # НУЖНО ПЕРЕПИСАТЬ
     def dtravel(self, r=None):
-
         amount_of_borders = len(self.segments) - 1
         dt = np.zeros((amount_of_borders, 2))             # Производные по dx & dy соответственно, на каждой пересекающей луч границе
-        if not np.any(r):
-            r = self._get_trajectory()                    # Если не даны координаты, то берется по-умолчанию
+
         for ind_border in range(amount_of_borders):
-            x = r[ind_border:ind_border+3]                # The points along the ray around given point
+            seg1 = self.segments[ind_border]              # Соседние 2 сегмента, около точки на границе
+            seg2 = self.segments[ind_border + 1]
 
-            vector = np.array([x[1]-x[0], x[2]-x[1]])
-            distance = np.array([np.sqrt((vector[0]**2).sum()), np.sqrt((vector[1]**2).sum())])
-            gradient = self.segments[ind_border].end_horizon.get_gradient(x[1])
-            vector[0], vector[1] = vector[0]/distance[0], vector[1]/distance[1]
+            dist1, dist2 = seg1.get_distance(), seg2.get_distance()
+            vec1, vec2 = seg1.vector, seg2.vector
+            gradient = seg1.end_horizon.get_gradient(seg1.receiver[:-1])
 
-            v = np.zeros(2)
-            v[0] = self.segments[ind_border].layer.get_velocity(vector[0])[self.segments[ind_border].vtype]
-            v[1] = self.segments[ind_border + 1].layer.get_velocity(vector[1])[self.segments[ind_border + 1].vtype]
+            v1 = seg1.layer.get_velocity(vec1)[seg1.vtype]
+            v2 = seg2.layer.get_velocity(vec2)[seg2.vtype]
 
-            dv = np.zeros((2,2))
-            dv[0] = self.segments[ind_border].layer.get_dv(vector[0])[self.segments[ind_border].vtype]
-            dv[1] = self.segments[ind_border + 1].layer.get_dv(vector[1])[self.segments[ind_border + 1].vtype]
+            dv1 = seg1.layer.get_dv(vec1)[seg1.vtype]
+            dv2 = seg2.layer.get_dv(vec2)[seg2.vtype]
 
-            dt[ind_border] += (x[1,:-1] - x[0,:-1] + (x[1,-1]-x[0,-1])*gradient)/distance[0]/v[0]
-            dt[ind_border] -= distance[0] * dv[0] / (v[0] ** 2)
-            dt[ind_border] -= (x[2,:-1] - x[1,:-1] + (x[2,-1]-x[1,-1])*gradient)/distance[1]/v[1]
-            dt[ind_border] += distance[1] * dv[1] / (v[1] ** 2)
+            dt[ind_border] += (seg1.receiver[:-1] - seg1.source[:-1] + (seg1.receiver[-1] - seg1.source[-1])*gradient)/dist1/v1
+            dt[ind_border] -= dist1 * dv1 / (v1 ** 2)
+            dt[ind_border] -= (seg2.receiver[:-1] - seg2.source[:-1] + (seg2.receiver[-1] - seg2.source[-1])*gradient)/dist2/v2
+            dt[ind_border] += dist2 * dv2 / (v2 ** 2)
         return dt
 
-    def optimize(self, method="Nelder-Mead", tol=1e-32, penalty=False):
+    def optimize(self, method="Nelder-Mead", tol=1e-32,
+                 penalty=False, projection=True, only_snells_law=False):
         # TODO: Add derivatives and Snels Law check
         x0 = self._get_trajectory()[1:-1, :2]
 
@@ -162,7 +159,9 @@ class Ray(object):
             return self.travel_time()
 
         def _fun(x):                # Добавлена штрафная функция, которая представлена разницей отношений синусов к скоростям в соседних слоях
-            return self.travel_time(x)+((self.check_snellius())).sum()
+            f = ((self.snells_law(projection=projection))**2).mean()
+            if not only_snells_law: f += self.travel_time(x)
+            return f
 
         fun = self.travel_time
         if penalty: fun = _fun
@@ -179,34 +178,61 @@ class Ray(object):
         for s in self.segments:
             plot_line_3d(s.segment.T, **kwargs)
 
-    def check_snellius(self, eps=1e-5):
-        amount = len(self.segments) - 1             # Amount of boundaries
+    def snells_law(self, projection=True):
+        if not projection: return self.snells_law_by_sin()
+        return self.snells_law_by_projection()
+
+    def snells_law_by_sin(self):
+        amount = len(self.segments) - 1  # Amount of boundaries
 
         critic = []
         snell = []
 
         for i in range(amount):
-            r = self.segments[i].vector           # vector before boundary
-            r_1 = self.segments[i+1].vector       # vector after boundary
+            r1 = self.segments[i].vector  # vector before boundary
+            r2 = self.segments[i + 1].vector  # vector after boundary
 
-            normal_r = self.segments[i].end_horizon.normal
-            #normal_r /= np.linalg.norm(normal_r)
+            normal = self.segments[i].end_horizon.normal
 
-            sin_r = np.sqrt(1 - r.dot(normal_r) ** 2)       # -//- and r
-            sin_r_1 = np.sqrt(1 - r_1.dot(normal_r) ** 2)   # sin of angle between normal and r_1
+            sin_r1 = np.sqrt(1 - r1.dot(normal) ** 2)  # -//- and r
+            sin_r2 = np.sqrt(1 - r2.dot(normal) ** 2)  # sin of angle between normal and r_1
 
-            v = self.segments[i].layer.get_velocity(r)[self.segments[i].vtype]
-            v_1 = self.segments[i+1].layer.get_velocity(r_1)[self.segments[i+1].vtype]
+            v1 = self.segments[i].layer.get_velocity(r1)[self.segments[i].vtype]
+            v2 = self.segments[i + 1].layer.get_velocity(r2)[self.segments[i + 1].vtype]
 
-            if v < v_1:
-                critic.append(sin_r >= v / v_1)     # checking of critic angle
+            if v1 < v2:
+                critic.append(sin_r1 >= v1 / v2)  # checking of critic angle
             else:
                 critic.append(False)
 
             # if np.array(critic).any():
             #     raise SnelliusError('На границе {} достигнут критический угол'.format(i + 1))
 
-            snell.append(abs(sin_r / v - sin_r_1 / v_1))
+            snell.append(abs(sin_r1 / v1 - sin_r2 / v2))
+
+        return np.array(snell)
+
+    def snells_law_by_projection(self):
+        amount = len(self.segments) - 1  # Amount of boundaries
+
+        snell = []
+
+        for i in range(amount):
+            r1 = self.segments[i].vector  # vector before boundary
+            r2 = self.segments[i + 1].vector
+
+            normal = self.segments[i].end_horizon.normal
+
+            v1 = self.segments[i].layer.get_velocity(r1)[self.segments[i].vtype]
+            v2 = self.segments[i + 1].layer.get_velocity(r2)[self.segments[i + 1].vtype]
+
+            r2 = r1 - np.dot(normal, r1) * normal * (1 - (v2 / v1))
+
+            pr_r1 = np.dot(normal, r1 / v1)
+
+            pr_r2 = np.dot(normal, r2 / v2)
+
+            snell.append(abs(pr_r1 - pr_r2))
 
         return np.array(snell)
 
@@ -251,13 +277,16 @@ class Segment(object):
         self.start_horizon = start_horizon                          # object of type of Horizon
         self.end_horizon = end_horizon                              # object of type of Horizon
 
+    def get_distance(self):
+        return np.sqrt(((self.receiver - self.source)**2).sum())
+
     def get_vector(self):
-        dist = np.sqrt(((self.receiver - self.source)**2).sum())
+        dist = self.get_distance()
         vec = (self.receiver - self.source) / (dist+1e-16)
         return vec
 
     def get_time(self):
-        dist = np.sqrt(((self.receiver - self.source) ** 2).sum())
+        dist = self.get_distance()
         time = dist/self.layer.get_velocity(self.vector)[self.vtype]
         return time
 

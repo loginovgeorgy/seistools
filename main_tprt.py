@@ -55,7 +55,7 @@ for l in vel_mod.layers[:-1]:
 
 source.plot(ax=ax, color='r', marker='p', s=50)
 for i, (ray, rec) in enumerate(zip(rays, receivers)):
-    ray.optimize(penalty=False)
+    ray.optimize(penalty=True)
     rec.plot(ax=ax, color='k', marker='^', s=50)
     # keep segments colored to check correctness of procedure
     ray.plot(ax=ax)
@@ -65,5 +65,5 @@ plt.show()
 
 n=-1
 print(rays[n]._get_trajectory())
-print(rays[n].check_snellius())
+print(rays[n].snells_law(projection=True))
 print(rays[n].dtravel())
