@@ -1,75 +1,69 @@
 import pylab as plt
 from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
-from src.tprt import Receiver, Layer, Source, Ray, FlatHorizon, GridHorizon, ISOVelocity
+from src.tprt import Receiver, Layer, Source, Ray, FlatHorizon, GridHorizon, ISOVelocity, Velocity_model
 from src.tprt.ray import SnelliusError
 
-source = Source([0, 0, 5])
+source = Source([40, 60, 130])
+
 print(source)
 
 receivers = []
-for depth in [240]:
-    receivers.append(Receiver([90, 90, depth]))
-
-# receivers.append(Receiver([100,100,500]))
+for depth in [5, 30, 60, 90, 120, 150, 180, 210]:
+    receivers.append(Receiver([100, 100, depth]))
 
 print(receivers[0])
 
 # TODO: make class for vel_mod, for now init at least one horizon upper the top receiver
 # TODO: check procedure of "is_ray_intersect_boundary"
-vel_mod = []
 
-X = np.linspace(0, 100, 10)
-Y = np.linspace(0, 100, 10)
 
-Z = np.zeros((X.shape[0], Y.shape[0]))
+vp =        np.array([1000, 3300, 2800, 2300, 1800])  # vp
+vs =        np.array([700, 2550, 2150, 1900, 1000])  # vs
+velocities = np.array([ISOVelocity(vp[i], vs[i]) for i in range(len(vp))])
+depth =     np.array([20, 70, 120, 180])  # depth
+name =      np.array(['0', '1', '2', '3', '4'])  # name
+density =   np.array([2500, 2500, 2500, 2500, 2500])  # Density
+anchor =    [(0,0), (0,0), (0,0), (0,0), (0,0)]
+dip =       np.array([0, 0, 15, 0, 0])  # dip
+azimuth =   np.array([0, 0, 90, 0, 0])  # azimuth
 
-for i in range(X.shape[0]):
-    for j in range(Y.shape[0]):
+# Это list из горизонтов, в данном случае только flat. Если требуется grid_horizon то можно воткнуть его куда нужно
+# Главное соблюдать сортированность по глубине
+horizons = Velocity_model.make_flat_horizons(depth, anchor, dip, azimuth)
 
-        Z[i, j] = (X[i] - 50) * (X[i] - 50) / 5000 + (Y[j] - 50) * (Y[j] - 50) / 5000  + 0 * X[i] * Y[j] + 100
-
-vel_mod.append(Layer(ISOVelocity(1800,1000), 2500, GridHorizon(X, Y, Z)))
-
-for vp, vs, depth, density, angle, azimuth in zip(
-        [1800], # vp
-        [1000], # vs
-        [300],    # depth
-        [2500],  # Density
-        [5],         # angle
-        [0]          # azimuth
-):
-    vel_mod.append(Layer(ISOVelocity(vp, vs), density, FlatHorizon(azimuth=azimuth, angle=angle, x0=np.array([0, 0, depth]))))
-
-# vel_mod.append(Layer(ISOVelocity(3000, 1500), 2500, FlatHorizon(azimuth=0, angle=0, x0=[0,0,100]), name=1))
+vel_mod = Velocity_model(velocities, density, name, horizons)
 
 rays = [Ray(source, rec, vel_mod) for rec in receivers]
 
+raycode = [[-1, 3, 0],
+           [-1, 2, 0],
+           [-1, 1, 0],
+           [1, 1, 0],
+           [1, 2, 0],
+           [-1, 2, 0],
+           [1, 2, 0]]
+
+rays.append(Ray(source, Receiver([100, 100, 90]), vel_mod, raycode))
+
 fig = plt.figure()
 ax = Axes3D(fig)
-for l in vel_mod:
-    l.top.plot(ax=ax)
+for l in vel_mod.layers[:-1]:
+    l.bottom.plot(ax=ax)
 
+#rays[-1].optimize()
 
 source.plot(ax=ax, color='r', marker='p', s=50)
 for i, (ray, rec) in enumerate(zip(rays, receivers)):
-    ray.optimize()
-    try:
-        ray.check_snellius(eps=1e-6)
-    except SnelliusError as e:
-        print('Вдоль луча под номером {} до приемника {} не выполняется закон Cнеллиуса'.format(i+1, rec.location))
+    ray.optimize(penalty=True)
     rec.plot(ax=ax, color='k', marker='^', s=50)
     # keep segments colored to check correctness of procedure
     ray.plot(ax=ax)
+rays[-1].optimize()
+rays[-1].plot(ax=ax)
 plt.show()
 
 n=-1
-R = []
-for i in range(len(rays[n].segments)):
-    R.append(rays[n].segments[i].source)
-R.append(rays[n].segments[n].receiver)
-R = np.array(R)
-print(R)
-
-
-# print(rays[-1].dtravel())
+print(rays[n]._get_trajectory())
+print(rays[n].snells_law(projection=True))
+print(rays[n].dtravel())
