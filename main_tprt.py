@@ -1,7 +1,7 @@
 import pylab as plt
 from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
-from src.tprt import Receiver, Layer, Source, Ray, FlatHorizon, ISOVelocity, Velocity_model
+from src.tprt import Receiver, Layer, Source, Ray, FlatHorizon, GridHorizon, ISOVelocity, Velocity_model
 from src.tprt.ray import SnelliusError
 
 source = Source([40, 60, 130])
