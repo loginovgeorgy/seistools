@@ -147,7 +147,7 @@ class Ray(object):
         points.append(self.segments[-1].receiver)
         points = np.array(points, ndmin=2)          # Points of the trajectory
 
-        normal = np.array([self.segments[k].horizon.get_normal(self.segments[k].source[0],self.segments[k].source[1]) for k in range(amount)])     # Normal vectors of each boundary
+        normal = np.array([self.segments[k].horizon.get_normal([self.segments[k].source[0],self.segments[k].source[1]]) for k in range(amount)])     # Normal vectors of each boundary
         v = np.array([self.segments[k].layer.velocity.get_velocity((points[k+1]-points[k])/((points[k+1]-points[k])**2).sum())['vp'] for k in range(amount+1)])
 
         critic = []

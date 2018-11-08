@@ -4,12 +4,12 @@ import numpy as np
 from src.tprt import Receiver, Layer, Source, Ray, FlatHorizon, GridHorizon, ISOVelocity
 from src.tprt.ray import SnelliusError
 
-source = Source([0, 0, 0])
+source = Source([0, 0, 5])
 print(source)
 
 receivers = []
-for depth in [10, 30, 60, 90, 120, 150, 180, 240]:
-    receivers.append(Receiver([100, 100, depth]))
+for depth in [240]:
+    receivers.append(Receiver([90, 90, depth]))
 
 # receivers.append(Receiver([100,100,500]))
 
@@ -29,21 +29,19 @@ for i in range(X.shape[0]):
 
         Z[i, j] = (X[i] - 50) * (X[i] - 50) / 5000 + (Y[j] - 50) * (Y[j] - 50) / 5000  + 0 * X[i] * Y[j] + 100
 
+vel_mod.append(Layer(ISOVelocity(1800,1000), 2500, GridHorizon(X, Y, Z)))
 
-# for vp, vs, depth, name, density, dip, azimuth in zip(
-#         [1000, 3300, 2800, 2300, 1800], # vp
-#         [700, 2550, 2150, 1900, 1000], # vs
-#         [0, 70, 120, 180, 250],    # depth
-#         ['1', '2', '3', '4', '5'],  # name
-#         [2500, 2500, 2500, 2500, 2500],  # Density
-#         [0, 0, 0, 0, 0],         # dip
-#         [0, 0, 90, 0, 0]          # azimuth
-# ):
-#     vel_mod.append(Layer(ISOVelocity(vp, vs), density, FlatHorizon(depth=depth, dip=dip, azimuth=azimuth), name=name))
+for vp, vs, depth, density, angle, azimuth in zip(
+        [1800], # vp
+        [1000], # vs
+        [300],    # depth
+        [2500],  # Density
+        [5],         # angle
+        [0]          # azimuth
+):
+    vel_mod.append(Layer(ISOVelocity(vp, vs), density, FlatHorizon(azimuth=azimuth, angle=angle, x0=np.array([0, 0, depth]))))
 
-vel_mod.append(Layer(ISOVelocity(1000,500), 2500, GridHorizon(X, Y, Z), name = '6'))
-
-vel_mod.append(Layer(ISOVelocity(3000, 1500), 2500, FlatHorizon(depth=500, dip=0, azimuth=0), name=1))
+# vel_mod.append(Layer(ISOVelocity(3000, 1500), 2500, FlatHorizon(azimuth=0, angle=0, x0=[0,0,100]), name=1))
 
 rays = [Ray(source, rec, vel_mod) for rec in receivers]
 
@@ -74,4 +72,4 @@ R = np.array(R)
 print(R)
 
 
-print(rays[-1].dtravel())
+# print(rays[-1].dtravel())
