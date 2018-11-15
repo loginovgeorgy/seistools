@@ -163,7 +163,6 @@ def one_dim_inter_ddx2(x_net, fun, deriv, x_desir):
            (fourth_term_1_1 + fourth_term_1_2 + fourth_term_2_1) * deriv[i + 1]
 
 
-
 def two_dim_inter(x_set, y_set, f, deriv_x, x_search, y_search):
     #     на вход принимает исходные сетки по X и по Y, дискретно заданную функцию и координаты точки,
     # для которой надо будет рассчитать интерполированную функцию. Массив deriv_x - двумерный массив,
@@ -217,14 +216,12 @@ def two_dim_inter_surf(x_set, y_set, f, deriv_x, new_x_set, new_y_set):
     return new_f
 
 
-# потребуется минимизация, и в силу особенностей синтаксиса надо определить ещё одну функцию
-def difference(x, sou, x_set, y_set, func, deriv_x, alfa, beta, gamma, omega):
+# потребуется минимизация, и в силу особенностей синтаксиса надо определить ещё одну функцию. За подробностями - в
+# классе "GridHorizon".
+def difference(s, x_set, y_set, func, deriv_x, sou, vec):
 
-    return abs(two_dim_inter(x_set, y_set, func, deriv_x, x, alfa*x + beta) - \
-               np.sign(x - sou[0]) * \
-               gamma*np.sqrt((alfa**2 + 1)*x**2 + \
-                             (2*alfa*(beta - sou[1]) - 2*sou[0]) * x + \
-                             (beta - sou[1])**2 + sou[0]**2) - omega)
+    return abs(two_dim_inter(x_set, y_set, func, deriv_x, sou[0] + s * vec[0], sou[1] + s * vec[1]) - \
+               (sou[2] + s * vec[2]))
 
 
 def parabola(points, aim_x):

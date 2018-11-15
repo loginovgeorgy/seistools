@@ -20,7 +20,6 @@ class Ray(object):
         self.receiver = rec
         self.raycode = raycode
         self.segments = self._get_init_segments(vel_mod, raycode)
-        #self.reflection_coefficients, self.transmission_coefficients = self.ampl_coefficients()
 
     def _get_init_segments(self, vel_mod, raycode):
         if raycode==None: return self._get_forward(vel_mod)
@@ -221,7 +220,7 @@ class Ray(object):
             r1 = self.segments[i].vector  # vector before boundary
             r2 = self.segments[i + 1].vector
 
-            normal = self.segments[i].end_horizon.normal
+            normal = self.segments[i].end_horizon.get_normal(self.segments[i].receiver[0:2])
 
             v1 = self.segments[i].layer.get_velocity(r1)[self.segments[i].vtype]
             v2 = self.segments[i + 1].layer.get_velocity(r2)[self.segments[i + 1].vtype]
@@ -235,35 +234,6 @@ class Ray(object):
             snell.append(abs(pr_r1 - pr_r2))
 
         return np.array(snell)
-
-    def ampl_coefficients(self):
-
-        r_coefficients = np.zeros((len(self.segments) - 1, 3), dtype=complex) # сюда мы будем записывать коэффициенты отражения на каждой границе
-        t_coefficients = np.zeros((len(self.segments) - 1, 3), dtype=complex) # сюда мы будем записывать коэффициенты прохождения на каждой границе
-        # "минус один", т.к. последний сегмент кончается в приёмнике, а не на границе раздела
-
-        for i in range(len(self.segments)-1):  # "минус один" - по той же причине
-            angle_of_incidence_deg = np.degrees(np.arccos(abs(self.segments[i].vector.dot(self.segments[i].horizon.normal))))  # очень длинная формула. Но она оправдана:
-            # np.degrees self.segments[i].vector.dot(self.segments[i].horizon_normal)- т.к. формула для расчёта коэффициентов принимает на вход угол падения в градусах
-            # self.segments[i].vector.dot(self.segments[i].horizon_normal) - скалярное произведение направляющего вектора сегмента и вектора нормали к границе
-            # np.arccos - т.к. оба вышеупомянутых вектора единичны. Их скалярное произведение - косинус угла падения
-            # abs - чтобы избежать проблем с выбором нормали к границе; угол падения - всегда острый
-
-            # создадим массив коэффициентов на данной границе:
-            new_coefficients = rt_coefficients(self.segments[i].layer.get_density(), self.segments[i + 1].layer.get_density(),
-                                               self.segments[i].layer.velocity.get_velocity(1)['vp'], self.segments[i].layer.velocity.get_velocity(1)['vs'],
-                                               self.segments[i + 1].layer.velocity.get_velocity(1)['vp'], self.segments[i + 1].layer.velocity.get_velocity(1)['vs'],
-                                               0, angle_of_incidence_deg) # пока что я рассматриваю падающую волну как P-волну
-
-            # и присоединим коэффициенты из полученного массива к "глобальным" массивам коэффициентов для всего луча:
-            # (индексация связана с порядком следования коэффициентов на выходи функции rt_coefficients)
-            for j in range(3):
-
-                r_coefficients[i, j] = new_coefficients[j]
-                t_coefficients[i, j] = new_coefficients[j+3]
-
-        # возвращаем массивы коэффициентов отражения и прохождения, возникших на пути луча:
-        return r_coefficients, t_coefficients
 
 
 class Segment(object):

@@ -31,13 +31,18 @@ class Horizon:
 
 
 class FlatHorizon(Horizon):
-    def __init__(self, azimuth = 0, angle = 0, x0 = np.array([0, 0, 0])):
+    def __init__(self, depth = 0, anchor = np.array([0, 0]), azimuth = 0, dip = 0):
+
         # Constructor accepts as arguments the following items:
+
+        # depth = Z-coordinate of a point of the plane
+
+        # anchor = [y, z] = X- and Y-coordinates of this point
 
         # azimuth = azimuth of incidence (азимут падения). It is counted clockwise from the axis X.
         # Lies in [0, 360). Measured in degrees.
 
-        # angle = angle of incidence (угол падения). It is counted from the horizontal plane downward.
+        # dip = angle of incidence (угол падения). It is counted from the horizontal plane downward.
         # Lies in [0, 90). Measured in degrees.
 
         # x0 = np.array([x0, y0, z0]) = a point in 3D space which lies at the plane of the "horizon".
@@ -50,16 +55,16 @@ class FlatHorizon(Horizon):
 
         # It would be convenient to use four constants A, B, C and D as fields of this class:
 
-        self.A = np.sin(np.radians(angle)) * np.cos(np.radians(azimuth))
-        self.B = np.sin(np.radians(angle)) * np.sin(np.radians(azimuth))
-        self.C = np.cos(np.radians(angle))
-        self.D = - (self.A * x0[0] + self.B * x0[1] + self.C * x0[2])
+        self.A = np.sin(np.radians(dip)) * np.cos(np.radians(azimuth))
+        self.B = np.sin(np.radians(dip)) * np.sin(np.radians(azimuth))
+        self.C = np.cos(np.radians(dip))
+        self.D = - (self.A * anchor[0] + self.B * anchor[1] + self.C * depth)
 
     def get_depth(self, x):
         # "Horizons" are supposed to be non-vertical. Consequently C != 0. So, the depth is defined by formula:
         return - (self.A * x[0] + self.B * x[1] + self.D) / self.C
 
-    def get_normal(self, x):
+    def get_normal(self, x = np.array([0, 0])):
         # Gradient of any function f(x,y,z) is perpendicular to constant level surfaces. In case of a plane:
         # f(x,y,z) = A * x + B * y + C * z + D = 0 everywhere on the plane => grad(f) = [A, B, C] is the
         # sought normal vector. We just have to normalize it.
@@ -70,83 +75,60 @@ class FlatHorizon(Horizon):
 
     def intersect(self, sou, rec):
 
-        # First of all we have to be sure that there is an intersection. The criterion is simple:
-        # if the source point and the receiver point lie both higher or lower the surface, there will be no
-        # intersection point.
-        # Remember that any point [x,y,z] is higher than the "horizon" if the difference
+        # Для начала надо удостовериться, что пересечение существует. Критерий простой: если источник и приёмник
+        # находятся выше или ниже границы, то пересечения нет. (случай сильно криволинейных границ мы не рассматриваем)
+
+        # Стоит иметь ввиду, что произвольная точка [x,y,z] находится выше "горизонта". если разница
         # z - self.get_depth(x,y)
-        # is positive. Vice versa, this point is lower than the "horizon" if this difference is negative.
-        # So, the criterion takes simple form:
+        # принимает положительные значения. И наоборот, эта точка находится ниже "горизонта", если эта разница
+        # отрицательна.
+        # Таким образом, критерий может быть записан довольно просто:
 
         if ( sou[2] - self.get_depth([sou[0], sou[1]]) ) * ( rec[2] - self.get_depth([rec[0], rec[1]]) ) > 0:
 
             return []
 
-        # If the intersection exists, there is still a simple case when we can find it without sophisticated
-        # calculations:
+        # Зададим вектор в направлении от источника к приёмнику:
 
-        if sou[0] == rec[0] and sou[1] == rec[1]: # If the source and the receiver lie on one vertical line
-            # it is simple.
+        vector = np.array([rec[0] - sou[0], rec[1] - sou[1], rec[2] - sou[2]])
 
-            return sou[0], sou[1], self.get_depth([sou[0], sou[1]])
+        # Радиус-веткор любой точки на луче, соединяющем источник и приёмник, задаётся выраженим:
 
-        # But in general we have to carry out some calculations.
-        # Let's build two planes which include line "sou - rec". In order to do it we have to calculate some
-        # properties of this line.
+        # r = np.array([sou[0] + s * vector[0], sou[1] + s * vector[1], sou[2] + s * vector[2]])
 
-        sou_rec = (np.array(rec) - np.array(sou)) / np.linalg.norm((np.array(rec) - np.array(sou))) # unit vector
-        # directed from sou to rec. This vector is not vertical. Consequently, sou_rec[0] != 0 or sou_rec[1] != 0.
+        # Здесь s ~ длина пути вдоль луча (пропорциональна - т.к. вектор vector не единичен). В теории, она может быть и
+        # отрицательной.
 
-        # Both planes should contain whole line defined by sou_rec vector. Both planes will be defined by A, B, C and
-        # D constants. As it was stated before A, B and C are components of normal vector to this plane. D can be found
-        # from the fact that "sou" point belongs to the plane.
-        # So, let's set the constants.
+        # Таким образом, для пересечения нам нужно добиться равенства:
 
-        # We'd like to have to non-vertical planes. In order to do it let's find nonzero component of the sou_rec:
+        # z_surface(x, y) = z_ray
+        # => z_surface(sou[0] + s * vector[0], sou[1] + s * vector[1]) = sou[2] + s * vector[2]
 
-        if sou_rec[0] != 0:
+        # Эта задача - нахождение подходящего s - в случае плоскости решается просто:
 
-            # Components of the first normal:
+        # z_surface(sou[0] + s * vector[0], sou[1] + s * vector[1]) = sou[2] + s * vector[2]
+        # => - (self.A * (sou[0] + s * vector[0]) + self.B * (sou[1] + s * vector[1]) + self.D) / self.C =
+        # = sou[2] + s * vector[2]
 
-            A1, B1, C1 = - sou_rec[2] / sou_rec[0], 0, 1
+        # => (self.A * vector[0] + self.B * vector[1] + self.C * vector[2]) * s =
+        # = - (self.A * sou[0] + self.B * sou[1] + self.C * sou[2] + self.D)
 
-            # The second normal:
+        s = - (self.A * sou[0] + self.B * sou[1] + self.C * sou[2] + self.D) /\
+            (self.A * vector[0] + self.B * vector[1] + self.C * vector[2])
 
-            A2, B2, C2 = - (sou_rec[1] + sou_rec[2]) / sou_rec[0], 1, 1
+        # НАДО ПРОВЕРИТЬ, НЕ ВЫШЛИ ЛИ МЫ ЗА ПРЕДЕЛЫ ОБЛАСТИ!!!
+        # А вот здесь надо быть осторожным!!! Мы не знаем точно границ области!
+        #
+        # if sou[0] + s * vector[0] < 0 or \
+        #         sou[0] + s * vector[0] > 100 or \
+        #         sou[1] + s * vector[1] < 0 or \
+        #         sou[1] + s * vector[1] > 100:
+        #
+        #         return []
 
-        else:
+        # Ну, а если не вышли, то возвращаем найденную точку:
 
-            # Components of the first normal:
-
-            A1, B1, C1 = 0, - sou_rec[2] / sou_rec[1], 1
-
-            # The second normal:
-
-            A2, B2, C2 = 1, - (sou_rec[0] + sou_rec[2]) / sou_rec[0], 1
-
-        # All these vectors are evidently orthogonal to sou_rec and since that they include the straight line between
-        # sou and rec
-
-        # Remaining D1 and D2 can be found from the following equation:
-
-        D1 = - (A1 * sou[0] + B1 * sou[1] + C1 * sou[2])
-
-        D2 = - (A2 * sou[0] + B2 * sou[1] + C2 * sou[2])
-
-        # Now we just have to solve a system of two equations. Matrix of the system takes the following form:
-
-        M = np.array([[A1 / C1 - self.A / self.C, B1 / C1 - self.B / self.C],
-                      [A2 / C2 - self.A / self.C, B2 / C2 - self.B / self.C]])
-
-        # Right part of this system:
-
-        Y = np.array([- D1 / C1 + self.D / self.C, - D2 / C2 + self.D / self.C])
-
-        # Let's solve this system and use the result in the returned vector:
-
-        x, y = np.linalg.solve(M, Y)
-
-        return np.array([x, y, self.get_depth([x, y])])
+        return np.array([sou[0] + s * vector[0], sou[1] + s * vector[1], sou[2] + s * vector[2]])
 
     def get_curvature(self, x):
 
@@ -195,7 +177,7 @@ class GridHorizon(Horizon):
 
     # These formulas allow us to construct a surface with second-order smoothness.
 
-    def __init__(self, X, Y, Z, gradient=None):
+    def __init__(self, X, Y, Z):
         # Here the input arrays X and Y form up a rectangular coordinate grid. The grid is supposed to be regular for
         # each direction (X and Y).
         # In order to decrease influence of breaking out points, we shall construct more frequent grid using
@@ -277,8 +259,8 @@ class GridHorizon(Horizon):
         return n / np.linalg.norm(n)
 
     def intersect(self, sou, rec):
-        # По заданным координатам источника и приёмника sou, rec строит точку
-        # пересечения интерполированной поверхности с прямой, соединяющей источник и приёмник
+        # По заданным координатам источника и приёмника sou, rec строит точку пересечения прямой, соединяющей источник и
+        # приёмник, с интерполированной поверхностью.
 
         # Для начала надо удостовериться, что пересечение существует. Критерий простой: если источник и приёмник
         # находятся выше или ниже границы, то пересечения нет. (случай сильно криволинейных границ мы не рассматриваем)
@@ -293,95 +275,42 @@ class GridHorizon(Horizon):
 
             return []
 
-        # Если же пересечение сущетсвует, то всё ещё остаётся простой случай, в котором не надо будет производить
-        # сложные вычисления и построения:
+        # Зададим вектор в направлении от источника к приёмнику:
 
-        if sou[0] == rec[0] and sou[1] == rec[1]: # если источник и приёмник находятся на одной вертикали, то всё
-            # просто
+        vector = np.array([rec[0] - sou[0], rec[1] - sou[1], rec[2] - sou[2]])
 
-            return sou[0], sou[1], two_dim_inter(self.X, self.Y, self.Z, self.der_X, sou[0], sou[1])
+        # Радиус-веткор любой точки на луче, соединяющем источник и приёмник, задаётся выраженим:
 
-        # если же нет, то:
+        # r = np.array([sou[0] + s * vector[0], sou[1] + s * vector[1], sou[2] + s * vector[2]])
 
-        # будем работать в вертикальной плоскости, включающей огогворенную выше прямую. Эта плоскость пересекает
-        # горизонтальню плоскость вдоль прямой y = ax + b. Коэффициенты считаются из системы уравнений
-        # sou[1] = a * sou[0] + b,
-        # rec[1] = a * rec[0] + b
+        # Здесь s ~ длина пути вдоль луча (пропорциональна - т.к. вектор vector не единичен). В теории, она может быть и
+        # отрицательной.
 
-        a = (sou[1] - rec[1])/(sou[0] - rec[0])
-        b = sou[1] - a * sou[0]
+        # Таким образом, для пересечения нам нужно добиться равенства:
 
-        # Также очевидно, что в вертикальной плоскости прямая "источник-приёмник" задаётся уравнением
+        # z_surface(x, y) = z_ray
+        # => z_surface(sou[0] + s * vector[0], sou[1] + s * vector[1]) = sou[2] + s * vector[2]
 
-        # z = +-c*sqrt((x - sou[0])**2 + (y - sou[1])**2) + d =
-        # = sign(x - sou[0]) * c*sqrt((x - sou[0])**2 + (ax + b - sou[1])**2) + d =
-        # = sign(x - sou[0]) * c*sqrt((a**2 + 1)*x**2 + (2a(b - sou[1]) - 2sou[0])*x + (b - sou[1])**2 + sou[0]**2) + d
+        # Эту задачу - нахождение подходящего s - будем решать с помошью минимизации. Начальное приближение - s = 0.5,
+        # что означает точку пересечения посредине между источникм и приёмником. Ограничения - величина s должна быть
+        # не отрицательна (т.к. мы всегда идём по направлению к приёмнику) и не может превышать 1, т.к. s = 1
+        # соответствует точке приёмника.
 
-        # Коэффициенты c, d ищутся по системе:
-        # sou[2] = c*sqrt((sou[0] - sou[0])**2 + (sou[1] - sou[1])**2) + d = d
-        # rec[2] = sign(rec[0] - sou[0]) * c*sqrt((rec[0] - sou[0])**2 + (rec[1] - sou[1])**2) + d
+        s = minimize(difference, np.array([0.5]), args = (self.X, self.Y, self.Z, self.der_X, sou, vector),
+                     method ='SLSQP', bounds = np.array([[0, 1]])).x[0]
 
-        d = sou[2]
+        # Надо проверить, не вышли ли мы за пределы сетки задания поверхности:
 
-        c = np.sign(rec[0] - sou[0]) * (rec[2] - d)/np.sqrt((rec[0] - sou[0])**2 + (rec[1] - sou[1])**2)
+        if sou[0] + s * vector[0] < self.X[0] or\
+                sou[0] + s * vector[0] > self.X[-1] or \
+                sou[1] + s * vector[1] < self.Y[0] or\
+                sou[1] + s * vector[1] > self.Y[-1]:
 
-        # Хорошо. Теперь осталось найти точку пересечения поверхности с прямой. Заметим, что теперь X и Y меняются не
-        # независимо.
-        # Т.е. надо решить НЕ surf(x, y) = z(x, y), а surf(x, y(x)) = z(x, y(x))
+            return []
 
-        # => surf(x) = sign(x - sou[0]) * c*sqrt(x**2 + (ax + b)**2) + d =
-        # = sign(x - sou[0]) * c*sqrt((a**2 + 1)*x**2 + 2ab*x + b**2) + d
+        # Ну, а если не вышли, то возвращаем найденную точку:
 
-        # Слева в уравнении стоит z-координата точки интерполированной поверхности.
-
-        # Это уравнение мы будем решать численно. Для алгоритма минимизации нужно какое-то нулевое приближение.
-        # В качестве такового возьмём решение уравнения:
-
-        # surf_aver = sign(x - sou[0]) * c*sqrt((a**2 + 1)*x**2 +
-        # + (2a(b - sou[1]) - 2sou[0])*x + (b - sou[1])**2 + sou[0]**2) + d
-
-        # surf_aver - среднее значение z по дискретно заданной поверхности
-
-        surf_aver = np.average(self.Z)
-
-        #     x0 = np.roots([a**2 + 1, 2*a*b, b**2 - ((surf_aver - d)/c)**2])[0]. Надо помнить, что вовсе не
-        # обязательно, чтобы это начальное приближение попадало в исследуемую оюласть. Так что возьмём один из корней
-        # этого уравнения и на этом успокоимся.
-        x0 = (- (a * (b - sou[1]) - sou[0])  - np.sqrt((a * (b - sou[1]) - sou[0])**2 -
-                                                       (a**2 + 1) * ((b - sou[1])**2 + sou[0]**2 -
-                                                                     ((surf_aver - d)/c)**2 )))/(a**2 + 1)
-
-        # if x0 < self.X[0] or x0 > self.X[-1]: # если один из корней в область не попадает
-        #     x0 = (- (a * (b - sou[1]) - sou[0])  + np.sqrt((a * (b - sou[1]) - sou[0])**2 -
-        #                                                    (a**2 + 1) * ((b - sou[1])**2 + sou[0]**2 -
-        #                                                                  ((surf_aver - d)/c)**2 )))/(a**2 + 1)
-        #
-        # if x0 < self.X[0] or x0 > self.X[-1]: # если и второй корень не попадает в область, то точки пересечения нет.
-        #
-        #     return []
-
-        #     Теперь надо построить точку пересечения прямой с интерполированной поверхностью.
-        # Нужно, чтобы минимизатор не увёл нас за пределы области:
-        bound = np.array([self.X[0], self.X[-1]])
-
-        minimization = minimize(difference, x0, args = (sou, self.X, self.Y, self.Z, self.der_X,
-                                                        a, b, c, d), method ='SLSQP', bounds = np.array([bound]))
-
-        # If the minimum exists but it is not real point of intersection, target function would have big absolute value.
-        # So, let's check whether we have find the intersection point or not:
-
-        if abs(minimization.fun) > 10 ** (-6): # we'll need to reconsider the condition: should it be just 10 ** (-6)
-            #  or less
-
-            print(abs(minimization.fun))
-
-            return [] # if the target function is still big then we did not really find the intersection point
-
-        else: # if the target function is relatively small, return the found point:
-
-            return minimization.x[0], a * minimization.x[0] + b,\
-               two_dim_inter(self.X, self.Y, self.Z, self.der_X, minimization.x[0], a * minimization.x[0] + b)
-
+        return np.array([sou[0] + s * vector[0], sou[1] + s * vector[1], sou[2] + s * vector[2]])
 
     def get_curvature(self, x):
         # Теория здесь: http://ium.mccme.ru/postscript/s17/DG2017.pdf
@@ -460,18 +389,16 @@ class GridHorizon(Horizon):
 
         if abs(G* D_1 - F * D_2) < 1e-15 and abs(G * D - E * D_2) < 1e-15  and abs(F * D - E * D_1) < 1e-15:
 
+            # В каком направлении брать кривизны, совершенно неважно. Возьмём в направлении координатных осей.
+
+            main_curv = np.array([D  / E, D_2 / G]) # массив главных кривизн
+
             main_dir_1 = np.array([]) # главные направления не определены
             main_dir_2 = np.array([]) # главные направления не определены
 
-            # В каком направлении брать кривизны, совершенно неважно. Возьмём в направлении координатных осей.
-
-            main_curv_1 = D  / E # кривизна при dy = 0
-
-            main_curv_2 = D_2 / G # кривизна при dx = 0
-
             # Отметим, что на плоскости D = D_2 = 0, и поэтому кривизны будут равны нулю.
 
-            return main_curv_1, main_curv_2, main_dir_1, main_dir_2
+            return np.min(main_curv), np.max(main_curv), main_dir_1, main_dir_2
 
         # Если же мы всё-таки не на плоскости, то надо считать главные направления.
 
@@ -482,36 +409,45 @@ class GridHorizon(Horizon):
 
         if abs(G* D_1 - F * D_2) < 1e-15:
 
-            main_dir_1 = np.array([1, 0, z_x]) / np.linalg.norm(np.array([1, 0, z_x])) # касательный к поверхности единичный
+            main_curv = np.array([D  / E, D_2 / G]) # массив главных кривизн
+
+            main_dir_1 = np.array([0, 1, z_x]) / np.sqrt(E) # касательный к поверхности единичный
             # вектор в направлении dr / dx
-            main_dir_2 = np.array([0, 1, z_y]) / np.linalg.norm(np.array([1, 0, z_y])) # касательный к поверхности единичный
+
+            main_dir_2 = np.array([1, 0, z_y])  / np.sqrt(G) # касательный к поверхности единичный
             # вектор в направлении dr / dy
 
-            main_curv_1 = D  / E # кривизна при dy = 0
-            main_curv_2 = D_2 / G # кривизна при dx = 0
+            # Эти векторы уже единичны, в чём легко убедиться, вспомнив определения E и G.
 
-            return main_curv_1, main_curv_2, main_dir_1, main_dir_2
+            return np.min(main_curv), np.max(main_curv), \
+                   np.array([main_dir_1, main_dir_2])[np.argmin(main_curv)],\
+                   np.array([main_dir_1, main_dir_2])[np.argmax(main_curv)]
 
         # Если же и эту проверку не прошли, то считаем честно:
 
-        h1, h2 = np.roots([G* D_1 - F * D_2, G * D - E * D_2, F * D - E * D_1]) # корни нашего уравнения
+        h = np.roots([G* D_1 - F * D_2, G * D - E * D_2, F * D - E * D_1])
+        # массив корней нашего уравнения
 
-        main_dir_1 = (np.array([1, 0, z_x]) /np.linalg.norm(np.array([1, 0, z_x])) + \
-                      h1 * np.array([0, 1, z_y]) /np.linalg.norm(np.array([0, 1, z_y])))
-        main_dir_1 = main_dir_1 / np.linalg.norm(main_dir_1)
-        # касательный к поверхности единичный вектор в направлении dr / dx + h1 * dr / dy
+        # Зададим кривизны:
 
-        main_dir_2 = (np.array([1, 0, z_x]) /np.linalg.norm(np.array([1, 0, z_x])) + \
-                      h2 * np.array([0, 1, z_y]) /np.linalg.norm(np.array([0, 1, z_y])))
-        main_dir_2 = main_dir_2 / np.linalg.norm(main_dir_2)
-        # касательный к поверхности единичный вектор в направлении dr / dx + h2 * dr / dy
+        main_curv = (D  + 2 * D_1 * h + D_2 * h**2) / (E + 2 * F * h + G * h**2)
+        # массив главных кривизн
 
-        main_curv_1 = (D  + 2 * D_1 * h1 + D_2 * h1**2) / (E + 2 * F * h1 + G * h1**2)
-        # кривизна в первом главном направлении
+        # Зададим главные направления. Первое направление будет соответствовать меньшей кривизне, второе - большей.
+        # По построению, это будут производные радиус-вектора в нушном направлении по
+        # элементу длины, т.е. они заведомо будут единичными.
 
-        main_curv_2 = (D  + 2 * D_1 * h2 + D_2 * h2**2) / (E + 2 * F * h2 + G * h2**2)
+        main_dir_1 = ( np.array([1, 0, z_x]) + h[np.argmin(main_curv)] * np.array([0, 1, z_y]) ) / \
+                     np.sqrt( E + 2 * F * h[np.argmin(main_curv)] + G * h[np.argmin(main_curv)]**2 )
+        # касательный к поверхности единичный вектор в направлении dr / dx + np.max(h) * dr / dy
 
-        return main_curv_1, main_curv_2, main_dir_1, main_dir_2
+        main_dir_2 = ( np.array([1, 0, z_x]) + h[np.argmax(main_curv)] * np.array([0, 1, z_y]) ) / \
+                     np.sqrt( E + 2 * F * h[np.argmax(main_curv)] + G * h[np.argmax(main_curv)]**2 )
+        # касательный к поверхности единичный вектор в направлении dr / dx + np.min(h) * dr / dy
+
+        # возвращаем величины в том же порядке:
+
+        return np.min(main_curv), np.max(main_curv), main_dir_1, main_dir_2
 
     def plot(self, ax=None):
 

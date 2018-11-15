@@ -20,11 +20,11 @@ class Velocity_model(object):
         Layers = []
         for i, (velocity, density, name) in enumerate(zip(velocities, densities, names)):
 
-            if i==0: top = FlatHorizon(depth=-np.inf)
+            if i==0: top = FlatHorizon(depth = - np.inf)
             else: top = self.horizons[i-1]
 
             if i<len(velocities)-1: bottom = self.horizons[i]
-            else: bottom = FlatHorizon(depth=np.inf)
+            else: bottom = FlatHorizon(depth = np.inf)
             Layers.append(Layer(velocity, density, top, bottom, name=name))
         return Layers
 
