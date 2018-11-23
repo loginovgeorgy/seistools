@@ -21,8 +21,15 @@ class Horizon:
     def get_normal(self, x): # returns unit normal to the point [x, y, z(x,y)] (x in the arguments is x = [x, y])
         pass
 
-    def get_curvature(self, x): # returns main curvatures and main directions for the point [x, y, z(x,y)]
-        # (x in the arguments is x = [x, y])
+    def get_sec_deriv(self, x, vec): # 1. constructs local system of coordinates e1, e2 and n, where n is unit normal
+        # to the point [x, y, z[x,y]], e1 and e2 are tangent vectors to the surface at this point. It will be
+        # explained later which tangent vectors are taken. 2. returns second partial derivatives of the surface
+        # calculated in local system at the point [x, y, z[x,y]].
+
+        # vec is vector of the incident ray.
+        # x in the arguments is x = [x, y]
+
+        # Further explanations are presented below.
         pass
 
     @staticmethod
@@ -31,7 +38,7 @@ class Horizon:
 
 
 class FlatHorizon(Horizon):
-    def __init__(self, depth = 0, anchor = np.array([0, 0]), azimuth = 0, dip = 0):
+    def __init__(self, depth = 0, anchor = np.array([0, 0]),  dip = 0, azimuth = 0):
 
         # Constructor accepts as arguments the following items:
 
@@ -130,10 +137,9 @@ class FlatHorizon(Horizon):
 
         return np.array([sou[0] + s * vector[0], sou[1] + s * vector[1], sou[2] + s * vector[2]])
 
-    def get_curvature(self, x):
+    def get_sec_deriv(self, x, v):
 
-        return 0, 0, np.array([]), np.array([]) # normal curvature of a plane in any direction is zero and
-        # the main directions are not defined.
+        return 0, 0, 0 # second derivatives on a plane are equal to zero in any coordinate system.
 
     def plot(self, x=None, extent=(0, 100, 0, 100), ns=2, ax=None):
         if not np.any(x):
@@ -312,32 +318,19 @@ class GridHorizon(Horizon):
 
         return np.array([sou[0] + s * vector[0], sou[1] + s * vector[1], sou[2] + s * vector[2]])
 
-    def get_curvature(self, x):
-        # Теория здесь: http://ium.mccme.ru/postscript/s17/DG2017.pdf
-        # и здесь: http://info.sernam.ru/book_elv.php?id=140
+    def get_sec_deriv(self, x, vec):
 
-        # Будем считать главные кривизны поверхности.
+        # First of all we need to calculate first and second derivatives of the surface in the global system of
+        # coordinates.
 
-        # Для этой цели нам надо найти коэффициенты первой и второй квадратичной форм поверхности в данной точке:
+        # In order to do that let's compute z(x, y_search) and z(x_search, y) arrays:
 
-        # E = dr/dx * dr/dx = 1 + dz/dx * dz/dx
-        # G = dr/dy * dr/dy = 1 + dz/dy * dz/dy
-        # F = dr/dx * dr/dy = dz/dx * dz/dy
+        step_X = self.X[1] - self.X[0] # step along X
+        step_Y = self.Y[1] - self.Y[0] # step along Y
 
-        # D = n * d2r/dx2 = n[2] * d2z/dx2 (также встречается обозначение L)
-        # D_2 = n * d2r/dy2 = n[2] * d2z/dy2 (также встречается обозначение N)
-        # D_1 = n * d2r/dxdy = n[2] * d2z/dxdy (также встречается обозначение M)
-
-        # n - единичная нормаль к поверхности в точке
-
-        # Нужно взять производные. Для этого надо задать массивы z(x, y_search) и z(x_search, y):
-
-        step_X = self.X[1] - self.X[0] # шаг по X
-        step_Y = self.Y[1] - self.Y[0] # шаг по Y
-
-        ddx = np.zeros(self.X.shape[0]) # сюда прямо сейчас запишем z(x, y_search)
-        dx_dy = np.zeros(self.X.shape[0]) # сюда прямо сейчас запишем dz(x, y_search)/dx
-        ddy = np.zeros(self.Y.shape[0]) # сюда прямо сейчас запишем z(x_search, y):
+        ddx = np.zeros(self.X.shape[0]) # we'll write here z(x, y_search)
+        dx_dy = np.zeros(self.X.shape[0]) # we'll write here dz(x, y_search)/dx
+        ddy = np.zeros(self.Y.shape[0]) # we'll write here z(x_search, y):
 
         for q in range(self.X.shape[0]):
 
@@ -349,7 +342,7 @@ class GridHorizon(Horizon):
 
             ddy[q] = one_dim_inter(self.X, self.Z[:, q], self.der_X[:, q], x[0])
 
-        # Находим векторы кривизны (их ненулевые компоненты):
+        # And now let's find all needed partial derivatives:
 
         z_x = one_dim_inter_ddx(self.X, ddx, derivatives(ddx, step_X), x[0]) # dz/dx
         z_xx = one_dim_inter_ddx2(self.X, ddx, derivatives(ddx, step_X), x[0]) # d2z/dx2
@@ -359,95 +352,54 @@ class GridHorizon(Horizon):
 
         z_xy = one_dim_inter_ddx(self.X, dx_dy, derivatives(dx_dy, step_X), x[0]) # d2z/dxdy
 
-        # Коэффициенты квадратичных форм поверхности:
+        # Very well. Now we have to construct a local coordinate system. It consists of three mutually orthogonal
+        # unit vectors: e1, e2 and n.
 
-        E = 1 + z_x * z_x
-        F = z_x * z_y
-        G = 1 + z_y * z_y
+        # n is unit normal to the surface at the current point. It is pointed to the medium from where the incident ray
+        # comes.
 
-        # D = self.get_normal(self, x)[2] * z_xx
-        # D_1 = self.get_normal(self, x)[2] * z_xy
-        # D_2 = self.get_normal(self, x)[2] * z_yy - можно и так написать, но чтобы не вычислять несколько раз нормаль,
-        # напишем в одну строчку:
+        # e1 is normed projection of vec (from arguments) on the tangent plane to the surface at the current point.
+        # The tangent plan is formed up by vectors dr/dx = [1, 0, z_x] and dr/dy = [0, 1, z_y].
 
-        D, D_1, D_2 = self.get_normal(self, x)[2] * np.array([z_xx, z_xy, z_yy])
+        r_x = np.array([1, 0, z_x])
+        r_y = np.array([0, 1, z_y])
 
-        # Главные кривизны будт отношениями второй и первой квадратичных форм при определённых соотношениях dy / dx:
+        # e2 is cross product [n x e1].
 
-        # K = (D * dx**2 + 2 D_1 * dx * dy + D_2 * dy**2) / (E * dx**2 + 2 F * dx * dy + G * dy**2)
+        n = self.get_normal(x)
+        n = - np.sign(np.dot(n, vec)) * n # it has to be pointed against vec
 
-        # Искомые соотношения dy / dx будут задавать направления в плоскости XY. Эти направления называются главными.
-        # Они перпендикулярны друг другу. Найдём их.
+        e1 = (np.dot(vec, r_x) * r_x + np.dot(vec, r_y) * r_y)
+        e1 = e1 / np.linalg.norm(e1)
 
-        # Обозначим dy / dx = h. Относительно h можно составить квадратное уравнение, корни которого и зададут главные
-        # направления:
+        e2 = np.cross(n, e1)
 
-        # (GD_1 - FD_2) * h **2 + (GD - ED_2) * h + (FD - ED_1) = 0
+        # OK. The last thing to do is to recalculate known d2z/dx2, d2z/dxdy and d2z/dy2 into second partial derivatives
+        # of z(x, y) written in local coordinates along e1 and e2 axes. Let's call the latter h11, h12 and h22.
 
-        # В случае когда наше уравнение становится тождеством, главные направления не определены. Так может получиться,
-        # например, на полюсе сферы или на плоскости. Поэтому сначала проверка:
+        # It can be proven that h11, h12, h22 are solutions of a particular system of linear equations which depends on
+        # e1, e2, dz/dx and dz/dy with n and d2z/dx2, d2z/dxdy, d2z/dy2 in the right part. Let's define the matrix
+        # of this system and its right part:
 
-        if abs(G* D_1 - F * D_2) < 1e-15 and abs(G * D - E * D_2) < 1e-15  and abs(F * D - E * D_1) < 1e-15:
+        A = np.array([[(e1[0] + e1[2] * z_x)**2,
+                       2 * (e1[0] + e1[2] * z_x) * (e2[0] + e2[2] * z_x),
+                       (e2[0] + e2[2] * z_x)**2],
 
-            # В каком направлении брать кривизны, совершенно неважно. Возьмём в направлении координатных осей.
+                      [(e1[0] + e1[2] * z_x) * (e1[1] + e1[2] * z_y),
+                       (e1[0] + e1[2] * z_x) * (e2[1] + e2[2] * z_y) + (e1[1] + e1[2] * z_y) * (e2[0] + e2[2] * z_x),
+                       (e2[0] + e2[2] * z_x) * (e2[1] + e2[2] * z_y)],
 
-            main_curv = np.array([D  / E, D_2 / G]) # массив главных кривизн
+                      [(e1[1] + e1[2] * z_y)**2,
+                       2 * (e1[1] + e1[2] * z_y) * (e2[1] + e2[2] * z_y),
+                       (e2[1] + e2[2] * z_y)**2]])
 
-            main_dir_1 = np.array([]) # главные направления не определены
-            main_dir_2 = np.array([]) # главные направления не определены
+        B = np.array([n[2] * z_xx, n[2] * z_xy, n[2] * z_yy])
 
-            # Отметим, что на плоскости D = D_2 = 0, и поэтому кривизны будут равны нулю.
+        # Now we solve this system and return the result:
 
-            return np.min(main_curv), np.max(main_curv), main_dir_1, main_dir_2
+        h11, h12, h22 = np.linalg.solve(A, B)
 
-        # Если же мы всё-таки не на плоскости, то надо считать главные направления.
-
-        # Однако, стоит отметить, что если эти направления совпадают с координатными осями, то наше уравнение
-        # некорректно (т.к. на прямой x = 0 всюду dy/dx = infinity). В числах бесконечность вряд ли получится, но
-        # зашкаливающе больше значение будет. Чтобы это не привело к вычислительным ошибкам, просто будем считать, что
-        # если коэффициент при h**2 мал, то главные направления соответствуют координатным осям:
-
-        if abs(G* D_1 - F * D_2) < 1e-15:
-
-            main_curv = np.array([D  / E, D_2 / G]) # массив главных кривизн
-
-            main_dir_1 = np.array([0, 1, z_x]) / np.sqrt(E) # касательный к поверхности единичный
-            # вектор в направлении dr / dx
-
-            main_dir_2 = np.array([1, 0, z_y])  / np.sqrt(G) # касательный к поверхности единичный
-            # вектор в направлении dr / dy
-
-            # Эти векторы уже единичны, в чём легко убедиться, вспомнив определения E и G.
-
-            return np.min(main_curv), np.max(main_curv), \
-                   np.array([main_dir_1, main_dir_2])[np.argmin(main_curv)],\
-                   np.array([main_dir_1, main_dir_2])[np.argmax(main_curv)]
-
-        # Если же и эту проверку не прошли, то считаем честно:
-
-        h = np.roots([G* D_1 - F * D_2, G * D - E * D_2, F * D - E * D_1])
-        # массив корней нашего уравнения
-
-        # Зададим кривизны:
-
-        main_curv = (D  + 2 * D_1 * h + D_2 * h**2) / (E + 2 * F * h + G * h**2)
-        # массив главных кривизн
-
-        # Зададим главные направления. Первое направление будет соответствовать меньшей кривизне, второе - большей.
-        # По построению, это будут производные радиус-вектора в нушном направлении по
-        # элементу длины, т.е. они заведомо будут единичными.
-
-        main_dir_1 = ( np.array([1, 0, z_x]) + h[np.argmin(main_curv)] * np.array([0, 1, z_y]) ) / \
-                     np.sqrt( E + 2 * F * h[np.argmin(main_curv)] + G * h[np.argmin(main_curv)]**2 )
-        # касательный к поверхности единичный вектор в направлении dr / dx + np.max(h) * dr / dy
-
-        main_dir_2 = ( np.array([1, 0, z_x]) + h[np.argmax(main_curv)] * np.array([0, 1, z_y]) ) / \
-                     np.sqrt( E + 2 * F * h[np.argmax(main_curv)] + G * h[np.argmax(main_curv)]**2 )
-        # касательный к поверхности единичный вектор в направлении dr / dx + np.min(h) * dr / dy
-
-        # возвращаем величины в том же порядке:
-
-        return np.min(main_curv), np.max(main_curv), main_dir_1, main_dir_2
+        return h11, h12, h22
 
     def plot(self, ax=None):
 

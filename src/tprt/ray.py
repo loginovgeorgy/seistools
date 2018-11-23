@@ -235,6 +235,230 @@ class Ray(object):
 
         return np.array(snell)
 
+    def amplitude(self):
+
+        # POOR STRING TO DIGIT TRANSITION (VP -> 0, VS -> 1 ETC.)
+
+        # This method computes amplitude in the observation point for P - wave using formula
+        # U = U_0 /sqrt(s0**2 * П( det M(s*_i-1) / det M(s*_i))) * П( | k_i | )
+        # where U is the amplitude, U_0 is the some function depending on the source, П means "Product" with
+        # respect to index i, k_i is an appropriate amplitude coefficient at the i-th boundary on a ray's path, s*_i are
+        # points of incidence at the i-th boundary (if i != 0 and i != N). s*_0 equals to s0 and
+        # s*_N equals to the ray's length in the observation point.
+
+        # s0 is some small distance which denotes a point on the ray in the vicinity of the source. Matrix M will be
+        # introduced further.
+
+        # For now let's assume that U_0 = 1.
+
+        # The algorithm is based on the dynamic ray tracing theory presented in:
+        # The ray series method and dynamic ray tracing system for three-dimensional inhomogeneous media V. Červený
+        # F. Hron Bulletin of the Seismological Society of America (1980) 70 (1): 47-77
+
+        # In order to clarify what is "vicinity", let us find vertical distance between the source and the closest
+        # boundary and set the "vicinity" to be equal to 1/10 part of this distance.
+
+        # DEFINE S0 PROPERLY!!!
+
+        # s0 = np.min(abs(self.source.location[2] - self.source.layer.top.get_depth(self.source.location[0:2])),
+        #             abs(self.source.location[2] - self.source.layer.bottom.get_depth(self.source.location[0:2])))
+        s0 = 1 / 10
+
+        # Great. Let us introduce a matrix 2x2 that is involved in the following procedures: M. It depends on the ray
+        # and contains second-order partial derivatives of the eikonal with respect to ray coordinates q_i. Of course,
+        # it will vary along the ray, but now we are in the first segment in vicinity of the source.
+
+        M = np.zeros((2, 2)) # This is a matrix of the second derivatives of the eikonal with respect to ray coordinates
+        # q_i. The geometrical spreading depends on this matrix. General solution for corresponding system of
+        # differential equations in homogeneous isotropic medium reads:
+
+        # M[0, 0] = (v*s + c_22) / ( (v*s + c_11)*(v*s + c_22) - c_12**2 ),
+        # M[1, 1] = (v*s + c_11) / ( (v*s + c_11)*(v*s + c_22) - c_12**2 ),
+        # M[0, 1] = - c_12 / ( (v*s + c_11)*(v*s + c_22) - c_12**2 ),
+        # M[1, 0] = - c_12 / ( (v*s + c_11)*(v*s + c_22) - c_12**2 ), where s is the ray's path length, v is velocity in
+        # the medium, c_ij are unknown constants.
+
+        # In order to find c_ij we have to impose initial or boundary conditions on M. But it would be more
+        # convenient to solve the occurring system of equations in terms of N = M**(-1) since in that case all equations
+        # will be linear. Matrix N has the following form:
+
+        # N[0, 0] = v * s + c_11
+        # N[1, 1] = v * s + c_22
+        # N[0, 1] = c_12
+        # N[1, 0] = c_12
+
+        # In case of point source (which we have in the first segment of any ray) the initial condition for N reads:
+        # N(s = 0) = 0. Since that all coefficients c_ij are equal to 0. So, in the point s = s0 on the ray we have:
+
+        M[0, 0] = 1 / (self.segments[0].layer.get_velocity(1)[self.segments[0].vtype] * s0)
+        M[1, 1] = 1 / (self.segments[0].layer.get_velocity(1)[self.segments[0].vtype] * s0)
+
+        # Non-diagonal elements are already equal to 0
+
+        # We have to introduce an auxiliary item: detProd = det M(s*_i-1) / det M(s*_i). But since we don't have yet the
+        # determinant in the denominator we'd just remember the determinant in the nominator:
+
+        detRat = np.linalg.det(M)
+
+        # Let's go to the end of the zero segment. Matrix M changes:
+
+        dist = np.linalg.norm(self.segments[0].source - self.segments[0].receiver) # this will be distance along the ray
+
+        M[0, 0] = 1 / (self.segments[0].layer.get_velocity(1)[self.segments[0].vtype] * dist)
+        M[1, 1] = 1 / (self.segments[0].layer.get_velocity(1)[self.segments[0].vtype] * dist)
+
+        #  We can compute value of the detProd:
+
+        detRat = detRat / np.linalg.det(M)
+
+        # Now let's compute amplitude int the end of zero segment:
+
+        U = 1 / np.sqrt(s0**2 * detRat)
+
+        # Further actions depend on number of segments in the ray
+
+        if len(self.segments) == 1:
+
+            return U # if there is only one segment, calculate the amplitude in the receiver and return it
+
+        else:
+
+            # If there are some boundaries on the ray's path, we shall need to carry out more complicated calculations
+
+            for i in np.arange(1, len(self.segments), 1):
+
+                # At every boundary matrix M changes according to special boundary conditions which take form:
+                # M' = SMS + u*GDG,
+                # where ' indicates the next layer, S = ([-+cos(inc_angle)/cos(tr_angle), 0], [0, 1]),
+                # u = cos(inc_angle)/v +- cos(tr_angle)/v', G = ([+- 1/cos(tr_angle), 0], [0, 1]) and D is curvature
+                # matrix (i.e. Hessian matrix) of the boundary in the point of intersection.
+                # inc_angle - angle of incidence, out_angle - angle of transmission or reflection - depending on the
+                # particular raycode. Signs also depend on the raycode.
+
+                # Let's form up necessary entities.
+
+                # cosine of inc_angle
+                cos_inc = abs(np.dot(self.segments[i - 1].vector,
+                                     self.segments[i - 1].end_horizon.get_normal(self.segments[i - 1].receiver[0:2])))
+                # cosine of tr_angle
+                cos_out = abs(np.dot(self.segments[i].vector,
+                                    self.segments[i - 1].end_horizon.get_normal(self.segments[i - 1].receiver[0:2])))
+
+                # Now let's understand what happens at the surface -
+                # reflection or transmission.
+
+                rt_sign = 1 # initially we think about transition
+
+                if self.segments[i - 1].layer == self.segments[i].layer:
+
+                    rt_sign = - 1 # but then check whether we were right or not.
+
+                # And continue:
+
+                S = np.array([[rt_sign * cos_inc / cos_out, 0],
+                              [0, 1]])
+
+                G = np.array([[- rt_sign * 1 / cos_out, 0],
+                              [0, 1]])
+
+                u = cos_inc/self.segments[i - 1].layer.get_velocity(1)[self.segments[i - 1].vtype] - \
+                    rt_sign * cos_out/self.segments[i].layer.get_velocity(1)[self.segments[i].vtype]
+
+                D = np.zeros((2,2))
+                D[0, 0], D[0, 1], D[1, 1] =\
+                    self.segments[i - 1].end_horizon.get_sec_deriv(self.segments[i - 1].receiver[0:2],
+                                                                   self.segments[i - 1].vector)
+                D[1, 0] = D[0, 1]
+
+                # Since all layers are homogeneous and isotropic the general solution for matrix M (i.e. its form)
+                # remains the same:
+
+                # M[0, 0] = (v*s + c_22) / ( (v*s + c_11)*(v*s + c_22) - c_12**2 ),
+                # M[1, 1] = (v*s + c_11) / ( (v*s + c_11)*(v*s + c_22) - c_12**2 ),
+                # M[0, 1] = - c_12 / ( (v*s + c_11)*(v*s + c_22) - c_12**2 ),
+                # M[1, 0] = - c_12 / ( (v*s + c_11)*(v*s + c_22) - c_12**2 )
+
+                # We can compute constants c_i by in terms of N = M**(-1). But first of all let's find new value of M
+                # (i.e. M'):
+
+                M = np.dot(np.dot(S, M), S) + u * np.dot(np.dot(G, D), G)
+
+                N = np.linalg.inv(M)
+
+                # Remember that:
+
+                # N[0, 0] = v * s + c_11
+                # N[1, 1] = v * s + c_22
+                # N[0, 1] = c_12
+                # N[1, 0] = c_12
+
+                # So, all equations for c_ij are linear!
+                # s = dist, v = v'.
+
+                c_11 = N[0, 0] - self.segments[i].layer.get_velocity(1)[self.segments[i].vtype] * dist
+                c_22 = N[1, 1] - self.segments[i].layer.get_velocity(1)[self.segments[i].vtype] * dist
+                c_12 = N[0, 1]
+
+                # Now we have a new value of M. Let's calculate new value of detProd. Once again we know just the
+                # nominator:
+
+                detRat = np.linalg.det(M)
+
+                # And we have to not forget about transmission coefficient.
+
+                # Let's find type of incident and reflected waves:
+
+                inc_type = 0
+                out_type = 0
+
+                if self.segments[i - 1].vtype == 'vs':
+
+                    inc_type = 1
+
+                if self.segments[i].vtype == 'vs':
+
+                    inc_type = 1
+
+                ampl_coeff = rt_coefficients(self.segments[i - 1].layer.get_density(),
+                                             self.segments[i].layer.get_density(),
+                                             self.segments[i - 1].layer.velocity.get_velocity(1)['vp'],
+                                             self.segments[i - 1].layer.velocity.get_velocity(1)['vs'],
+                                             self.segments[i].layer.velocity.get_velocity(1)['vp'],
+                                             self.segments[i].layer.velocity.get_velocity(1)['vs'],
+                                             inc_type, cos_inc)[int(np.heaviside(rt_sign, 0) * 3 + out_type)]
+
+                # Let's go further, to the next boundary:
+
+                dist = dist + np.linalg.norm(self.segments[i].source - self.segments[i].receiver)
+
+                M[0, 0] = (self.segments[i].layer.get_velocity(1)[self.segments[i].vtype] * dist + c_22) / \
+                          ( (self.segments[i].layer.get_velocity(1)[self.segments[i].vtype] * dist + c_11) *
+                            (self.segments[i].layer.get_velocity(1)[self.segments[i].vtype] * dist + c_22) - c_12**2)
+
+                M[1, 1] = (self.segments[i].layer.get_velocity(1)[self.segments[i].vtype] * dist + c_11) / \
+                          ( (self.segments[i].layer.get_velocity(1)[self.segments[i].vtype] * dist + c_11) *
+                            (self.segments[i].layer.get_velocity(1)[self.segments[i].vtype] * dist + c_22) - c_12**2)
+
+                M[0, 1] = - c_12 / \
+                          ( (self.segments[i].layer.get_velocity(1)[self.segments[i].vtype] * dist + c_11) *
+                            (self.segments[i].layer.get_velocity(1)[self.segments[i].vtype] * dist + c_22) - c_12**2)
+
+                M[1, 0 ] = M[0, 1]
+
+                # Full value of the detRat:
+
+                detRat = detRat / np.linalg.det(M)
+
+                # That's all for this segment. The amplitude at its end equals to:
+
+                U = U * abs(ampl_coeff) / np.sqrt(detRat)
+
+                # Let's go to the next layer!
+
+            # We've computed the amplitude in the cycle above. Let's return it's value:
+
+            return U
+
 
 class Segment(object):
     def __init__(self, source, receiver, layer, start_horizon, end_horizon, vtype='vp'):
