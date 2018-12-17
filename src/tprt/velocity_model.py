@@ -36,3 +36,18 @@ class Velocity_model(object):
 
     def __repr__(self):
         return self.layers
+
+    def get_location_layer(self, location):
+
+        # returns a Layer object where the location = np.array([x, y, z]) is located
+
+        layer_num = 0 # initially we think that the location layer is the very first one
+
+        for i in range(len(self.layers)):
+
+            if self.layers[i].bottom.get_depth(location[0:2]) < location[2]:
+
+                layer_num = layer_num + 1 # if the bottom of the current layer is higher (closer to zero depth) than
+                # z-coordinate of location then add 1 to the layer_num.
+
+        return self.layers[layer_num]

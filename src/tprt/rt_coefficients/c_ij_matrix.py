@@ -12,30 +12,26 @@ import numpy as np
 
 def c_ij(velocities, density):
     
-    # в изотропном случае в данной матрице будет всего два независимых элемента. Однако для удобсвта введём три:
-    c00 = density*(velocities[0]**2)
-    c33 = density*(velocities[1]**2)
-    c01 = c00 - 2*c33
-    
+    # в изотропном случае в данной матрице будет всего два независимых элемента.
     # заполняем матрицу:
 
     c_ij1 = np.zeros((6, 6)) # index "1" beside "c_ij" marks that this is a variable,
     # not a function defined above
 
-    c_ij1[0, 0] = c00
-    c_ij1[1, 1] = c00
-    c_ij1[2, 2] = c00
+    c_ij1[0, 0] = density*(velocities[0]**2)
+    c_ij1[1, 1] = c_ij1[0, 0]
+    c_ij1[2, 2] = c_ij1[0, 0]
 
-    c_ij1[3, 3] = c33
-    c_ij1[4, 4] = c33
-    c_ij1[5, 5] = c33
+    c_ij1[3, 3] = density*(velocities[1]**2)
+    c_ij1[4, 4] = c_ij1[3, 3]
+    c_ij1[5, 5] = c_ij1[3, 3]
 
-    c_ij1[0, 1] = c01
-    c_ij1[0, 2] = c01
-    c_ij1[1, 2] = c01
-    c_ij1[1, 0] = c01
-    c_ij1[2, 0] = c01
-    c_ij1[2, 1] = c01
+    c_ij1[0, 1] = c_ij1[0, 0] - 2 * c_ij1[3, 3]
+    c_ij1[0, 2] = c_ij1[0, 1]
+    c_ij1[1, 2] = c_ij1[0, 1]
+    c_ij1[1, 0] = c_ij1[0, 1]
+    c_ij1[2, 0] = c_ij1[0, 1]
+    c_ij1[2, 1] = c_ij1[0, 1]
     
     return c_ij1
 

@@ -22,9 +22,9 @@ class Horizon:
         pass
 
     def get_sec_deriv(self, x, vec): # 1. constructs local system of coordinates e1, e2 and n, where n is unit normal
-        # to the point [x, y, z[x,y]], e1 and e2 are tangent vectors to the surface at this point. It will be
-        # explained later which tangent vectors are taken. 2. returns second partial derivatives of the surface
-        # calculated in local system at the point [x, y, z[x,y]].
+        # to the point [x, y, z[x,y]], d1 and d2 are tangent vectors to the surface at this point. It will be
+        # explained later what tangent vectors are used. 2. returns second partial derivatives of the surface
+        # calculated in local system at the point [x, y, z[x,y]] and the transformation matrix [d1, d2, n].
 
         # vec is vector of the incident ray.
         # x in the arguments is x = [x, y]
@@ -64,7 +64,7 @@ class FlatHorizon(Horizon):
 
         self.A = np.sin(np.radians(dip)) * np.cos(np.radians(azimuth))
         self.B = np.sin(np.radians(dip)) * np.sin(np.radians(azimuth))
-        self.C = np.cos(np.radians(dip))
+        self.C = - np.cos(np.radians(dip))
         self.D = - (self.A * anchor[0] + self.B * anchor[1] + self.C * depth)
 
     def get_depth(self, x):
@@ -137,9 +137,52 @@ class FlatHorizon(Horizon):
 
         return np.array([sou[0] + s * vector[0], sou[1] + s * vector[1], sou[2] + s * vector[2]])
 
-    def get_sec_deriv(self, x, v):
+    def get_sec_deriv(self, x, vec):
 
-        return 0, 0, 0 # second derivatives on a plane are equal to zero in any coordinate system.
+        # n is unit normal to the surface at the current point. It is pointed to the medium from where the incident ray
+        # comes.
+
+        n = self.get_normal(x)
+        n = - np.sign(np.dot(n, vec)) * n # it has to be pointed against vec
+
+        # d1 is normed projection of vec (from arguments) on the tangent plane to the surface at the current point.
+        # d2 is cross product [n x d1].
+
+        # The tangent plain is formed up by vectors dr/dx = [1, 0, z_x] and dr/dy = [0, 1, z_y]. But they are not
+        # unit and even not orthogonal to each other. Let's orthogonalize them:
+
+        tang_x = np.array([1, 0, - self.A / self.C]) # dr/dx
+        tang_y = np.array([0, 1, - self.B / self.C]) # dr/dy
+
+        tang_y = tang_y - np.dot(tang_y, tang_x) / np.dot(tang_x, tang_x) * tang_x # now tang_y is perpendicular to
+        # tang_x.
+
+        tang_x = tang_x / np.linalg.norm(tang_x)
+        tang_y = tang_y / np.linalg.norm(tang_y) # and now they both are unit
+
+        # So, we are ready to introduce d1 and d2. But we should note that if vec is collinear with n (i.e. we deal
+        # with normal incidence) than d1 and d2 are not defined. In that case we shall set d1 as follows:
+
+        if np.linalg.norm(np.cross(vec, n)) == 0:
+
+            d1 = tang_x
+
+        else:
+
+            d1 = np.dot(vec, tang_x) * tang_x + np.dot(vec, tang_y) * tang_y
+
+
+        # Let's normalize it:
+
+        d1 = d1 / np.linalg.norm(d1)
+
+        # d2 is still defined as a cross-product:
+
+        d2 = np.cross(n, d1)
+
+        # second derivatives on a plane are equal to zero in any coordinate system. So, let's return the result:
+
+        return 0, 0, 0, np.array([[d1, d2, n]]).T
 
     def plot(self, x=None, extent=(0, 100, 0, 100), ns=2, ax=None):
         if not np.any(x):
@@ -353,26 +396,48 @@ class GridHorizon(Horizon):
         z_xy = one_dim_inter_ddx(self.X, dx_dy, derivatives(dx_dy, step_X), x[0]) # d2z/dxdy
 
         # Very well. Now we have to construct a local coordinate system. It consists of three mutually orthogonal
-        # unit vectors: e1, e2 and n.
+        # unit vectors: d1, d2 and n.
 
         # n is unit normal to the surface at the current point. It is pointed to the medium from where the incident ray
         # comes.
 
-        # e1 is normed projection of vec (from arguments) on the tangent plane to the surface at the current point.
-        # The tangent plan is formed up by vectors dr/dx = [1, 0, z_x] and dr/dy = [0, 1, z_y].
-
-        r_x = np.array([1, 0, z_x])
-        r_y = np.array([0, 1, z_y])
-
-        # e2 is cross product [n x e1].
-
         n = self.get_normal(x)
         n = - np.sign(np.dot(n, vec)) * n # it has to be pointed against vec
 
-        e1 = (np.dot(vec, r_x) * r_x + np.dot(vec, r_y) * r_y)
-        e1 = e1 / np.linalg.norm(e1)
+        # d1 is normed projection of vec (from arguments) on the tangent plane to the surface at the current point.
+        # d2 is cross product [n x d1].
 
-        e2 = np.cross(n, e1)
+        # The tangent plain is formed up by vectors dr/dx = [1, 0, z_x] and dr/dy = [0, 1, z_y]. But they are not
+        # unit and even not orthogonal to each other. Let's orthogonalize them:
+
+        tang_x = np.array([1, 0, z_x]) # dr/dx
+        tang_y = np.array([0, 1, z_y]) # dr/dy
+
+        tang_y = tang_y - np.dot(tang_y, tang_x) / np.dot(tang_x, tang_x) * tang_x # now tang_y is perpendicular to
+        # tang_x.
+
+        tang_x = tang_x / np.linalg.norm(tang_x)
+        tang_y = tang_y / np.linalg.norm(tang_y) # and now they both are unit
+
+        # So, we are ready to introduce d1 and d2. But we should note that if vec is collinear with n (i.e. we deal
+        # with normal incidence) than d1 and d2 are not defined. In that case we shall set d1 as follows:
+
+        if np.linalg.norm(np.cross(vec, n)) == 0:
+
+            d1 = tang_x
+
+        else:
+
+            d1 = np.dot(vec, tang_x) * tang_x + np.dot(vec, tang_y) * tang_y
+
+
+        # Let's normalize it:
+
+        d1 = d1 / np.linalg.norm(d1)
+
+        # d2 is still defined as a cross-product:
+
+        d2 = np.cross(n, d1)
 
         # OK. The last thing to do is to recalculate known d2z/dx2, d2z/dxdy and d2z/dy2 into second partial derivatives
         # of z(x, y) written in local coordinates along e1 and e2 axes. Let's call the latter h11, h12 and h22.
@@ -381,33 +446,33 @@ class GridHorizon(Horizon):
         # e1, e2, dz/dx and dz/dy with n and d2z/dx2, d2z/dxdy, d2z/dy2 in the right part. Let's define the matrix
         # of this system and its right part:
 
-        A = np.array([[(e1[0] + e1[2] * z_x)**2,
-                       2 * (e1[0] + e1[2] * z_x) * (e2[0] + e2[2] * z_x),
-                       (e2[0] + e2[2] * z_x)**2],
+        A = np.array([[(d1[0] + d1[2] * z_x)**2,
+                       2 * (d1[0] + d1[2] * z_x) * (d2[0] + d2[2] * z_x),
+                       (d2[0] + d2[2] * z_x)**2],
 
-                      [(e1[0] + e1[2] * z_x) * (e1[1] + e1[2] * z_y),
-                       (e1[0] + e1[2] * z_x) * (e2[1] + e2[2] * z_y) + (e1[1] + e1[2] * z_y) * (e2[0] + e2[2] * z_x),
-                       (e2[0] + e2[2] * z_x) * (e2[1] + e2[2] * z_y)],
+                      [(d1[0] + d1[2] * z_x) * (d1[1] + d1[2] * z_y),
+                       (d1[0] + d1[2] * z_x) * (d2[1] + d2[2] * z_y) + (d1[1] + d1[2] * z_y) * (d2[0] + d2[2] * z_x),
+                       (d2[0] + d2[2] * z_x) * (d2[1] + d2[2] * z_y)],
 
-                      [(e1[1] + e1[2] * z_y)**2,
-                       2 * (e1[1] + e1[2] * z_y) * (e2[1] + e2[2] * z_y),
-                       (e2[1] + e2[2] * z_y)**2]])
+                      [(d1[1] + d1[2] * z_y)**2,
+                       2 * (d1[1] + d1[2] * z_y) * (d2[1] + d2[2] * z_y),
+                       (d2[1] + d2[2] * z_y)**2]])
 
         B = np.array([n[2] * z_xx, n[2] * z_xy, n[2] * z_yy])
 
-        # Now we solve this system and return the result:
+        # Now we solve this system and return the result (including the transformation matrix):
 
         h11, h12, h22 = np.linalg.solve(A, B)
 
-        return h11, h12, h22
+        return h11, h12, h22, np.array([d1, d2, n]).T
 
     def plot(self, ax=None):
 
         # We'd like to plot a smooth interface, so let's construct new X and Y sets which will be 2 times more frequent
         # than original ones::
 
-        X_new = np.linspace(self.X[0], self.X[-1], 2 * self.X.shape[0])
-        Y_new = np.linspace(self.Y[0], self.Y[-1], 2 * self.Y.shape[0])
+        X_new = np.linspace(self.X[0], self.X[-1], 2 * self.X.shape[0] - 1)
+        Y_new = np.linspace(self.Y[0], self.Y[-1], 2 * self.Y.shape[0] - 1)
 
         # And let's interpolate our initial grid to the new one:
 
