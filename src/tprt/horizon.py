@@ -182,7 +182,7 @@ class FlatHorizon(Horizon):
 
         # second derivatives on a plane are equal to zero in any coordinate system. So, let's return the result:
 
-        return 0, 0, 0, np.array([[d1, d2, n]]).T
+        return 0, 0, 0, np.array([d1, d2, n]).T
 
     def plot(self, x=None, extent=(0, 100, 0, 100), ns=2, ax=None):
         if not np.any(x):

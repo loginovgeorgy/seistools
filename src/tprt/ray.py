@@ -20,6 +20,9 @@ class Ray(object):
         self.receiver = rec
         self.raycode = raycode
         self.segments = self._get_init_segments(vel_mod, raycode)
+        self.amplitude_fun = np.array([1, 0, 0]) # this initial amplitude will be replaced by the right one in the
+        # optimize method. Actually this is the amplitude in the frequency domain. Amplitude in the time domain can be
+        # found using a particular method.
 
     def _get_init_segments(self, vel_mod, raycode):
         if raycode==None: return self._get_forward(vel_mod)
@@ -152,6 +155,9 @@ class Ray(object):
     def optimize(self, method="Nelder-Mead", tol=1e-32,
                  penalty=False, projection=True, only_snells_law=False):
         # TODO: Add derivatives and Snels Law check
+
+        self.amplitude_fun = self.amplitude_fr_dom() # rewrite the amplitude field.
+
         x0 = self._get_trajectory()[1:-1, :2]
 
         if not np.any(x0):
@@ -235,14 +241,16 @@ class Ray(object):
 
         return np.array(snell)
 
-    def amplitude(self):
+    def amplitude_fr_dom(self):
 
-        # This method computes amplitude in the observation point for P - wave using formula
+        # This method computes amplitude in the observation point in the frequency domain using formula
         # U = U_0 /sqrt(s0**2 * П( det M(s*_i-1) / det M(s*_i))) * П( | k_i | )
         # where U is the amplitude, U_0 is the some function depending on the source, П means "Product" with
         # respect to index i, k_i is an appropriate amplitude coefficient at the i-th boundary on a ray's path, s*_i are
         # points of incidence at the i-th boundary (if i != 0 and i != N). s*_0 equals to s0 and
         # s*_N equals to the ray's length in the observation point.
+
+        # The direction of the displacement vector is described below.
 
         # s0 is some small distance which denotes a point on the ray in the vicinity of the source. Matrix M will be
         # introduced further.
@@ -346,13 +354,14 @@ class Ray(object):
 
         if len(self.segments) == 1 or np.linalg.norm(U) == 0:
 
-            return U # if there is only one segment (or the amplitude is already equal to 0), calculate the amplitude in
+            return U / np.sqrt(self.segments[0].layer.get_velocity(0)[self.segments[0].vtype] *
+                               self.segments[0].layer.get_density())
+            # if there is only one segment (or the amplitude is already equal to 0), calculate the amplitude in
             # the receiver and return it.
 
         else:
 
             # If there are some boundaries on the ray's path, we shall need to carry out more complicated calculations.
-
 
             for i in np.arange(1, len(self.segments), 1):
 
@@ -501,20 +510,33 @@ class Ray(object):
                 if self.segments[i].vtype == 'vp':
 
                     U = np.linalg.norm(U) * ampl_coeff[0] / np.sqrt(detRat) * t
-                    print(ampl_coeff[0])
 
                 if self.segments[i].vtype == 'vs':
 
                     U = (np.linalg.norm(U) * ampl_coeff[1] * e1 +
                          np.linalg.norm(U) * ampl_coeff[2] * e2) / np.sqrt(detRat)
 
-                    print(ampl_coeff[1])
 
                 # Let's go to the next layer!
 
             # We've computed the amplitude in the cycle above. Let's return it's value:
 
-            return U
+            return U / np.sqrt(self.segments[0].layer.get_velocity(0)[self.segments[0].vtype] *
+                               self.segments[0].layer.get_density())
+
+    def amplitude_t_dom(self, t):
+        # returns amplitude vector in the receiver in a particular time moment t.
+
+        # We use formula: A = 1 / (2 * Pi) * Integrate(- i * w *Exp(-i * w * (t - tau)) * F[w] * U)
+        # where tau is time of the first break (i.e. traveltime along the ray), F[w] is a Fourier transform of
+        # the Ricker wavelet from the Source  and U is a constant vector: self.amplitude_fun.
+        # This integral was computed analytically. Here is the final expression.
+
+        tau = self.travel_time()
+        sigma = self.source.sigma
+
+        return 2 * np.exp(- (t - tau)**2 / (2 * sigma**2)) * (-3 * sigma**2 + (t - tau)**2) * (t - tau) / \
+               (np.sqrt(3) * np.pi**(1 / 4) * sigma**(9 / 2)) * self.amplitude_fun
 
     def spreading(self, curv_bool):
         # Computes only geometrical spreading along the ray in the observation point. All comments are above.
@@ -663,9 +685,8 @@ class Ray(object):
 
                 J = J * cos_out / cos_inc * detRat
 
-            return J, np.sqrt(detRat) * self.segments[-1].layer.get_velocity(0)['vp'] * dist
-
-
+            return J, np.sqrt(detRat) * self.segments[0].layer.get_velocity(0)['vp'] *\
+                   np.linalg.norm(self.segments[0].receiver - self.segments[0].source)
 
 
 class Segment(object):

@@ -10,7 +10,7 @@ DEFAULT_LOCATION = np.array([0, 0, 0])
 class Source(object):
     def __init__(
             self,
-            frequency,
+            sigma, # sigma parameter in the Ricker wavelet
             vel_model,
             location=DEFAULT_LOCATION,
             name=DEFAULT_SOURCE_NAME,
@@ -18,7 +18,7 @@ class Source(object):
         self.name = name
         self.location = np.array(location).ravel()
         self.layer = vel_model.get_location_layer(self.location)
-        self.frequency = frequency
+        self.sigma = sigma
 
     def _get_description(self):
         return 'Source "{}", loc ({})'.format(
@@ -36,8 +36,8 @@ class Source(object):
         plot_points_3d(self.location, **kwargs)
 
     def psi0(self, r0, vec):
-        # returns a coefficient which defines the amplitude at point with radius-vector r0 in vicinity of the source.
-        # Argument vec specifies the desired direction of polarization.
+        # returns a coefficient from 0 to 1 which defines the amplitude at point with radius-vector r0 in vicinity of
+        # the source. Argument vec specifies the desired direction of polarization.
         pass
 
 
@@ -50,8 +50,7 @@ class DilatCenter(Source):
 
         r = r0 - self.location
 
-        return np.dot(r, vec) / np.linalg.norm(r) / np.linalg.norm(vec) * \
-               self.frequency / ( 2 * self.layer.get_velocity(1)["vp"] ** 3 * self.layer.get_density() )
+        return np.dot(r, vec) / np.linalg.norm(r) / np.linalg.norm(vec)
 
 
 class RotatCenter(Source):
@@ -59,18 +58,17 @@ class RotatCenter(Source):
 
     def __init__(
             self,
-            frequency,
-            vel_model,
+            sigma,
             axis,
+            vel_model,
             location=DEFAULT_LOCATION,
             name=DEFAULT_SOURCE_NAME,
     ):
         self.name = name
         self.location = np.array(location).ravel()
         self.layer = vel_model.get_location_layer(self.location)
-        self.frequency = frequency
+        self.sigma = sigma
         self.axis = axis / np.linalg.norm(axis) # axis of rotation
-
 
     def psi0(self, r0, vec):
 
@@ -80,6 +78,5 @@ class RotatCenter(Source):
 
         cross_prod = np.cross(r / np.linalg.norm(r), self.axis)
 
-        return np.dot(cross_prod, vec) / np.linalg.norm(vec) * \
-               self.frequency / ( 2 * self.layer.get_velocity(1)["vs"] ** 3 * self.layer.get_density())
+        return np.dot(cross_prod, vec) / np.linalg.norm(vec)
 
