@@ -19,6 +19,7 @@ class Ray(object):
         self.source = sou
         self.receiver = rec
         self.raycode = raycode
+        self.velmod = vel_mod
         self.segments = self._get_init_segments(vel_mod, raycode)
         self.amplitude_fun = np.array([1, 0, 0]) # this initial amplitude will be replaced by the right one in the
         # optimize method. Actually this is the amplitude in the frequency domain. Amplitude in the time domain can be
@@ -156,8 +157,6 @@ class Ray(object):
                  penalty=False, projection=True, only_snells_law=False):
         # TODO: Add derivatives and Snels Law check
 
-        self.amplitude_fun = self.amplitude_fr_dom() # rewrite the amplitude field.
-
         x0 = self._get_trajectory()[1:-1, :2]
 
         if not np.any(x0):
@@ -173,6 +172,8 @@ class Ray(object):
 
         xs = minimize(fun, x0.ravel(), method=method, tol=tol)
         time = xs.fun
+
+        # self.amplitude_fun = self.amplitude_fr_dom() # rewrite the amplitude field.
 
         return time
 
@@ -244,7 +245,7 @@ class Ray(object):
     def amplitude_fr_dom(self):
 
         # This method computes amplitude in the observation point in the frequency domain using formula
-        # U = U_0 /sqrt(s0**2 * П( det M(s*_i-1) / det M(s*_i))) * П( | k_i | )
+        # U = U_0 /sqrt(s0**2 * |П( det M(s*_i-1) / det M(s*_i))|) * П( k_i )
         # where U is the amplitude, U_0 is the some function depending on the source, П means "Product" with
         # respect to index i, k_i is an appropriate amplitude coefficient at the i-th boundary on a ray's path, s*_i are
         # points of incidence at the i-th boundary (if i != 0 and i != N). s*_0 equals to s0 and
@@ -343,12 +344,12 @@ class Ray(object):
 
         if self.segments[0].vtype == 'vp':
 
-            U = self.source.psi0(self.segments[0].receiver, t) / np.sqrt(s0**2 * detRat) * t
+            U = self.source.psi0(self.segments[0].receiver, t) / np.sqrt(s0**2 * abs(detRat)) * t
 
         if self.segments[0].vtype == 'vs':
 
             U = (self.source.psi0(self.segments[0].receiver, e1) * e1 +
-                 self.source.psi0(self.segments[0].receiver, e2) * e2 )/ np.sqrt(s0**2 * detRat)
+                 self.source.psi0(self.segments[0].receiver, e2) * e2 )/ np.sqrt(s0**2 * abs(detRat))
 
         # Further actions depend on number of segments in the ray.
 
@@ -466,7 +467,9 @@ class Ray(object):
                 # existing vector of polarization U in the local coordinate system. Remember that we've already
                 # found necessary transition matrix.
 
-                ampl_coeff = rt_coefficients(self.segments[i - 1].layer, self.segments[i].layer, cos_inc,
+                ampl_coeff = rt_coefficients(self.velmod.layers[self.raycode[i - 1][1]],
+                                             self.velmod.layers[self.raycode[i - 1][1] + self.raycode[i - 1][0]],
+                                             cos_inc,
                                              np.dot(transit_matr.T, U),
                                              self.segments[i - 1].layer.get_velocity(0)[self.segments[i - 1].vtype],
                                              rt_sign)
@@ -509,23 +512,26 @@ class Ray(object):
 
                 if self.segments[i].vtype == 'vp':
 
-                    U = np.linalg.norm(U) * ampl_coeff[0] / np.sqrt(detRat) * t
+                    U = np.linalg.norm(U) * ampl_coeff[0] / np.sqrt(abs(detRat)) * t
 
                 if self.segments[i].vtype == 'vs':
 
                     U = (np.linalg.norm(U) * ampl_coeff[1] * e1 +
-                         np.linalg.norm(U) * ampl_coeff[2] * e2) / np.sqrt(detRat)
+                         np.linalg.norm(U) * ampl_coeff[2] * e2) / np.sqrt(abs(detRat))
 
 
                 # Let's go to the next layer!
 
-            # We've computed the amplitude in the cycle above. Let's return it's value:
+            # We've computed the amplitude in the cycle above. Let's return it's value, but before that we have
+            # to add some coefficients related to the source's layer:
 
             return U / np.sqrt(self.segments[0].layer.get_velocity(0)[self.segments[0].vtype] *
                                self.segments[0].layer.get_density())
 
     def amplitude_t_dom(self, t):
         # returns amplitude vector in the receiver in a particular time moment t.
+        # Here I use theory presented in: Popov, M.M. Ray theory and gaussian beam method for geophysicists /
+        # M. M. Popov. - Salvador: EDUFBA, 2002. – 172 p.
 
         # We use formula: A = 1 / (2 * Pi) * Integrate(- i * w *Exp(-i * w * (t - tau)) * F[w] * U)
         # where tau is time of the first break (i.e. traveltime along the ray), F[w] is a Fourier transform of
@@ -590,7 +596,6 @@ class Ray(object):
 
                 cos_out = abs(np.dot(self.segments[i].vector,
                                      self.segments[i - 1].end_horizon.get_normal(self.segments[i - 1].receiver[0:2])))
-
 
                 rt_sign = 1
 
@@ -685,7 +690,7 @@ class Ray(object):
 
                 J = J * cos_out / cos_inc * detRat
 
-            return J, np.sqrt(detRat) * self.segments[0].layer.get_velocity(0)['vp'] *\
+            return J, np.sqrt(abs(detRat)) * self.segments[0].layer.get_velocity(0)['vp'] *\
                    np.linalg.norm(self.segments[0].receiver - self.segments[0].source)
 
 

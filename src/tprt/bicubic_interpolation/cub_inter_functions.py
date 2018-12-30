@@ -3,6 +3,41 @@
 import numpy as np
 
 
+def get_left_i(arr, x):
+
+    # Если массив arr упорядочен и с постоянным шагом, то всё ещё проще:
+
+    i = int((x - arr[0]) / (arr[1] - arr[0]))
+
+    if i == arr.shape[0] - 1:
+
+        return i - 1
+
+    return i
+
+    # Ищет номер ближайшего слева к x элемента из arr. Т.е. x - число, а arr - упорядоченный по возрастанию массив
+    # чисел. Поиск происходит методом бисекции.
+
+    # i = int(arr.shape[0] / 2) # изначально исходим от центра массива
+    #
+    # di = int( round(arr.shape[0] / 4) ) # шаг по массиву
+    #
+    # while int(di / 2) != 0:
+    #
+    #     i = i + int(di * np.sign(x - arr[i]))
+    #
+    #     di = int(round(di / 2)) # заметим, что round округляет "половинки" в сторону чётного числа.
+    #
+    # # В итоге мы не знаем, с какой стороны от x находится i-й элемент arr. Возвращаемый номер будет от этого зависеть:
+    #
+    # if x - arr[i] < 0 or i == arr.shape[0] - 1:
+    #     # второе условие соответствует попаданию на край массива arr
+    #
+    #     return i - 1
+    #
+    # return i
+
+
 def derivatives(func, h):
     # по дискретно заданной функции (не менее четырёх точек) func = np.array([f1, f2, ..., fn]) и шагу
     # дискретизации h строит вектор производных в этих точках (методом конечных разностей)
@@ -47,12 +82,7 @@ def one_dim_inter(x_net, fun, deriv, x_desir): # считает значение
 
     # надо определить, между какими значениями сетки находится точка x_desir:
 
-    i = 0
-
-    for k in range(x_net.shape[0] - 1):
-        if x_net[k] <= x_desir <= x_net[k + 1]:
-            i = k
-            break
+    i = get_left_i(x_net, x_desir)
 
     x_i = x_net[i]
     x_i_1 = x_net[i + 1]
@@ -83,12 +113,7 @@ def one_dim_inter_ddx(x_net, fun, deriv, x_desir):
 
     # надо определить, между какими значениями сетки находится точка x_desir:
 
-    i = 0
-
-    for k in range(x_net.shape[0] - 1):
-        if x_net[k] <= x_desir <= x_net[k + 1]:
-            i = k
-            break
+    i = get_left_i(x_net, x_desir)
 
     x_i = x_net[i]
     x_i_1 = x_net[i + 1]
@@ -120,12 +145,7 @@ def one_dim_inter_ddx2(x_net, fun, deriv, x_desir):
 
     # надо определить, между какими значениями сетки находится точка x_desir:
 
-    i = 0
-
-    for k in range(x_net.shape[0] - 1):
-        if x_net[k] <= x_desir <= x_net[k + 1]:
-            i = k
-            break
+    i = get_left_i(x_net, x_desir)
 
     x_i = x_net[i]
     x_i_1 = x_net[i + 1]
@@ -254,12 +274,7 @@ def one_dim_parab_inter(x_set, func, aim_x):
 
     # Сначала определяем, между какими точками заданной сетки находится целевая точка:
 
-    i = 0
-
-    for k in range(x_set.shape[0] - 1):
-        if aim_x >= x_set[k] and aim_x <= x_set[k + 1]:
-            i = k
-            break
+    i = get_left_i(x_set, aim_x)
 
     # Теперь мы точно знаем, что aim_x лежит между  x_set[i] и  x_set[i + 1]
 
@@ -283,9 +298,9 @@ def one_dim_parab_inter(x_set, func, aim_x):
                                  [x_set[i + 1], func[i + 1]],
                                  [x_set[i + 2], func[i + 2]]], aim_x))
 
-    #         Возвращаем не только среднее, но и значения от обеих парабол по отдельности:
+    # Возвращаем среднее:
 
-    return np.average(results), results
+    return np.average(results)
 
 
 def two_dim_parab_inter_surf(x_set, y_set, f, new_x_set, new_y_set):
@@ -294,7 +309,7 @@ def two_dim_parab_inter_surf(x_set, y_set, f, new_x_set, new_y_set):
     # имеющиейся поверхности вдоль прямой x = new_x[i], а затем по полученному разрезу строим одномерную интерполяцию
     # в точку [new_x[i], new_y[i]].
 
-    new_f = np.zeros((new_x_set.shape[0], new_y_set.shape[0])) # сюда будем записывать значения интерполированной
+    new_f = np.zeros((new_x_set.shape[0], new_y_set.shape[0]))  # сюда будем записывать значения интерполированной
     # функции на новой сетке
 
     #     Итого: new_set_1 = z(aim_x, y_i), new_set_2 = z(x_i, aim_y)
@@ -305,12 +320,11 @@ def two_dim_parab_inter_surf(x_set, y_set, f, new_x_set, new_y_set):
 
         for q in range(y_set.shape[0]):
 
-            crosssect[q] = one_dim_parab_inter(x_set, f[:, q], new_x_set[i])[0] # построили разрез x = new_x[i]
-
+            crosssect[q] = one_dim_parab_inter(x_set, f[:, q], new_x_set[i])  # построили разрез x = new_x[i]
 
         for j in range(new_y_set.shape[0]):
 
-            new_f[i, j] = one_dim_parab_inter(y_set, crosssect, new_y_set[j])[0] # и вдоль этого разреза интерполируем в
+            new_f[i, j] = one_dim_parab_inter(y_set, crosssect, new_y_set[j])  # и вдоль этого разреза интерполируем в
             # y = new_y[j]
 
     return new_f

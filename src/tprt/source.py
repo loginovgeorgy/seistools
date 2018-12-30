@@ -38,6 +38,8 @@ class Source(object):
     def psi0(self, r0, vec):
         # returns a coefficient from 0 to 1 which defines the amplitude at point with radius-vector r0 in vicinity of
         # the source. Argument vec specifies the desired direction of polarization.
+        # Here I use theory presented in: Popov, M.M. Ray theory and gaussian beam method for geophysicists /
+        # M. M. Popov. - Salvador: EDUFBA, 2002. – 172 p.
         pass
 
 

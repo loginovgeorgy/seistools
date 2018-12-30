@@ -226,17 +226,26 @@ class GridHorizon(Horizon):
 
     # These formulas allow us to construct a surface with second-order smoothness.
 
-    def __init__(self, X, Y, Z):
+    def __init__(self, X, Y, Z, bool_parab = 1):
         # Here the input arrays X and Y form up a rectangular coordinate grid. The grid is supposed to be regular for
         # each direction (X and Y).
         # In order to decrease influence of breaking out points, we shall construct more frequent grid using
-        # so-called averaged parabolic interpolation defined in the corresponding module.
+        # so-called averaged parabolic interpolation defined in the corresponding module. However, you can switch off
+        # this feature and keep only points given by X, Y and Z by setting bool_parab equal to 0.
 
-        self.X = np.linspace(X[0], X[-1], 2 * X.shape[0] - 1)
-        self.Y = np.linspace(X[0], X[-1], 2 * X.shape[0] - 1)
-        # minus one - since we would like to save all input points.
+        if bool_parab == 1:
 
-        self.Z = two_dim_parab_inter_surf(X, Y, Z, self.X, self.Y)
+            self.X = np.linspace(X[0], X[-1], 2 * X.shape[0] - 1)
+            self.Y = np.linspace(X[0], X[-1], 2 * X.shape[0] - 1)
+            # minus one - since we would like to save all input points.
+
+            self.Z = two_dim_parab_inter_surf(X, Y, Z, self.X, self.Y)
+
+        else:
+
+            self.X = X
+            self.Y = Y
+            self.Z = Z
 
         # In addition it would be convenient to keep an array of partial derivatives along X axis:
 

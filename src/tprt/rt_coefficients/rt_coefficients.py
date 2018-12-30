@@ -18,12 +18,19 @@
 
 # На выходе функция выдаёт коэффициент отражения / прохождения для указанной волны.
 
-import numpy as np
+import cmath as cm
 
 from .polarizations import *
 
 
 def rt_coefficients(layer1, layer2, cos_inc, inc_polariz, inc_vel, rt_signum):
+
+    # print("\x1b[1;30m velp1 = ", layer1.get_velocity(0)['vp'])
+    # print("\x1b[1;30m velp2 = ", layer2.get_velocity(0)['vp'])
+    # print("\x1b[1;30m cos_inc = ", cos_inc)
+    # print("\x1b[1;30m inc_polariz = ", inc_polariz)
+    # print("\x1b[1;30m inc_vel = ", inc_vel)
+    # print("\x1b[1;30m rt_signum = ", rt_signum, '\n')
 
     # Для решения поставленной задачи потребуются матрицы упругих модулей сред 1 и 2:
     c_ij1 = c_ij([layer1.get_velocity(0)['vp'], layer1.get_velocity(0)['vs']], layer1.density / 1000)
@@ -34,11 +41,6 @@ def rt_coefficients(layer1, layer2, cos_inc, inc_polariz, inc_vel, rt_signum):
     # сформируем данные о падающей волне, её волновой вектор k0, её поляризацию и вектор медленности:
     k0 = np.array([np.sqrt(1 - cos_inc ** 2), 0, cos_inc])  # нормаль к фронту
 
-    u = polarizations(c_ij1, k0)
-    # мы задали скорости волн в 1-й среде и их поляризации.
-    # Обозначения v, u будут часто использоваться в данном скрипте для разных величин,
-    # так что не следует запоминать за ними конкретный физический смысл
-
     v0 = inc_vel
     u0 = inc_polariz / np.linalg.norm(inc_polariz) # нормируем, т.к. все остальные векторы будут единичными
     p0 = k0 / v0  # и её вектор медленности
@@ -46,32 +48,32 @@ def rt_coefficients(layer1, layer2, cos_inc, inc_polariz, inc_vel, rt_signum):
     # Создадим два массива. В первом будут лежать волновые векторы-строки отражённых волн, а во втором -
     # преломлённых.
 
-    k_refl = np.array([np.zeros(3), # P-волна
-                       np.zeros(3), # SV-волна
-                       np.zeros(3)]) # SH-волна
+    k_refl = np.array([np.zeros(3, dtype = complex), # P-волна
+                       np.zeros(3, dtype = complex), # SV-волна
+                       np.zeros(3, dtype = complex)]) # SH-волна
 
-    k_trans = np.array([np.zeros(3), # P-волна
-                        np.zeros(3), # SV-волна
-                        np.zeros(3)]) # SH-волна
+    k_trans = np.array([np.zeros(3, dtype = complex), # P-волна
+                        np.zeros(3, dtype = complex), # SV-волна
+                        np.zeros(3, dtype = complex)]) # SH-волна
 
     # Зададим сначала все волновые векторы в соответствии с законом Снеллиуса:
 
     k_refl[0] = np.array([k0[0] * layer1.get_velocity(0)['vp'] / v0,
                           0,
-                          - np.sqrt(1 - (k0[0] * layer1.get_velocity(0)['vp'] / v0) ** 2)])
+                          - cm.sqrt(1 - (k0[0] * layer1.get_velocity(0)['vp'] / v0) ** 2)])
 
     k_refl[1] = np.array([k0[0] * layer1.get_velocity(0)['vs'] / v0,
                           0,
-                          - np.sqrt(1 - (k0[0] * layer1.get_velocity(0)['vs'] / v0) ** 2)])
+                          - cm.sqrt(1 - (k0[0] * layer1.get_velocity(0)['vs'] / v0) ** 2)])
     k_refl[2] = k_refl[1] # волновые векторы для SV- и SH-волн в изотропной среде совпадают
 
     k_trans[0] = np.array([k0[0] * layer2.get_velocity(0)['vp'] / v0,
                            0,
-                           np.sqrt(1 - (k0[0] * layer2.get_velocity(0)['vp'] / v0) ** 2)])
+                           cm.sqrt(1 - (k0[0] * layer2.get_velocity(0)['vp'] / v0) ** 2)])
 
     k_trans[1] = np.array([k0[0] * layer2.get_velocity(0)['vs'] / v0,
                            0,
-                           np.sqrt(1 - (k0[0] * layer2.get_velocity(0)['vs'] / v0) ** 2)])
+                           cm.sqrt(1 - (k0[0] * layer2.get_velocity(0)['vs'] / v0) ** 2)])
     k_trans[2] = k_trans[1] # волновые векторы для SV- и SH-волн в изотропной среде совпадают
 
     # Теперь заводим векторы медленности:
@@ -198,9 +200,17 @@ def rt_coefficients(layer1, layer2, cos_inc, inc_polariz, inc_vel, rt_signum):
                            - u0_coeff[1],
                            - u0_coeff[2]])
 
-
     # Решим эту систему уравнений:
     rp, rs1, rs2, tp, ts1, ts2 = np.linalg.solve(matrix, right_part)
+
+    # print("\x1b[1;30m rp = ", rp)
+    # print("\x1b[1;30m rs1 = ", rs1)
+    # print("\x1b[1;30m rs2= ", rs2)
+    # print("\x1b[1;30m tp = ", tp)
+    # print("\x1b[1;30m ts1 = ", ts1)
+    # print("\x1b[1;30m ts2 = ", ts2, '\n')
+    # print("\x1b[1;30m matrix = ", matrix)
+    # print("\x1b[1;30m right part = ", right_part, '\n')
 
     # И вернём результат:
 

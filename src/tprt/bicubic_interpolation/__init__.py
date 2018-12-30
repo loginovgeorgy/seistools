@@ -1,4 +1,5 @@
-from .cub_inter_functions import derivatives,\
+from .cub_inter_functions import get_left_i,\
+    derivatives,\
     one_dim_inter,\
     one_dim_inter_ddx,\
     one_dim_inter_ddx2,\
@@ -7,7 +8,8 @@ from .cub_inter_functions import derivatives,\
     one_dim_parab_inter,\
     two_dim_parab_inter_surf
 
-__all__ = ['derivatives',
+__all__ = ['get_left_i',
+           'derivatives',
            'one_dim_inter',
            'one_dim_inter_ddx',
            'one_dim_inter_ddx2',
