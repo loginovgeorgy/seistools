@@ -688,10 +688,13 @@ class Ray(object):
                 e2 = transit_matr[:, 1]
                 e1 = np.cross(e2, t)
 
-                J = J * cos_out / cos_inc * detRat
+                J = J * cos_out / cos_inc
 
-            return J, np.sqrt(abs(detRat)) * self.segments[0].layer.get_velocity(0)['vp'] *\
-                   np.linalg.norm(self.segments[0].receiver - self.segments[0].source)
+            J = J * abs(detRat)
+
+            return J,\
+                   np.sqrt(J) * np.sqrt(self.segments[0].layer.get_velocity(0)[self.segments[0].vtype]) * \
+                   np.sqrt(self.segments[-1].layer.get_velocity(0)[self.segments[-1].vtype])
 
 
 class Segment(object):
