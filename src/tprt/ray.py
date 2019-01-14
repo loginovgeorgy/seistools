@@ -533,16 +533,19 @@ class Ray(object):
         # Here I use theory presented in: Popov, M.M. Ray theory and gaussian beam method for geophysicists /
         # M. M. Popov. - Salvador: EDUFBA, 2002. – 172 p.
 
-        # We use formula: A = 1 / (2 * Pi) * Integrate(- i * w *Exp(-i * w * (t - tau)) * F[w] * U)
-        # where tau is time of the first break (i.e. traveltime along the ray), F[w] is a Fourier transform of
-        # the Ricker wavelet from the Source  and U is a constant vector: self.amplitude_fun.
-        # This integral was computed analytically. Here is the final expression.
+        # We use formula: A = Ricker(t - tau) * U)
+        # where tau is time of the first break (i.e. traveltime along the ray), Ricker is
+        # the Ricker wavelet with dispersion given in the Source  and U is a constant vector: self.amplitude_fun.
 
         tau = self.travel_time()
         sigma = self.source.sigma
 
-        return 2 * np.exp(- (t - tau)**2 / (2 * sigma**2)) * (-3 * sigma**2 + (t - tau)**2) * (t - tau) / \
-               (np.sqrt(3) * np.pi**(1 / 4) * sigma**(9 / 2)) * self.amplitude_fun
+        return 2 / np.sqrt(3 * sigma) / np.pi ** (1 / 4) *\
+               (1 - ((t - tau )/ sigma)**2) *\
+               np.exp(- (t - tau)**2 / (2 * sigma**2)) *\
+               self.amplitude_fun
+        # return 2 * np.exp(- (t - tau)**2 / (2 * sigma**2)) * (-3 * sigma**2 + (t - tau)**2) * (t - tau) / \
+        #        (np.sqrt(3) * np.pi**(1 / 4) * sigma**(9 / 2)) * self.amplitude_fun
 
     def spreading(self, curv_bool):
         # Computes only geometrical spreading along the ray in the observation point. All comments are above.

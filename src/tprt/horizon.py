@@ -34,7 +34,7 @@ class Horizon:
 
     @staticmethod
     def _plot_horizon_3d(x, z, ax=None):
-        ax.plot_trisurf(x[:, 0], x[:, 1], np.squeeze(z))
+        ax.plot_trisurf(x[:, 0], x[:, 1], np.squeeze(z), alpha = 0.5)
 
 
 class FlatHorizon(Horizon):
@@ -221,10 +221,8 @@ class GridHorizon(Horizon):
     # All given points are supposed to be points of an unknown smooth function z = z(x,y). The surface is supposed to be
     # smooth enough to have a normal vector at any point and curvature in this point
     # as well. So, corresponding conditions are imposed on the method of the interpolation/approximation.
-    # Here we decided to use cubic spline interpolation. All formulas are explained at address:
-    # http://statistica.ru/branches-maths/interpolyatsiya-splaynami-teor-osnovy/
-
-    # These formulas allow us to construct a surface with second-order smoothness.
+    # Here we decided to use cubic spline interpolation. Corresponding formulas allow us to construct a surface with
+    # second-order smoothness.
 
     def __init__(self, X, Y, Z, bool_parab = 1):
         # Here the input arrays X and Y form up a rectangular coordinate grid. The grid is supposed to be regular for
@@ -247,54 +245,20 @@ class GridHorizon(Horizon):
             self.Y = Y
             self.Z = Z
 
-        # In addition it would be convenient to keep an array of partial derivatives along X axis:
+        # In addition it will be needed to compute and keep array of all polynomial coefficients of our bicubic splines:
 
-        self.der_X = np.zeros(self.Z.shape)
-
-        step_X = X[1] - X[0] # step along X axis
-
-        for j in range(Y.shape[0]):
-
-            self.der_X[:, j] = derivatives(self.Z[:, j], step_X)
+        self.polynomial = two_dim_polynomial(self.X, self.Y, self.Z)
 
     def get_depth(self, x):
 
-        return two_dim_inter(self.X, self.Y, self.Z, self.der_X, x[0], x[1])
+        return two_dim_inter(self.polynomial, self.X, self.Y, x[0], x[1])
 
     def get_gradient(self, x):
 
         # grad(z(x,y)) = [dz/dx, dz/dy]
 
-        # We want to find derivatives in a certain point on the surface. So, in order to do so we
-        # have to find vectors [z(x_i, y)] and [z(x, y_i)]:
-
-        x_vector = np.zeros(self.X.shape[0]) # [z(x_i, y)]
-        y_vector = np.zeros(self.Y.shape[0]) # [z(x, y_i)]
-
-        # We'll need to know step along X and Y axes:
-
-        step_X = self.X[1] - self.X[0]
-        step_Y = self.Y[1] - self.Y[0]
-
-        for i in range(self.X.shape[0]):
-
-            x_vector[i] = one_dim_inter(self.Y, self.Z[i, :], derivatives(self.Z[i, :], step_Y), x[1]) # exactly in this
-            # way: we are interpolating particular "cross-section" of the surface along axis Y
-
-        for j in range(self.Y.shape[0]):
-
-            y_vector[j] = one_dim_inter(self.X, self.Z[:, j], self.der_X[:, j], x[0]) # exactly in this way: we are
-            # interpolating particular "cross-section" of the surface along axis X
-
-        # Now we are ready to compute dz/dx and dz/dy at the point (x, y).
-
-        x_der = one_dim_inter_ddx(self.X, x_vector, derivatives(x_vector, step_X), x[0])
-
-        y_der = one_dim_inter_ddx(self.Y, y_vector, derivatives(y_vector, step_Y), x[1])
-
-        # Finally:
-
-        grad = np.array([x_der, y_der])
+        grad = np.array([two_dim_inter_dx(self.polynomial, self.X, self.Y, x[0], x[1]),
+                         two_dim_inter_dy(self.polynomial, self.X, self.Y, x[0], x[1])])
 
         return grad
 
@@ -377,32 +341,12 @@ class GridHorizon(Horizon):
 
         # In order to do that let's compute z(x, y_search) and z(x_search, y) arrays:
 
-        step_X = self.X[1] - self.X[0] # step along X
-        step_Y = self.Y[1] - self.Y[0] # step along Y
+        z_x, z_y = self.get_gradient(x) # dz/dx and dz/dy
 
-        ddx = np.zeros(self.X.shape[0]) # we'll write here z(x, y_search)
-        dx_dy = np.zeros(self.X.shape[0]) # we'll write here dz(x, y_search)/dx
-        ddy = np.zeros(self.Y.shape[0]) # we'll write here z(x_search, y):
+        z_xx = two_dim_inter_dx_dx(self.polynomial, self.X, self.Y, x[0], x[1])# d2z/dx2
+        z_yy = two_dim_inter_dy_dy(self.polynomial, self.X, self.Y, x[0], x[1])# d2z/dy2
 
-        for q in range(self.X.shape[0]):
-
-            ddx[q] = one_dim_inter(self.Y, self.Z[q, :], derivatives(self.Z[q, :], step_Y), x[1])
-
-            dx_dy[q] = one_dim_inter_ddx(self.Y, self.Z[q, :], derivatives(self.Z[q, :], step_Y), x[1])
-
-        for q in range(self.Y.shape[0]):
-
-            ddy[q] = one_dim_inter(self.X, self.Z[:, q], self.der_X[:, q], x[0])
-
-        # And now let's find all needed partial derivatives:
-
-        z_x = one_dim_inter_ddx(self.X, ddx, derivatives(ddx, step_X), x[0]) # dz/dx
-        z_xx = one_dim_inter_ddx2(self.X, ddx, derivatives(ddx, step_X), x[0]) # d2z/dx2
-
-        z_y = one_dim_inter_ddx(self.Y, ddy, derivatives(ddy, step_Y), x[1]) # dz/dy
-        z_yy = one_dim_inter_ddx2(self.Y, ddy, derivatives(ddy, step_Y), x[1]) # d2z/dy2
-
-        z_xy = one_dim_inter_ddx(self.X, dx_dy, derivatives(dx_dy, step_X), x[0]) # d2z/dxdy
+        z_xy = two_dim_inter_dx_dy(self.polynomial, self.X, self.Y, x[0], x[1])# d2z/dxdy
 
         # Very well. Now we have to construct a local coordinate system. It consists of three mutually orthogonal
         # unit vectors: d1, d2 and n.
@@ -438,7 +382,6 @@ class GridHorizon(Horizon):
         else:
 
             d1 = np.dot(vec, tang_x) * tang_x + np.dot(vec, tang_y) * tang_y
-
 
         # Let's normalize it:
 
@@ -480,18 +423,25 @@ class GridHorizon(Horizon):
         # We'd like to plot a smooth interface, so let's construct new X and Y sets which will be 2 times more frequent
         # than original ones::
 
-        X_new = np.linspace(self.X[0], self.X[-1], 2 * self.X.shape[0] - 1)
-        Y_new = np.linspace(self.Y[0], self.Y[-1], 2 * self.Y.shape[0] - 1)
+        # X_new = np.linspace(self.X[0], self.X[-1], 2 * self.X.shape[0] - 1)
+        # Y_new = np.linspace(self.Y[0], self.Y[-1], 2 * self.Y.shape[0] - 1)
+        #
+        # # And let's interpolate our initial grid to the new one:
+        #
+        # Z_new = np.zeros((X_new.shape[0], Y_new.shape[0]))
+        #
+        # for i in range(X_new.shape[0]):
+        #     for j in range(Y_new.shape[0]):
+        #
+        #         Z_new[i, j] = two_dim_inter(self.polynomial, self.X, self.Y, X_new[i], Y_new[j])
+        #
+        # # That's all. We can plot it.
+        #
+        # # But we have to mesgrid X_new and Y_new first:
+        #
+        # YY_new, XX_new = np.meshgrid(Y_new, X_new)
 
-        # And let's interpolate our initial grid to the new one:
-
-        Z_new = two_dim_inter_surf(self.X, self.Y, self.Z, self.der_X, X_new, Y_new)
-
-        # That's all. We can plot it.
-
-        # But we have to mesgrid X_new and Y_new first:
-
-        YY_new, XX_new = np.meshgrid(Y_new, X_new)
+        YY, XX = np.meshgrid(self.Y, self.X)
 
         # TODO prettify using plt.show()
 
@@ -499,4 +449,4 @@ class GridHorizon(Horizon):
             fig = plt.figure()
             ax = Axes3D(fig)
 
-        self._plot_horizon_3d(np.vstack((XX_new.ravel(), YY_new.ravel())).T, Z_new.ravel(), ax=ax)
+        self._plot_horizon_3d(np.vstack((XX.ravel(), YY.ravel())).T, self.Z.ravel(), ax=ax)

@@ -25,8 +25,8 @@ start_time = time.time()
 # Let's define the interfaces.
 
 # Grid:
-X = np.linspace(- 1400, 1400, 51)
-Y = np.linspace(- 1400, 1400, 51)
+X = np.linspace(- 2000, 2000, 2001)
+Y = np.linspace(- 2000, 2000, 2001)
 
 # Interfaces:
 Convex_Gauss_500_Center = np.zeros((X.shape[0], Y.shape[0]))
@@ -84,8 +84,8 @@ vel_mod_3 = Velocity_model(np.array([ISOVelocity(2000, 1100), ISOVelocity(2800, 
 models = [vel_mod_1, vel_mod_2a, vel_mod_2b, vel_mod_2c, vel_mod_3]
 
 # Let's construct the observation system:
-sou_line = np.arange(- 1100, 100, 100) # source line starting from - 1300 and ending at 0 with step 100
-rec_line = np.linspace(0, 1100, sou_line.shape[0]) # source line starting from 0 and ending at 1300 with step 100
+sou_line = np.arange(- 1300, 25, 25) # source line starting from - 1300 and ending at 0 with step 100
+rec_line = np.linspace(0, 1300, sou_line.shape[0]) # source line starting from 0 and ending at 1300 with step 100
 
 # Let's set sources and receivers along profile:
 sources = np.empty(sou_line.shape[0], dtype = Source)
@@ -111,7 +111,7 @@ raycode_model_2 = [[1, 0, 0],
 # 4 - vel_mod_2c
 # 5 - vel_mod_3
 
-model_number = 5
+model_number = 3
 
 current_mod = models[model_number - 1]
 
@@ -296,6 +296,7 @@ ax.set_ylabel("Расстояние по оси y, м",)
 ax.set_zlabel("Глубина, м")
 
 plt.savefig("{}/Лучи.png".format(dir_name), dpi = 400)
+print("\nЛучевая схема сохранена: {} секунд".format(time.time() - start_time))
 
 plt.close(fig)
 
@@ -313,6 +314,7 @@ plt.xlabel("Координаты вдоль профиля, м")
 plt.ylabel("Геометрическое расхождение, км^2")
 
 plt.savefig("{}/Геометрическое расхождение в смысле 1.png".format(dir_name), dpi = 400)
+print("График геометрического расхождения в смысле 1 сохранён: {} секунд".format(time.time() - start_time))
 
 plt.close(fig2)
 
@@ -330,6 +332,7 @@ plt.xlabel("Координаты вдоль профиля, м")
 plt.ylabel("Геометрическое расхождение, км^2 / c")
 
 plt.savefig("{}/Геометрическое расхождение в смысле 2.png".format(dir_name), dpi = 400)
+print("График геометрического расхождения в смысле 2 сохранён: {} секунд".format(time.time() - start_time))
 
 plt.close(fig3)
 
@@ -346,6 +349,7 @@ plt.xlabel("Координаты вдоль профиля, м")
 plt.ylabel("Время первых вступлений, с")
 
 plt.savefig("{}/Годограф ОСТ.png".format(dir_name), dpi = 400)
+print("Годограф сохранён: {} секунд".format(time.time() - start_time))
 
 plt.close(fig4)
 
@@ -372,15 +376,16 @@ for i in range(rays.shape[0]):
 plt.xlabel("Время, с")
 
 plt.savefig("{}/Сейсмограмма.png".format(dir_name), dpi = 400)
+print("Сейсмограмма сохранена: {} секунд".format(time.time() - start_time))
 
 plt.close(fig5)
 
 description_file.write("Графики построены и сохранены: %s секунд" % (time.time() - start_time))
 
 print("------------------------------------")
-print("\x1b[1;31m max x-displacement = ", np.max(gathers_x))
-print("\x1b[1;32m max y-displacement = ", np.max(gathers_y))
-print("\x1b[1;34m max z-displacement = ", np.max(gathers_z))
+print("\x1b[1;31m max x-displacement = ", np.max(abs(gathers_x)))
+print("\x1b[1;32m max y-displacement = ", np.max(abs(gathers_y)))
+print("\x1b[1;34m max z-displacement = ", np.max(abs(gathers_z)))
 
 # And finally, let's close all .txt files:
 

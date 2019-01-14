@@ -1,253 +1,295 @@
-# Источник на применяемую теорию: http://statistica.ru/branches-maths/interpolyatsiya-splaynami-teor-osnovy/
+# Источник на применяемую теорию: Марчук Г.И. Методы вычислительной математики. М.: Наука. Главная редакция физико-
+# математической литературы, 1980
 
 import numpy as np
 
 from scipy.linalg import solve_banded
 
 
-def get_left_i(arr, x):
+def get_left_i(x_set, x):
 
-    # Если массив arr упорядочен и с постоянным шагом, то всё ещё проще:
+    # Ищет номер ближайшего слева к x элемента из x_set. Т.е. x - число, а x_set - упорядоченный по возрастанию массив
+    # чисел. Поиск происходит методом бисекции.
 
-    i = int((x - arr[0]) / (arr[1] - arr[0]))
+    i = int(x_set.shape[0] / 2) # изначально исходим от центра массива
 
-    if i == arr.shape[0] - 1:
+    di = int( round(x_set.shape[0] / 4) ) # шаг по массиву
+
+    while int(di / 2) != 0:
+
+        i = i + int(di * np.sign(x - x_set[i]))
+
+        di = int(round(di / 2)) # заметим, что round округляет "половинки" в сторону чётного числа.
+
+    # В итоге мы не знаем, с какой стороны от x находится i-й элемент x_set. Возвращаемый номер будет от этого зависеть:
+
+    if x - x_set[i] < 0 or i == x_set.shape[0] - 1:
+        # второе условие соответствует попаданию на край массива x_set
 
         return i - 1
 
     return i
 
-    # Ищет номер ближайшего слева к x элемента из arr. Т.е. x - число, а arr - упорядоченный по возрастанию массив
-    # чисел. Поиск происходит методом бисекции.
-
-    # i = int(arr.shape[0] / 2) # изначально исходим от центра массива
-    #
-    # di = int( round(arr.shape[0] / 4) ) # шаг по массиву
-    #
-    # while int(di / 2) != 0:
-    #
-    #     i = i + int(di * np.sign(x - arr[i]))
-    #
-    #     di = int(round(di / 2)) # заметим, что round округляет "половинки" в сторону чётного числа.
-    #
-    # # В итоге мы не знаем, с какой стороны от x находится i-й элемент arr. Возвращаемый номер будет от этого зависеть:
-    #
-    # if x - arr[i] < 0 or i == arr.shape[0] - 1:
-    #     # второе условие соответствует попаданию на край массива arr
-    #
-    #     return i - 1
-    #
-    # return i
+# 1D-interpolation functions:
 
 
-def derivatives(func, h):
-    # по дискретно заданной функции (не менее четырёх точек) func = np.array([f1, f2, ..., fn]) и шагу
-    # дискретизации h строит вектор производных в этих точках из условия непрерывности второй производной у сплайнов.
-    
-    der = np.zeros(func.shape[0])
-    
-    der[0] = 1/(6 * h) * (- 11*func[0] + 18*func[1] - 9*func[2] + 2*func[3])
-    der[-1] = 1/(6 * h) * (11*func[-1] - 18*func[-2] + 9*func[-3] - 2*func[-4])
-    
-    A = np.zeros((3, func.shape[0] - 2)) # матрица системы для нахождения der_i
-    # Стоит иметь ввиду, что мы не станем решать всю систему NxN, т.к. матрица будет ленточной с шириной ленты в три
-    # элемента. Согласно принятой в numpy.linalg нотации, во второй строчке A будет лежать главная диагональ полной
-    # матрицы системы.
-    B = np.zeros(func.shape[0] - 2) # правая часть этой системы
+def second_der_set(x_set, z_set):
 
-    # Заполним края системы:
+    # Returns array of second derivatives of z in x = x_set[i].
 
-    A[1, 0] = 4
-    A[2, 0] = 1
+    # Here a system of linear equations is solved:
+    # A m = B
+    # Matrix A is three-diagonal. Som there is no need to keep it all.
 
-    B[0] = 3 * (func[2] - func[0]) / h - der[0]
+    A = np.zeros((3, z_set.shape[0] - 2)) # here we shall write all three non-zero diagonals of the system's matrix
+    B = np.zeros(A.shape[1]) # right part of the system
 
-    A[1, -1] = 4
-    A[0, -1] = 1
+    A[1, 0] = (x_set[2] - x_set[0]) / 3
+    A[2, 0] = (x_set[2] - x_set[1]) / 6
 
-    B[-1] = 3 * (func[-1] - func[-3]) / h - der[-1]
-    
-    # заполняем систему
-    for i in np.arange(1, func.shape[0] - 3,1):
-    
-        A[0, i] = 1
-        A[1, i] = 4
-        A[2, i] = 1
-        
-        B[i] = 3 * (func[i + 2] - func[i]) / h
-        
-    # Решаем систему и сразу заносим найденные значения der_i в соотв. вектор
+    A[0, -1] = (x_set[-2] - x_set[-3]) / 6
+    A[1, -1] = (x_set[-1] - x_set[-3]) / 3
 
-    der[1: func.shape[0] -1] = solve_banded((1, 1), A, B)
-    
-    return der
+    B[0] = (z_set[2] - z_set[1]) / (x_set[2] - x_set[1]) - (z_set[1] - z_set[0]) / (x_set[1] - x_set[0])
 
+    B[-1] = (z_set[- 1] - z_set[- 2]) / (x_set[- 1] - x_set[- 2]) -\
+            (z_set[- 2] - z_set[- 3]) / (x_set[- 2] - x_set[- 3])
 
-def one_dim_inter(x_net, fun, deriv, x_desir): # считает значение интерполированной функции fun,
-    # заданной дискретно на сетке x_net, в точке x_desir. Также необходимо заранее создать и подать на вход
-    # массив производных deriv.
+    for i in np.arange(1, A.shape[1] - 1, 1):
 
-    # надо определить, между какими значениями сетки находится точка x_desir:
+        A[0, i] = (x_set[i + 1] - x_set[i]) / 6
+        A[1, i] = (x_set[i + 2] - x_set[i]) / 3
+        A[2, i] = (x_set[i + 1] - x_set[i]) / 6
 
-    i = get_left_i(x_net, x_desir)
+        B[i] = (z_set[i + 2] - z_set[i + 1]) / (x_set[i + 2] - x_set[i + 1]) -\
+               (z_set[i + 1] - z_set[i]) / (x_set[i + 1] - x_set[i])
 
-    x_i = x_net[i]
-    x_i_1 = x_net[i + 1]
+    sec_deriv = solve_banded((1, 1), A, B) # here are second derivatives in points x[1]...x[- 2].
+    # So, let's append left and right edges which are supposed to be equal to zero:
 
-    # и найти шаг по сетке:
+    sec_deriv = np.append(0, sec_deriv)
+    sec_deriv = np.append(sec_deriv, 0)
 
-    step = x_net[1] - x_net[0]
+    return sec_deriv
 
-    # теперь зададим члены полинома в интересующей нас точке:
 
-    first_term = ((x_i_1 - x_desir)**2)*(2 * (x_desir - x_i) + step) / step**3
-    second_term = ((x_desir - x_i)**2)*(2 * (x_i_1 - x_desir) + step) / step**3
+def one_dim_polynomial(x_set, z_set):
 
-    third_term = ((x_i_1 - x_desir)**2)*(x_desir - x_i) / step**2
-    fourth_term = ((x_desir - x_i)**2)*(x_desir - x_i_1) / step**2
+    # Returns array of coefficients of the interpolation ploynomials for function z_set defined on grid x_set with
+    # second derivatives at the edges given.
 
-    # и вернём его значение:
+    one_dim_coefficients = np.zeros((x_set.shape[0] - 1, 4)) # first index represents x_i (nearest left neighbour of
+    # current x) and the second indicates the power of x in the polynomial.
 
-    return first_term * fun[i] + second_term * fun[i + 1] + \
-           third_term * deriv[i] + fourth_term * deriv[i + 1]
+    m_i = second_der_set(x_set, z_set)
 
+    for i in np.arange(1, x_set.shape[0], 1):
 
-def one_dim_inter_ddx(x_net, fun, deriv, x_desir):
-    # Считает производную функции z(x) - интерполированной fun - в точке x_desir. Опять же, на вход подаётся массив
-    # производных deriv.
+        step_i = x_set[i] - x_set[i - 1]
 
-    step = x_net[1] - x_net[0] # шаг по сетке
+        one_dim_coefficients[i - 1, 0] = m_i[i - 1] * x_set[i] ** 3 / (6 * step_i) - \
+                                         m_i[i] * x_set[i - 1] ** 3 / (6 * step_i) + \
+                                         (z_set[i - 1] - m_i[i - 1] * step_i ** 2 / 6) * x_set[i] / step_i - \
+                                         (z_set[i] - m_i[i] * step_i ** 2 / 6) * x_set[i - 1] / step_i
 
-    # надо определить, между какими значениями сетки находится точка x_desir:
+        one_dim_coefficients[i - 1, 1] = - m_i[i - 1] * 3 * x_set[i] ** 2 / (6 * step_i) + \
+                                         m_i[i] * 3 * x_set[i - 1] ** 2 / (6 * step_i) - \
+                                         (z_set[i - 1] - m_i[i - 1] * step_i ** 2 / 6) / step_i + \
+                                         (z_set[i] - m_i[i] * step_i ** 2 / 6) / step_i
 
-    i = get_left_i(x_net, x_desir)
+        one_dim_coefficients[i - 1, 2] = m_i[i - 1] * 3 * x_set[i] / (6 * step_i) - \
+                                         m_i[i] * 3 * x_set[i - 1] / (6 * step_i)
 
-    x_i = x_net[i]
-    x_i_1 = x_net[i + 1]
+        one_dim_coefficients[i - 1, 3] = - m_i[i - 1] / (6 * step_i) + \
+                                         m_i[i] / (6 * step_i)
 
-    # теперь зададим члены полинома в интересующей нас точке:
+    return one_dim_coefficients
 
-    first_term_1 = - 2 * (x_i_1 - x_desir) * (2 * (x_desir - x_i) + step) / step**3
-    first_term_2 = ((x_i_1 - x_desir)**2) * 2 / step**3
+# 2D-interpolation functions
 
-    second_term_1 = 2 * (x_desir - x_i) * (2 * (x_i_1 - x_desir) + step) / step**3
-    second_term_2 = ((x_desir - x_i)**2) * (- 2) / step**3
 
-    third_term_1 = - 2 * (x_i_1 - x_desir) * (x_desir - x_i) / step**2
-    third_term_2 = ((x_i_1 - x_desir)**2) / step**2
+def two_dim_polynomial(x_set, y_set, z_set):
 
-    fourth_term_1 = 2 * (x_desir - x_i) * (x_desir - x_i_1) / step**2
-    fourth_term_2 = ((x_desir - x_i)**2) / step**2
+    # Returns array of polynomial coefficients for bicubic interpolation.
 
-    # и вернём его значение:
+    # We'll need several arrays of coefficients that can be found using one-dimensional interpolation:
 
-    return (first_term_1 + first_term_2)*fun[i] + (second_term_1 + second_term_2)*fun[i + 1] + \
-           (third_term_1 + third_term_2)*deriv[i] + (fourth_term_1 + fourth_term_2)*deriv[i + 1]
+    # 1. Array of polynoial coefficients for cross-sections z(xi, y):
 
+    xi_coeff = np.zeros((x_set.shape[0], y_set.shape[0] - 1, 4))
 
-def one_dim_inter_ddx2(x_net, fun, deriv, x_desir):
-    # Считает вторую производную функции z(x) - интерполированной fun - в точке x_desir. deriv - массив производных.
+    for i in range(x_set.shape[0]):
 
-    step = x_net[1] - x_net[0] # шаг по сетке
+        xi_coeff[i, :, :] = one_dim_polynomial(y_set, z_set[i, :])
 
-    # надо определить, между какими значениями сетки находится точка x_desir:
+    # 2. Array of polynomial coefficients for cross-section of the second partial derivative of z with respect to x
+    # along lines x = xi (so, this function will be a cubic polynomial of y):
 
-    i = get_left_i(x_net, x_desir)
+    # First, we have to find function d2z / dx2 on the grid:
 
-    x_i = x_net[i]
-    x_i_1 = x_net[i + 1]
+    z_xx = np.zeros((x_set.shape[0], y_set.shape[0])) # array for d2z/dx2
 
-    # теперь зададим члены полинома в интересующей нас точке:
+    for j in range(y_set.shape[0]):
 
-    first_term_1_1 = 2 * (2 * (x_desir - x_i) + step) / step**3
-    first_term_1_2 = - 2 * (x_i_1 - x_desir) * 2 / step**3
+        z_xx[:, j] = second_der_set(x_set, z_set[:, j])
 
-    first_term_2_1 = - 2 * (x_i_1 - x_desir) * 2 / step**3
+    # And now - let's find polynomial coefficients:
 
+    z_xx_coeff = np.zeros((x_set.shape[0], y_set.shape[0] - 1, 4))
 
-    second_term_1_1 = 2 * (2 * (x_i_1 - x_desir) + step) / step**3
-    second_term_1_2 = - 2 * 2 * (x_desir - x_i) / step**3
+    for i in range(x_set.shape[0]):
 
-    second_term_2_1 = - 2 * 2 * (x_desir - x_i) / step**3
+        z_xx_coeff[i, :, :] = one_dim_polynomial(y_set, z_xx[i, :])
 
+    # Now we have everything what we need. Let's construct new array for two-dimensional interpolation polynomial
+    # coefficients:
 
-    third_term_1_1 = 2 * (x_desir - x_i) / step**2
-    third_term_1_2 = - 2 * (x_i_1 - x_desir) / step**2
+    two_dim_coefficients = np.zeros((x_set.shape[0] - 1, y_set.shape[0] - 1, 4, 4))
 
-    third_term_2_1 = - 2 * (x_i_1 - x_desir) / step**2
+    for i in np.arange(1, x_set.shape[0], 1):
 
+        step_i = x_set[i] - x_set[i - 1]
 
-    fourth_term_1_1 = 2 * (x_desir - x_i_1) / step**2
-    fourth_term_1_2 = 2 * (x_desir - x_i) / step**2
+        for j in np.arange(1, y_set.shape[0], 1):
 
-    fourth_term_2_1 = 2 * (x_desir - x_i) / step**2
+            for m in range(4):
 
-    # и вернём его значение:
+                two_dim_coefficients[i - 1, j - 1, 0, m] = (xi_coeff[i - 1, j - 1, m] * x_set[i] -
+                                                            xi_coeff[i, j - 1, m] * x_set[i - 1]) / step_i -\
+                                                           step_i * (z_xx_coeff[i - 1, j - 1, m] * x_set[i] -
+                                                                     z_xx_coeff[i, j - 1, m] * x_set[i - 1]) / 6 +\
+                                                           (z_xx_coeff[i - 1, j - 1, m] * x_set[i] ** 3 -
+                                                            z_xx_coeff[i, j - 1, m] * x_set[i - 1] ** 3) / step_i / 6
 
-    return (first_term_1_1 + first_term_1_2 + first_term_2_1) * fun[i] + \
-           (second_term_1_1 + second_term_1_2 + second_term_2_1) * fun[i + 1] + \
-           (third_term_1_1 + third_term_1_2 + third_term_2_1) * deriv[i] + \
-           (fourth_term_1_1 + fourth_term_1_2 + fourth_term_2_1) * deriv[i + 1]
+                two_dim_coefficients[i - 1, j - 1, 1, m] = (xi_coeff[i, j - 1, m] -
+                                                            xi_coeff[i - 1, j - 1, m]) / step_i -\
+                                                           step_i * (z_xx_coeff[i, j - 1, m] -
+                                                                     z_xx_coeff[i - 1, j - 1, m]) / 6 +\
+                                                           (z_xx_coeff[i, j - 1, m] * x_set[i - 1] ** 2 -
+                                                            z_xx_coeff[i - 1, j - 1, m] * x_set[i] ** 2) / step_i / 2
 
+                two_dim_coefficients[i - 1, j - 1, 2, m] = (z_xx_coeff[i - 1, j - 1, m] * x_set[i] -
+                                                            z_xx_coeff[i, j - 1, m] * x_set[i - 1]) / step_i / 2
 
-def two_dim_inter(x_set, y_set, f, deriv_x, x_search, y_search):
-    #     на вход принимает исходные сетки по X и по Y, дискретно заданную функцию и координаты точки,
-    # для которой надо будет рассчитать интерполированную функцию. Массив deriv_x - двумерный массив,
-    # в котором лежат частные производные функции f по соответсвтующей переменной в каждой точке [x_set[i], y_set[j]].
+                two_dim_coefficients[i - 1, j - 1, 3, m] = (z_xx_coeff[i, j - 1, m] -
+                                                            z_xx_coeff[i - 1, j - 1, m]) / step_i / 6
 
-    # надо посчитать значения функции f на прямой x_search
+    return two_dim_coefficients
 
-    new_f = np.zeros(y_set.shape[0])
 
-    for q in range(y_set.shape[0]):
+def two_dim_inter(two_dim_coeff, x_set, y_set, x, y):
 
-        new_f[q] = one_dim_inter(x_set, f[:, q], deriv_x[:, q], x_search)
+    # Returns value of z(x, y) corresponding to the pre-constructed array of polynomial coefficients and the
+    # parametrization grid.
 
-    x_step = x_set[1] - x_set[0] # шаг по X
+    i = get_left_i(x_set, x)
+    j = get_left_i(y_set, y)
 
-    deriv_y = derivatives(new_f, x_step) # частные производнц по Y на нужном разрезе
+    z = 0 # this is the value of z(x, y). We shall compute it in a cycle below.
 
-    f_search = one_dim_inter(y_set, new_f, deriv_y, y_search)
+    for m in np.arange(0, 4, 1):
+        for n in np.arange(0, 4, 1):
 
-    return f_search
+            z = z + two_dim_coeff[i, j, m, n] * ( x ** m ) * ( y ** n )
 
+    return z
 
-def two_dim_inter_surf(x_set, y_set, f, deriv_x, new_x_set, new_y_set):
-    # На вход принимает исходные сетки по X и по Y, дискретно заданную функцию и массив deriv_x - двумерный массив,
-    # в котором лежат частные производные функции f по соответсвтующей переменной в каждой точке [x_set[i], y_set[j]].
-    # Последние два аргумента задают новую сетку, в уздах которой надо будет посчитать значения интерполированной функции.
-    # Возвращает массив этих интерполированных значений.
 
-    y_step = y_set[1] - y_set[0] # шаг исходной сетки по Y понадобится потом
+def two_dim_inter_dx(two_dim_coeff, x_set, y_set, x, y):
 
-    new_f = np.zeros((new_x_set.shape[0], new_y_set.shape[0])) # сюда будем записывать значения интерполированной функции
-    # на новой сетке
+    # Returns partial derivative dz(x, y) / dx corresponding to the pre-constructed array of polynomial
+    # coefficients and the parametrization grid.
 
-    for i in range(new_x_set.shape[0]):
+    i = get_left_i(x_set, x)
+    j = get_left_i(y_set, y)
 
-        crosssect_x = np.zeros(y_set.shape[0]) # разрез x = new_x[i]. Заполним его:
+    z_x = 0 # this is the value of dz(x, y) / dx. We shall compute it in a cycle below.
 
-        for q in range(y_set.shape[0]):
+    for m in np.arange(1, 4, 1):
+        for n in np.arange(0, 4, 1):
 
-            crosssect_x[q] = one_dim_inter(x_set, f[:, q], deriv_x[:, q], new_x_set[i]) # построили разрез x = new_x[i]
+            z_x = z_x + two_dim_coeff[i, j, m, n] * ( m * x ** (m - 1) ) * ( y ** n )
 
+    return z_x
 
-        deriv_y = derivatives(crosssect_x, y_step) # частные производне по Y на нужном разрезе
 
+def two_dim_inter_dy(two_dim_coeff, x_set, y_set, x, y):
 
-        for j in range(new_y_set.shape[0]):
+    # Returns partial derivative dz(x, y) / dy corresponding to the pre-constructed array of polynomial
+    # coefficients and the parametrization grid.
 
-            new_f[i, j] = one_dim_inter(y_set, crosssect_x, deriv_y, new_y_set[j]) # и вдоль этого разреза интерполируем в
-            # y = new_y[j]
+    i = get_left_i(x_set, x)
+    j = get_left_i(y_set, y)
 
-    return new_f
+    z_y = 0 # this is the value of dz(x, y) / dy. We shall compute it in a cycle below.
 
+    for m in np.arange(0, 4, 1):
+        for n in np.arange(1, 4, 1):
 
-# потребуется минимизация, и в силу особенностей синтаксиса надо определить ещё одну функцию. За подробностями - в
+            z_y = z_y + two_dim_coeff[i, j, m, n] * ( x ** m ) * ( n * y ** (n - 1) )
+
+    return z_y
+
+
+def two_dim_inter_dx_dx(two_dim_coeff, x_set, y_set, x, y):
+
+    # Returns partial derivative d^2z(x, y) / dx^2 corresponding to the pre-constructed array of polynomial
+    # coefficients and the parametrization grid.
+
+    i = get_left_i(x_set, x)
+    j = get_left_i(y_set, y)
+
+    z_xx = 0 # this is the value of dz(x, y) / dy. We shall compute it in a cycle below.
+
+    for m in np.arange(2, 4, 1):
+        for n in np.arange(0, 4, 1):
+
+            z_xx = z_xx + two_dim_coeff[i, j, m, n] * ( m * (m - 1) * x ** (m - 2) ) * ( y ** n )
+
+    return z_xx
+
+def two_dim_inter_dy_dy(two_dim_coeff, x_set, y_set, x, y):
+
+    # Returns partial derivative d^2z(x, y) / dy^2 corresponding to the pre-constructed array of polynomial
+    # coefficients and the parametrization grid.
+
+    i = get_left_i(x_set, x)
+    j = get_left_i(y_set, y)
+
+    z_yy = 0 # this is the value of dz(x, y) / dy. We shall compute it in a cycle below.
+
+    for m in np.arange(0, 4, 1):
+        for n in np.arange(2, 4, 1):
+
+            z_yy = z_yy + two_dim_coeff[i, j, m, n] * ( x ** m ) * ( n * (n - 1) * y ** (n - 2) )
+
+    return z_yy
+
+
+def two_dim_inter_dx_dy(two_dim_coeff, x_set, y_set, x, y):
+
+    # Returns partial derivative d^2z(x, y) / dx dy corresponding to the pre-constructed array of polynomial
+    # coefficients and the parametrization grid.
+
+    i = get_left_i(x_set, x)
+    j = get_left_i(y_set, y)
+
+    z_y = 0 # this is the value of dz(x, y) / dy. We shall compute it in a cycle below.
+
+    for m in np.arange(1, 4, 1):
+        for n in np.arange(1, 4, 1):
+
+            z_y = z_y + two_dim_coeff[i, j, m, n] * ( m * x ** (m - 1) ) * ( n * y ** (n - 1) )
+
+    return z_y
+
+# Потребуется минимизация, и в силу особенностей синтаксиса надо определить ещё одну функцию. За подробностями - в
 # классе "GridHorizon".
-def difference(s, x_set, y_set, func, deriv_x, sou, vec):
 
-    return abs(two_dim_inter(x_set, y_set, func, deriv_x, sou[0] + s * vec[0], sou[1] + s * vec[1]) - \
+
+def difference(s, x_set, y_set, two_dim_coeff, sou, vec):
+
+    return abs(two_dim_inter(two_dim_coeff, x_set, y_set, sou[0] + s * vec[0], sou[1] + s * vec[1]) - \
                (sou[2] + s * vec[2]))
 
 
