@@ -33,8 +33,13 @@ class Horizon:
         pass
 
     @staticmethod
-    def _plot_horizon_3d(x, z, ax=None):
-        ax.plot_trisurf(x[:, 0], x[:, 1], np.squeeze(z), alpha = 0.5)
+    def _plot_horizon_3d(x, y, z, ax=None):
+        # x and y are 1D-arrays which define the grid.
+        yy, xx = np.meshgrid(y, x) # exactly in this order
+
+        ax.plot_surface(xx, yy, z, alpha = 0.5)
+
+        return
 
 
 class FlatHorizon(Horizon):
@@ -184,27 +189,24 @@ class FlatHorizon(Horizon):
 
         return 0, 0, 0, np.array([d1, d2, n]).T
 
-    def plot(self, x=None, extent=(0, 100, 0, 100), ns=2, ax=None):
-        if not np.any(x):
-            _x, _y = np.meshgrid(
-                np.linspace(extent[0], extent[1], ns),
-                np.linspace(extent[2], extent[3], ns)
-            )
-            x = np.vstack((_x.ravel(), _y.ravel())).T
+    def plot(self,extent=(0, 100, 0, 100), ax=None):
 
+        x = np.array([extent[0], extent[1]])
+        y = np.array([extent[2], extent[4]])
 
-        z = []
+        z = np.zeros(x.shape)
 
         for i in range(x.shape[0]):
+            for j in range(y.shape[0]):
 
-            z.append(self.get_depth([x[i,0], x[i,1]]))
+                z[i, j] = self.get_depth([x[i], y[j]])
 
         # TODO prettify using plt.show()
         if not np.any(ax):
             fig = plt.figure()
             ax = Axes3D(fig)
 
-        self._plot_horizon_3d(x, z, ax=ax)
+        self._plot_horizon_3d(x, y, z, ax=ax)
 
 
 class GridHorizon(Horizon):
@@ -318,7 +320,7 @@ class GridHorizon(Horizon):
         # не отрицательна (т.к. мы всегда идём по направлению к приёмнику) и не может превышать 1, т.к. s = 1
         # соответствует точке приёмника.
 
-        s = minimize(difference, np.array([0.5]), args = (self.X, self.Y, self.Z, self.der_X, sou, vector),
+        s = minimize(difference, np.array([0.5]), args = (self.X, self.Y, self.polynomial, sou, vector),
                      method ='SLSQP', bounds = np.array([[0, 1]])).x[0]
 
         # Надо проверить, не вышли ли мы за пределы сетки задания поверхности:
@@ -441,12 +443,10 @@ class GridHorizon(Horizon):
         #
         # YY_new, XX_new = np.meshgrid(Y_new, X_new)
 
-        YY, XX = np.meshgrid(self.Y, self.X)
-
         # TODO prettify using plt.show()
 
         if not np.any(ax):
             fig = plt.figure()
             ax = Axes3D(fig)
 
-        self._plot_horizon_3d(np.vstack((XX.ravel(), YY.ravel())).T, self.Z.ravel(), ax=ax)
+        self._plot_horizon_3d(self.X, self.Y, self.Z, ax=ax)

@@ -10,7 +10,7 @@ DEFAULT_LOCATION = np.array([0, 0, 0])
 class Source(object):
     def __init__(
             self,
-            sigma, # sigma parameter in the Ricker wavelet
+            fr_dom, # dominant frequency in the Ricker wavelet (Hz)
             vel_model,
             location=DEFAULT_LOCATION,
             name=DEFAULT_SOURCE_NAME,
@@ -18,7 +18,7 @@ class Source(object):
         self.name = name
         self.location = np.array(location).ravel()
         self.layer = vel_model.get_location_layer(self.location)
-        self.sigma = sigma
+        self.fr_dom = fr_dom
 
     def _get_description(self):
         return 'Source "{}", loc ({})'.format(
@@ -60,7 +60,7 @@ class RotatCenter(Source):
 
     def __init__(
             self,
-            sigma,
+            fr_dom, # dominant frequency in the Ricker wavelet (Hz)
             axis,
             vel_model,
             location=DEFAULT_LOCATION,
@@ -69,7 +69,7 @@ class RotatCenter(Source):
         self.name = name
         self.location = np.array(location).ravel()
         self.layer = vel_model.get_location_layer(self.location)
-        self.sigma = sigma
+        self.fr_dom = fr_dom
         self.axis = axis / np.linalg.norm(axis) # axis of rotation
 
     def psi0(self, r0, vec):

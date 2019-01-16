@@ -4,6 +4,7 @@ import numpy as np
 from src.tprt import Receiver, Layer, Source, DilatCenter, RotatCenter, Ray, FlatHorizon, GridHorizon, ISOVelocity, Velocity_model
 from src.tprt.ray import SnelliusError
 from src.tprt.rt_coefficients import rt_coefficients
+from src.tprt.bicubic_interpolation import *
 
 import time # for runtime
 import os # for folder's creation
@@ -25,63 +26,71 @@ start_time = time.time()
 # Let's define the interfaces.
 
 # Grid:
-X = np.linspace(- 2000, 2000, 2001)
-Y = np.linspace(- 2000, 2000, 2001)
+X = np.linspace(- 2000, 2000, 1001)
+Y = np.linspace(- 2000, 2000, 1001)
+
+YY, XX = np.meshgrid(Y, X)
 
 # Interfaces:
-Convex_Gauss_500_Center = np.zeros((X.shape[0], Y.shape[0]))
-Convex_Gauss_1000_Center = np.zeros((X.shape[0], Y.shape[0]))
 
-Convex_Gauss_500_Incident = np.zeros((X.shape[0], Y.shape[0]))
-Convex_Gauss_500_Upcoming = np.zeros((X.shape[0], Y.shape[0]))
+Convex_Gauss_500_Center = np.array(list(map(lambda x, y: 700 - 200 * np.exp(- x * x / 1000000 -
+                                                                            y * y / 1000000), XX, YY)))
+Convex_Gauss_1000_Center = np.array(list(map(lambda x, y: 1200 - 200 * np.exp(- x * x / 1000000 -
+                                                                              y * y / 1000000), XX, YY)))
 
-Concave_Gauss_500_Center = np.zeros((X.shape[0], Y.shape[0]))
+Convex_Gauss_500_Incident = np.array(list(map(lambda x, y: 700 - 200 * np.exp(- (x + 816.045) *
+                                                                              (x + 816.045) / 1000000 -
+                                                                              y * y / 1000000), XX, YY)))
+Convex_Gauss_500_Upcoming = np.array(list(map(lambda x, y: 700 - 200 * np.exp(- (x - 816.045) *
+                                                                              (x - 816.045) / 1000000 -
+                                                                              y * y / 1000000), XX, YY)))
+Concave_Gauss_500_Center = np.array(list(map(lambda x, y: 700 + 200 * np.exp(- x * x / 1000000 -
+                                                                             y * y / 1000000), XX, YY)))
 
-for i in range(X.shape[0]):
-    for j in range(Y.shape[0]):
+# dir_name = "C:/Users/USER/Documents/Лучевой метод/AVO, коэффициенты отражения-преломления/Результаты вычислений"
+#
+# polynomial_Convex_Gauss_500_Center = open("{}/Выпуклый купол 500 м, центр. Полиномиальные коэффициенты.txt".format(dir_name), "w")
+#
+# coeff = two_dim_polynomial(X, Y, Convex_Gauss_500_Center)
+#
+# for i in range(coeff.shape[0]):
+#     for j in range(coeff.shape[1]):
+#         for m in range(4):
+#             for n in range(4):
+#
+#                 polynomial_Convex_Gauss_500_Center.write("{} ".format(coeff[i, j, m, n]))
+#
+#             polynomial_Convex_Gauss_500_Center.write("\t")
+#         polynomial_Convex_Gauss_500_Center.write("\t")
+#
+#     polynomial_Convex_Gauss_500_Center.write("\n")
+#
+# polynomial_Convex_Gauss_500_Center.close()
 
-        Convex_Gauss_500_Center[i, j] = 700 - 200 * np.exp(- X[i] * X[i] / 1000000 - Y[j] * Y[j] / 1000000)
-        Convex_Gauss_1000_Center[i, j] = 1200 - 200 * np.exp(- X[i] * X[i] / 1000000 - Y[j] * Y[j] / 1000000)
+# Convex_Gauss_500_Center = np.zeros((X.shape[0], Y.shape[0]))
+# Convex_Gauss_1000_Center = np.zeros((X.shape[0], Y.shape[0]))
+#
+# Convex_Gauss_500_Incident = np.zeros((X.shape[0], Y.shape[0]))
+# Convex_Gauss_500_Upcoming = np.zeros((X.shape[0], Y.shape[0]))
+#
+# Concave_Gauss_500_Center = np.zeros((X.shape[0], Y.shape[0]))
 
-        Convex_Gauss_500_Incident[i, j] = 700 - 200 * np.exp(- (X[i] + 816.045) * (X[i] + 816.045) / 1000000 -
-                                                             Y[j] * Y[j] / 1000000)
-        Convex_Gauss_500_Upcoming[i, j] = 700 - 200 * np.exp(- (X[i] - 816.045) * (X[i] - 816.045) / 1000000 -
-                                                             Y[j] * Y[j] / 1000000)
-        Concave_Gauss_500_Center[i, j] = 700 + 200 * np.exp(- X[i] * X[i] / 1000000 - Y[j] * Y[j] / 1000000)
+# for i in range(X.shape[0]):
+#     for j in range(Y.shape[0]):
+#
+#         Convex_Gauss_500_Center[i, j] = 700 - 200 * np.exp(- X[i] * X[i] / 1000000 - Y[j] * Y[j] / 1000000)
+#         Convex_Gauss_1000_Center[i, j] = 1200 - 200 * np.exp(- X[i] * X[i] / 1000000 - Y[j] * Y[j] / 1000000)
+#
+#         Convex_Gauss_500_Incident[i, j] = 700 - 200 * np.exp(- (X[i] + 816.045) * (X[i] + 816.045) / 1000000 -
+#                                                              Y[j] * Y[j] / 1000000)
+#         Convex_Gauss_500_Upcoming[i, j] = 700 - 200 * np.exp(- (X[i] - 816.045) * (X[i] - 816.045) / 1000000 -
+#                                                              Y[j] * Y[j] / 1000000)
+#         Concave_Gauss_500_Center[i, j] = 700 + 200 * np.exp(- X[i] * X[i] / 1000000 - Y[j] * Y[j] / 1000000)
         # WARNING!!! Value 816.045 in "Incident" and "Upcoming" interfaces is pre-calculated for particular velocity
         # model where v1 = 2000 and v2 = 2800 m/s. The transition and reflection points are supposed to be at the top of
         # the Gauss hats.
 
-
-horizons_model_1 = [GridHorizon(X, Y, Convex_Gauss_500_Center, bool_parab = 0)]
-
-horizons_model_2a = [GridHorizon(X, Y, Convex_Gauss_500_Incident, bool_parab = 0),
-                     GridHorizon(X, Y, Convex_Gauss_1000_Center, bool_parab = 0)]
-horizons_model_2b = [GridHorizon(X, Y, Convex_Gauss_500_Center, bool_parab = 0),
-                     GridHorizon(X, Y, Convex_Gauss_1000_Center, bool_parab = 0)]
-horizons_model_2c = [GridHorizon(X, Y, Convex_Gauss_500_Upcoming, bool_parab = 0),
-                     GridHorizon(X, Y, Convex_Gauss_1000_Center, bool_parab = 0)]
-
-horizons_model_3 = [GridHorizon(X, Y, Concave_Gauss_500_Center, bool_parab = 0)]
-
-# Define velocity models:
-
-vel_mod_1 = Velocity_model(np.array([ISOVelocity(2000, 1100), ISOVelocity(2800, 1600)]),
-                           np.array([1800, 2100]), np.array([1, 2]), horizons_model_1)
-
-vel_mod_2a = Velocity_model(np.array([ISOVelocity(2000, 1100), ISOVelocity(2800, 1600), ISOVelocity(3600, 2100)]),
-                           np.array([1800, 2100, 2400]), np.array([1, 2, 3]), horizons_model_2a)
-vel_mod_2b = Velocity_model(np.array([ISOVelocity(2000, 1100), ISOVelocity(2800, 1600), ISOVelocity(3600, 2100)]),
-                            np.array([1800, 2100, 2400]), np.array([1, 2, 3]), horizons_model_2b)
-vel_mod_2c = Velocity_model(np.array([ISOVelocity(2000, 1100), ISOVelocity(2800, 1600), ISOVelocity(3600, 2100)]),
-                            np.array([1800, 2100, 2400]), np.array([1, 2, 3]), horizons_model_2c)
-
-vel_mod_3 = Velocity_model(np.array([ISOVelocity(2000, 1100), ISOVelocity(2800, 1600)]),
-                           np.array([1800, 2100]), np.array([1, 2]), horizons_model_3)
-
-# Now let's push them into a list:
-
-models = [vel_mod_1, vel_mod_2a, vel_mod_2b, vel_mod_2c, vel_mod_3]
+# print("\x1b[1;31m --- Data arrays created: %s seconds ---" % (time.time() - start_time))
 
 # Let's construct the observation system:
 sou_line = np.arange(- 1300, 25, 25) # source line starting from - 1300 and ending at 0 with step 100
@@ -111,19 +120,62 @@ raycode_model_2 = [[1, 0, 0],
 # 4 - vel_mod_2c
 # 5 - vel_mod_3
 
-model_number = 3
+model_number = 5
 
-current_mod = models[model_number - 1]
+if model_number == 1:
 
+    horizons = [GridHorizon(X, Y, Convex_Gauss_500_Center, bool_parab = 0)]
+    current_mod = Velocity_model(np.array([ISOVelocity(2000, 1100), ISOVelocity(2800, 1600)]),
+                                 np.array([1800, 2100]), np.array([1, 2]), horizons)
+
+elif model_number == 2:
+
+    horizons = [GridHorizon(X, Y, Convex_Gauss_500_Incident, bool_parab = 0),
+                GridHorizon(X, Y, Convex_Gauss_1000_Center, bool_parab = 0)]
+    current_mod = Velocity_model(np.array([ISOVelocity(2000, 1100), ISOVelocity(2800, 1600), ISOVelocity(3600, 2100)]),
+                                 np.array([1800, 2100, 2400]), np.array([1, 2, 3]), horizons)
+
+elif model_number == 3:
+
+    horizons = [GridHorizon(X, Y, Convex_Gauss_500_Center, bool_parab = 0),
+                GridHorizon(X, Y, Convex_Gauss_1000_Center, bool_parab = 0)]
+    current_mod = Velocity_model(np.array([ISOVelocity(2000, 1100), ISOVelocity(2800, 1600), ISOVelocity(3600, 2100)]),
+                                 np.array([1800, 2100, 2400]), np.array([1, 2, 3]), horizons)
+
+elif model_number == 4:
+
+    horizons = [GridHorizon(X, Y, Convex_Gauss_500_Upcoming, bool_parab = 0),
+                GridHorizon(X, Y, Convex_Gauss_1000_Center, bool_parab = 0)]
+    current_mod = Velocity_model(np.array([ISOVelocity(2000, 1100), ISOVelocity(2800, 1600), ISOVelocity(3600, 2100)]),
+                                 np.array([1800, 2100, 2400]), np.array([1, 2, 3]), horizons)
+
+elif model_number == 5:
+
+    horizons = [GridHorizon(X, Y, Concave_Gauss_500_Center, bool_parab = 0)]
+    current_mod = Velocity_model(np.array([ISOVelocity(2000, 1100), ISOVelocity(2800, 1600)]),
+                                 np.array([1800, 2100]), np.array([1, 2]), horizons)
+
+else: # in any oser case set the default model:
+
+    horizons = [GridHorizon(X, Y, Convex_Gauss_500_Center, bool_parab = 0)]
+    current_mod = Velocity_model(np.array([ISOVelocity(2000, 1100), ISOVelocity(2800, 1600)]),
+                                 np.array([1800, 2100]), np.array([1, 2]), horizons)
+
+
+# And current raycode:
 current_raycode = raycode_model_1_3 # by default
 
 if 1 < model_number <= 4:
 
     current_raycode = raycode_model_2
 
+# So, let's set Sources and Receivers.
+
+frequency_dom = 39 # dominant frequency of the source
+
 for i in range(sou_line.shape[0]):
 
-    sources[i] = DilatCenter(0.01, current_mod, np.array([sou_line[i], 0, 0]))
+    sources[i] = DilatCenter(frequency_dom, current_mod, np.array([sou_line[i], 0, 0]))
     receivers[i] = Receiver([rec_line[-1 - i], 0, 0])
 
 # And initiate rays themselves:
@@ -187,6 +239,9 @@ description_file.write("Приёмники расположены на оси X 
                                                                                   rec_line[- 1],
                                                                                   rec_line[1] - rec_line[0]))
 
+description_file.write("Функция источника: импульс Рикера с главной частотой {} Гц. \n \n".format(frequency_dom))
+
+
 description_file.write("Время записи на станции: {} с \n".format(max_time))
 description_file.write("Длительность отсчётов: {} с \n \n".format(record_time[1] - record_time[0]))
 
@@ -199,30 +254,37 @@ description_file.write("Под обработкой луча понимаетс�
 
 description_file.write("Сетка задния границ: \n \n")
 
-description_file.write("--- Массивы созданы: %s секунд --- \n \n" % (time.time() - start_time))
-print("\x1b[1;31m --- Arrays created: %s seconds ---" % (time.time() - start_time))
+description_file.write("--- Конфигурации границ и схемы наблюдений заданы: %s секунд --- \n \n" % (time.time() -
+                                                                                                   start_time))
+print("\x1b[1;31m --- The configuration of interfaces and the observation system are defined: %s seconds ---" %
+      (time.time() - start_time))
 
 # Before we start processing rays, it will be convenient to create .txt files where we shall write values of the
 # amplitude, traveltime and geometrical spreading.
 
 geom_spread_1 = open("{}/Геометрическое расхождение в смысле 1.txt".format(dir_name), "w+")
 geom_spread_2 = open("{}/Геометрическое расхождение в смысле 2.txt".format(dir_name), "w+")
-seismogram = open("{}/Сейсмограммы.txt".format(dir_name), "w+")
+seismogram_z = open("{}/Сейсмограммы. Z-компонента.txt".format(dir_name), "w+")
+seismogram_x = open("{}/Сейсмограммы. X-компонента.txt".format(dir_name), "w+")
 hodograph = open("{}/Годограф.txt".format(dir_name), "w+")
 
 # Let's form up heads for these files:
 geom_spread_1.write("X, м\tС учётом кривизны границы, м^2\tБез учёта кривизны границы, м^2\n\n")
 geom_spread_2.write("X, м\tС учётом кривизны границы, м^2/с\tБез учёта кривизны границы, м^2/с\n\n")
 
-seismogram.write("Z-компонента вектора смещений\n\n")
+seismogram_z.write("Z-компонента вектора смещений\n\n")
+seismogram_x.write("X-компонента вектора смещений\n\n")
 
-seismogram.write("T, с\t")
+seismogram_z.write("T, с\t")
+seismogram_x.write("T, с\t")
 
 for i in range(receivers.shape[0]):
 
-    seismogram.write("Тр. {}\t".format(i))
+    seismogram_z.write("Тр. {}\t".format(i))
+    seismogram_x.write("Тр. {}\t".format(i))
 
-seismogram.write("\n\n")
+seismogram_z.write("\n\n")
+seismogram_x.write("\n\n")
 
 hodograph.write("Годограф первых вступлений\n\n")
 hodograph.write("X, м\tT, с\n\n")
@@ -256,13 +318,16 @@ for i in range(sources.shape[0]):
 
 for i in range(record_time.shape[0]):
 
-    seismogram.write("{}\t".format(round(record_time[i], 3)))
+    seismogram_z.write("{}\t".format(round(record_time[i], 3)))
+    seismogram_x.write("{}\t".format(round(record_time[i], 3)))
 
     for j in range(sources.shape[0]):
 
-        seismogram.write("{}\t".format(round(gathers_z[-1 - j, i], 12)))
+        seismogram_z.write("{}\t".format(gathers_z[-1 - j, i]))
+        seismogram_x.write("{}\t".format(gathers_x[-1 - j, i]))
 
-    seismogram.write("\n")
+    seismogram_z.write("\n")
+    seismogram_x.write("\n")
 
 # And other data:
 for i in range(sources.shape[0]):
@@ -277,6 +342,9 @@ for i in range(sources.shape[0]):
 fig = plt.figure()
 ax = Axes3D(fig)
 ax.invert_zaxis()
+
+ax.view_init(0, - 90)
+
 for l in current_mod.layers[:-1]:
     l.bottom.plot(ax=ax)
 
@@ -359,26 +427,45 @@ plt.title("Сейсмограмма (Z-комонента). Модель №{}".
 
 for i in range(rays.shape[0]):
 
-    # plt.plot(record_time, gathers_x[i, :] * 10000 + i, 'r-', linewidth = 0.3)
-    # plt.plot(record_time, gathers_y[i, :] * 10000 + i + 0.1, 'g-', linewidth = 0.3)
-    # plt.plot(record_time, gathers_z[i, :] * 10000 + i + 0.2, 'b-', linewidth = 0.3)
-
-    # plt.fill_between(record_time, gathers_x[i, :] * 10000 + i, np.ones(record_time.shape) * i,
-    #                  color = 'r', alpha = 0.5)
-    # plt.fill_between(record_time, gathers_y[i, :] * 10000 + i + 0.3, np.ones(record_time.shape) * (i + 0.3),
-    #                  color = 'g', alpha = 0.5)
+    # plt.fill_between(record_time, gathers_x[i, :] / np.max(abs(gathers_x)) / 1.5 + i + 0.6, np.ones(record_time.shape) * (i + 0.6),
+    #                  linewidth = 0.3, color = 'r', alpha = 0.5)
+    # plt.fill_between(record_time, gathers_y[i, :] / np.max(abs(gathers_y)) / 1.5 + i + 0.6, np.ones(record_time.shape) * (i + 0.6),
+    #                  linewidth = 0.3, color = 'g', alpha = 0.5)
     plt.fill_between(record_time, gathers_z[i, :] / np.max(abs(gathers_z)) / 1.5 + i + 0.6, np.ones(record_time.shape) * (i + 0.6),
-                     color = 'b', alpha = 0.5)
+                     linewidth = 0.3, color = 'b', alpha = 0.5)
 
 # plt.legend()
 # plt.grid()
 
 plt.xlabel("Время, с")
 
-plt.savefig("{}/Сейсмограмма.png".format(dir_name), dpi = 400)
-print("Сейсмограмма сохранена: {} секунд".format(time.time() - start_time))
+plt.savefig("{}/Сейсмограмма. Z-компонента.png".format(dir_name), dpi = 400)
+print("Сейсмограмма (Z-компонента) сохранена: {} секунд".format(time.time() - start_time))
 
 plt.close(fig5)
+
+fig6 = plt.figure()
+
+plt.title("Сейсмограмма (X-комонента). Модель №{}".format(number_string[model_number]))
+
+for i in range(rays.shape[0]):
+
+    plt.fill_between(record_time, gathers_x[i, :] / np.max(abs(gathers_z)) / 1.5 + i + 0.6, np.ones(record_time.shape) * (i + 0.6),
+                     linewidth = 0.3, color = 'r', alpha = 0.5)
+    # plt.fill_between(record_time, gathers_y[i, :] / np.max(abs(gathers_y)) / 1.5 + i + 0.6, np.ones(record_time.shape) * (i + 0.6),
+    #                  linewidth = 0.3, color = 'g', alpha = 0.5)
+    # plt.fill_between(record_time, gathers_z[i, :] / np.max(abs(gathers_z)) / 1.5 + i + 0.6, np.ones(record_time.shape) * (i + 0.6),
+    #                  linewidth = 0.3, color = 'b', alpha = 0.5)
+
+# plt.legend()
+# plt.grid()
+
+plt.xlabel("Время, с")
+
+plt.savefig("{}/Сейсмограмма. X-компонента.png".format(dir_name), dpi = 400)
+print("Сейсмограмма (X-компонента) сохранена: {} секунд".format(time.time() - start_time))
+
+plt.close(fig6)
 
 description_file.write("Графики построены и сохранены: %s секунд" % (time.time() - start_time))
 
@@ -394,7 +481,8 @@ description_file.close()
 geom_spread_1.close()
 geom_spread_2.close()
 hodograph.close()
-seismogram.close()
+seismogram_z.close()
+seismogram_x.close()
 
 # print(2.74 - 0.17)
 

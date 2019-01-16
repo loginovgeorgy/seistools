@@ -538,7 +538,7 @@ class Ray(object):
         # the Ricker wavelet with dispersion given in the Source  and U is a constant vector: self.amplitude_fun.
 
         tau = self.travel_time()
-        sigma = self.source.sigma
+        sigma = np.sqrt(2) / self.source.fr_dom
 
         return 2 / np.sqrt(3 * sigma) / np.pi ** (1 / 4) *\
                (1 - ((t - tau )/ sigma)**2) *\
