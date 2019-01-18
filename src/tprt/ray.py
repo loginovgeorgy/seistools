@@ -242,7 +242,7 @@ class Ray(object):
 
         return np.array(snell)
 
-    def amplitude_fr_dom(self):
+    def amplitude_fr_dom(self, curv_bool = 1):
 
         # This method computes amplitude in the observation point in the frequency domain using formula
         # U = U_0 /sqrt(s0**2 * |П( det M(s*_i-1) / det M(s*_i))|) * П( k_i )
@@ -390,7 +390,7 @@ class Ray(object):
                                      self.segments[i - 1].end_horizon.get_normal(self.segments[i - 1].receiver[0:2])))
                 # cosine of tr_angle
                 cos_out = abs(np.dot(self.segments[i].vector,
-                                    self.segments[i - 1].end_horizon.get_normal(self.segments[i - 1].receiver[0:2])))
+                                     self.segments[i - 1].end_horizon.get_normal(self.segments[i - 1].receiver[0:2])))
 
                 S = np.array([[rt_sign * cos_inc / cos_out, 0],
                               [0, 1]])
@@ -406,6 +406,10 @@ class Ray(object):
                     self.segments[i - 1].end_horizon.get_sec_deriv(self.segments[i - 1].receiver[0:2],
                                                                    self.segments[i - 1].vector)
                 D[1, 0] = D[0, 1]
+
+                if curv_bool == 0:
+
+                    D = np.zeros((2,2))
 
                 # Here transit_matr is a transition matrix from global Cartesian coordinates to local ones which are
                 # connected to the point of incidence ant the incident ray. Of course, columns of this matrix are
@@ -438,7 +442,7 @@ class Ray(object):
                 # We can compute constants c_i by in terms of N = M**(-1). But first of all let's find new value of M
                 # (i.e. M'):
 
-                M = np.dot(np.dot(S, np.dot(W.T, np.dot(M, W))), S) - u * np.dot(np.dot(G, D), G)
+                M = np.dot(np.dot(S, np.dot(W.T, np.dot(M, W))), S) + u * np.dot(np.dot(G, D), G)
 
                 # Note that new matrix M is related to the new triplet t, e1, e2 where e2 is coincident with d2.
 
@@ -657,7 +661,7 @@ class Ray(object):
                 # We can compute constants c_i by in terms of N = M**(-1). But first of all let's find new value of M
                 # (i.e. M'):
 
-                M = np.dot(np.dot(S, np.dot(W.T, np.dot(M, W))), S) - u * np.dot(np.dot(G, D), G)
+                M = np.dot(np.dot(S, np.dot(W.T, np.dot(M, W))), S) + u * np.dot(np.dot(G, D), G)
 
                 # Note that new matrix M is related to the new triplet t, e1, e2 where e2 is coincident with d2.
 

@@ -26,8 +26,8 @@ start_time = time.time()
 # Let's define the interfaces.
 
 # Grid:
-X = np.linspace(- 2000, 2000, 1001)
-Y = np.linspace(- 2000, 2000, 1001)
+X = np.linspace(- 2000, 2000, 51)
+Y = np.linspace(- 2000, 2000, 51)
 
 YY, XX = np.meshgrid(Y, X)
 
@@ -46,59 +46,6 @@ Convex_Gauss_500_Upcoming = np.array(list(map(lambda x, y: 700 - 200 * np.exp(- 
                                                                               y * y / 1000000), XX, YY)))
 Concave_Gauss_500_Center = np.array(list(map(lambda x, y: 700 + 200 * np.exp(- x * x / 1000000 -
                                                                              y * y / 1000000), XX, YY)))
-
-# dir_name = "C:/Users/USER/Documents/Лучевой метод/AVO, коэффициенты отражения-преломления/Результаты вычислений"
-#
-# polynomial_Convex_Gauss_500_Center = open("{}/Выпуклый купол 500 м, центр. Полиномиальные коэффициенты.txt".format(dir_name), "w")
-#
-# coeff = two_dim_polynomial(X, Y, Convex_Gauss_500_Center)
-#
-# for i in range(coeff.shape[0]):
-#     for j in range(coeff.shape[1]):
-#         for m in range(4):
-#             for n in range(4):
-#
-#                 polynomial_Convex_Gauss_500_Center.write("{} ".format(coeff[i, j, m, n]))
-#
-#             polynomial_Convex_Gauss_500_Center.write("\t")
-#         polynomial_Convex_Gauss_500_Center.write("\t")
-#
-#     polynomial_Convex_Gauss_500_Center.write("\n")
-#
-# polynomial_Convex_Gauss_500_Center.close()
-
-# Convex_Gauss_500_Center = np.zeros((X.shape[0], Y.shape[0]))
-# Convex_Gauss_1000_Center = np.zeros((X.shape[0], Y.shape[0]))
-#
-# Convex_Gauss_500_Incident = np.zeros((X.shape[0], Y.shape[0]))
-# Convex_Gauss_500_Upcoming = np.zeros((X.shape[0], Y.shape[0]))
-#
-# Concave_Gauss_500_Center = np.zeros((X.shape[0], Y.shape[0]))
-
-# for i in range(X.shape[0]):
-#     for j in range(Y.shape[0]):
-#
-#         Convex_Gauss_500_Center[i, j] = 700 - 200 * np.exp(- X[i] * X[i] / 1000000 - Y[j] * Y[j] / 1000000)
-#         Convex_Gauss_1000_Center[i, j] = 1200 - 200 * np.exp(- X[i] * X[i] / 1000000 - Y[j] * Y[j] / 1000000)
-#
-#         Convex_Gauss_500_Incident[i, j] = 700 - 200 * np.exp(- (X[i] + 816.045) * (X[i] + 816.045) / 1000000 -
-#                                                              Y[j] * Y[j] / 1000000)
-#         Convex_Gauss_500_Upcoming[i, j] = 700 - 200 * np.exp(- (X[i] - 816.045) * (X[i] - 816.045) / 1000000 -
-#                                                              Y[j] * Y[j] / 1000000)
-#         Concave_Gauss_500_Center[i, j] = 700 + 200 * np.exp(- X[i] * X[i] / 1000000 - Y[j] * Y[j] / 1000000)
-        # WARNING!!! Value 816.045 in "Incident" and "Upcoming" interfaces is pre-calculated for particular velocity
-        # model where v1 = 2000 and v2 = 2800 m/s. The transition and reflection points are supposed to be at the top of
-        # the Gauss hats.
-
-# print("\x1b[1;31m --- Data arrays created: %s seconds ---" % (time.time() - start_time))
-
-# Let's construct the observation system:
-sou_line = np.arange(- 1300, 25, 25) # source line starting from - 1300 and ending at 0 with step 100
-rec_line = np.linspace(0, 1300, sou_line.shape[0]) # source line starting from 0 and ending at 1300 with step 100
-
-# Let's set sources and receivers along profile:
-sources = np.empty(sou_line.shape[0], dtype = Source)
-receivers = np.empty(rec_line.shape[0], dtype = Receiver)
 
 # Let's construct raycodes for reflected waves:
 raycode_model_1_3 = [[1, 0, 0],
@@ -120,7 +67,7 @@ raycode_model_2 = [[1, 0, 0],
 # 4 - vel_mod_2c
 # 5 - vel_mod_3
 
-model_number = 5
+model_number = 2
 
 if model_number == 1:
 
@@ -161,13 +108,21 @@ else: # in any oser case set the default model:
     current_mod = Velocity_model(np.array([ISOVelocity(2000, 1100), ISOVelocity(2800, 1600)]),
                                  np.array([1800, 2100]), np.array([1, 2]), horizons)
 
-
 # And current raycode:
 current_raycode = raycode_model_1_3 # by default
 
 if 1 < model_number <= 4:
 
     current_raycode = raycode_model_2
+
+
+# Let's construct the observation system:
+sou_line = np.arange(- 1300, 25, 25) # source line starting from - 1300 and ending at 0 with step 100
+rec_line = np.linspace(0, 1300, sou_line.shape[0]) # source line starting from 0 and ending at 1300 with step 100
+
+# Let's set sources and receivers along profile:
+sources = np.empty(sou_line.shape[0], dtype = Source)
+receivers = np.empty(rec_line.shape[0], dtype = Receiver)
 
 # So, let's set Sources and Receivers.
 
@@ -232,15 +187,19 @@ description_file.write("Узлы на оси Y расположены от {} д
 
 description_file.write("Схема наблюдений: \n \n")
 
-description_file.write("Источники расположены на оси X от {} до {} м с шагом {} м. \n".format(sou_line[0],
-                                                                                  sou_line[- 1],
-                                                                                  sou_line[1] - sou_line[0]))
-description_file.write("Приёмники расположены на оси X от {} до {} м с шагом {} м. \n \n".format(rec_line[0],
-                                                                                  rec_line[- 1],
-                                                                                  rec_line[1] - rec_line[0]))
+description_file.write("Источники расположены на оси X от {} до {} м с шагом {} м. \n".format(int(sou_line[0]),
+                                                                                              int(sou_line[- 1]),
+                                                                                              int(sou_line[1] -
+                                                                                                  sou_line[0])))
+description_file.write("Приёмники расположены на оси X от {} до {} м с шагом {} м. \n \n".format(int(rec_line[0]),
+                                                                                                 int(rec_line[- 1]),
+                                                                                                 int(rec_line[1] -
+                                                                                                     rec_line[0])))
 
 description_file.write("Функция источника: импульс Рикера с главной частотой {} Гц. \n \n".format(frequency_dom))
 
+description_file.write("Для пар 'источник-приёмник', находящихся в закритической области,"
+                       " лучи строиться не будут.\n\n")
 
 description_file.write("Время записи на станции: {} с \n".format(max_time))
 description_file.write("Длительность отсчётов: {} с \n \n".format(record_time[1] - record_time[0]))
@@ -266,17 +225,26 @@ geom_spread_1 = open("{}/Геометрическое расхождение в 
 geom_spread_2 = open("{}/Геометрическое расхождение в смысле 2.txt".format(dir_name), "w+")
 seismogram_z = open("{}/Сейсмограммы. Z-компонента.txt".format(dir_name), "w+")
 seismogram_x = open("{}/Сейсмограммы. X-компонента.txt".format(dir_name), "w+")
+ray_amplitude = open("{}/Лучевые амплитуды.txt".format(dir_name), "w+")
 hodograph = open("{}/Годограф.txt".format(dir_name), "w+")
 
 # Let's form up heads for these files:
-geom_spread_1.write("X, м\tС учётом кривизны границы, м^2\tБез учёта кривизны границы, м^2\n\n")
-geom_spread_2.write("X, м\tС учётом кривизны границы, м^2/с\tБез учёта кривизны границы, м^2/с\n\n")
+geom_spread_1.write("X, м\tС учётом кривизны границы, м^2\tБез учёта кривизны границ, м^2\n\n")
+geom_spread_2.write("X, м\tС учётом кривизны границы, м^2/с\tБез учёта кривизны границ, м^2/с\n\n")
 
 seismogram_z.write("Z-компонента вектора смещений\n\n")
 seismogram_x.write("X-компонента вектора смещений\n\n")
 
 seismogram_z.write("T, с\t")
 seismogram_x.write("T, с\t")
+
+ray_amplitude.write("Лучевые амплитуды")
+
+ray_amplitude.write("\n\n")
+
+ray_amplitude.write("Координата приёмника, м\tС учётом кривизны границ\t\tБез учёта кривизны границы")
+
+ray_amplitude.write("\n\n")
 
 for i in range(receivers.shape[0]):
 
@@ -294,43 +262,75 @@ hodograph.write("X, м\tT, с\n\n")
 for i in range(sources.shape[0]):
 
     print("------------------------------------")
-    rays[i] = Ray(sources[i], receivers[i], current_mod, current_raycode)
+    rays[i] = Ray(sources[- 1 - i], receivers[- 1 - i], current_mod, current_raycode)
     rays[i].optimize(penalty=True)
 
     description_file.write("--- %s луч создан и оптимизирован: %s секунд --- \n" % (i + 1, time.time() - start_time))
     print("\x1b[1;31m --- %s ray constructed: %s seconds ---" % (i + 1, time.time() - start_time))
 
-    travel_time[-1 - i] = rays[i].travel_time()
+    # Check if we are in post-critical zone:
 
-    geom_spread_curv_1[-1 - i], geom_spread_curv_2[-1 - i] = rays[i].spreading(1)
-    geom_spread_plane_1[-1 - i], geom_spread_plane_2[-1 - i] = rays[i].spreading(0)
+    if np.linalg.norm(np.imag(rays[i].amplitude_fr_dom(curv_bool = 1)))!= 0:
 
-    rays[i].amplitude_fun = rays[i].amplitude_fr_dom() # rewrite the amplitude field.
+        rays = np.delete(rays, np.arange(i, rays.shape[0], 1), axis = 0)
+
+        geom_spread_curv_1 = np.delete(geom_spread_curv_1, np.arange(i, geom_spread_curv_1.shape[0], 1), axis = 0)
+        geom_spread_plane_1 = np.delete(geom_spread_plane_1, np.arange(i, geom_spread_plane_1.shape[0], 1), axis = 0)
+
+        geom_spread_curv_2 = np.delete(geom_spread_curv_2, np.arange(i, geom_spread_curv_2.shape[0], 1), axis = 0)
+        geom_spread_plane_2 = np.delete(geom_spread_plane_2, np.arange(i, geom_spread_plane_2.shape[0], 1), axis = 0)
+
+        travel_time = np.delete(travel_time, np.arange(i, travel_time.shape[0], 1), axis = 0)
+
+        gathers_x = np.delete(gathers_x, np.arange(i, gathers_x.shape[0], 1), axis = 0)
+        gathers_y = np.delete(gathers_y, np.arange(i, gathers_y.shape[0], 1), axis = 0)
+        gathers_z = np.delete(gathers_z, np.arange(i, gathers_z.shape[0], 1), axis = 0)
+
+        description_file.write("--- На %s луче был достигнут критический угол. Процесс остановлен: %s секунд --- \n\n" %
+                               (i + 1, time.time() - start_time))
+        print("\x1b[1;31m --- On the %s-th ray critical angle has been reached. The process has been terminated:"
+              " %s seconds ---" % (i + 1, time.time() - start_time))
+
+        break
+
+    rays[i].amplitude_fun = rays[i].amplitude_fr_dom(curv_bool = 1) # rewrite the amplitude field.
+
+    travel_time[i] = rays[i].travel_time()
+
+    ray_amplitude.write("{}\t{}\t\t{}\n".format(rec_line[i],
+                                                np.linalg.norm(rays[i].amplitude_fr_dom(curv_bool = 1)),
+                                                np.linalg.norm(rays[i].amplitude_fr_dom(curv_bool = 0))))
+
+    geom_spread_curv_1[i], geom_spread_curv_2[i] = rays[i].spreading(1)
+    geom_spread_plane_1[i], geom_spread_plane_2[i] = rays[i].spreading(0)
 
     for j in range(record_time.shape[0]):
 
-        gathers_x[i, j], gathers_y[i, j], gathers_z[i, j] = rays[i].amplitude_t_dom(record_time[j])
+        gathers_x[i, j], gathers_y[i, j], gathers_z[i, j] = np.real(rays[i].amplitude_t_dom(record_time[j]))
 
     description_file.write("--- %s луч обработан: %s секунд --- \n \n" % (i + 1, time.time() - start_time))
     print("\x1b[1;31m --- %s ray processed: %s seconds ---" % (i + 1, time.time() - start_time))
 
-# Now, let's write down seismograms:
+# Now, let's save seismograms:
+
+max_amplitude = max(np.max(abs(gathers_z)), np.max(abs(gathers_x)))
+accuracy = int(round(abs(np.log10(max_amplitude))) * 5)
 
 for i in range(record_time.shape[0]):
 
     seismogram_z.write("{}\t".format(round(record_time[i], 3)))
     seismogram_x.write("{}\t".format(round(record_time[i], 3)))
 
-    for j in range(sources.shape[0]):
+    for j in range(rays.shape[0]):
 
-        seismogram_z.write("{}\t".format(gathers_z[-1 - j, i]))
-        seismogram_x.write("{}\t".format(gathers_x[-1 - j, i]))
+        seismogram_z.write("{}\t".format(round(gathers_z[j, i], accuracy)))
+        seismogram_x.write("{}\t".format(round(gathers_x[j, i], accuracy)))
 
     seismogram_z.write("\n")
     seismogram_x.write("\n")
 
 # And other data:
-for i in range(sources.shape[0]):
+for i in range(rays.shape[0]):
 
     geom_spread_1.write("{}\t{}\t{}\n".format(rec_line[i], geom_spread_curv_1[i], geom_spread_plane_1[i]))
     geom_spread_2.write("{}\t{}\t{}\n".format(rec_line[i], geom_spread_curv_2[i], geom_spread_plane_2[i]))
@@ -348,16 +348,12 @@ ax.view_init(0, - 90)
 for l in current_mod.layers[:-1]:
     l.bottom.plot(ax=ax)
 
-for i in range(sources.shape[0]):
+for i in range(rays.shape[0]):
 
-    sources[i].plot(ax=ax, color='r', marker='p', s=50)
-    receivers[i].plot(ax=ax, color='k', marker='^', s=50)
+    sources[- 1 - i].plot(ax=ax, color='r', marker='p', s=50)
+    receivers[- 1 - i].plot(ax=ax, color='k', marker='^', s=50)
 
     rays[i].plot(ax=ax)
-
-# # keep segments colored to check correctness of procedure
-
-# ax.view_init(0, 90)
 
 ax.set_xlabel("Расстояние по оси x, м")
 ax.set_ylabel("Расстояние по оси y, м",)
@@ -372,8 +368,8 @@ fig2 = plt.figure()
 
 plt.title("Геометрическое расхождение в смысле 1. Модель №{}".format(number_string[model_number]))
 
-plt.plot(rec_line, geom_spread_curv_1 / 1000000, 'r-', label = "С учётом кривизны границы")
-plt.plot(rec_line, geom_spread_plane_1 / 1000000, 'r--', label = "Без учёта кривизны границы")
+plt.plot(rec_line[0 : geom_spread_curv_1.shape[0]], geom_spread_curv_1 / 1000000, 'r-', label = "С учётом кривизны границы")
+plt.plot(rec_line[0 : geom_spread_plane_1.shape[0]], geom_spread_plane_1 / 1000000, 'r--', label = "Без учёта кривизны границы")
 
 plt.legend()
 plt.grid()
@@ -390,9 +386,8 @@ fig3 = plt.figure()
 
 plt.title("Геометрическое расхождение в смысле 2. Модель №{}".format(number_string[model_number]))
 
-plt.plot(rec_line, geom_spread_curv_2 / 1000000, 'r-', label = "С учётом кривизны границы")
-plt.plot(rec_line, geom_spread_plane_2 / 1000000, 'r--', label = "Без учёта кривизны границы")
-
+plt.plot(rec_line[0 : geom_spread_curv_2.shape[0]], geom_spread_curv_2 / 1000000, 'r-', label = "С учётом кривизны границы")
+plt.plot(rec_line[0 : geom_spread_plane_2.shape[0]], geom_spread_plane_2 / 1000000, 'r--', label = "Без учёта кривизны границы")
 plt.legend()
 plt.grid()
 
@@ -408,7 +403,7 @@ fig4 = plt.figure()
 
 plt.title("Годограф. Модель №{}".format(number_string[model_number]))
 
-plt.plot(rec_line, travel_time, 'r-', label = "Годограф отражённой PP-волны")
+plt.plot(rec_line[0 : travel_time.shape[0]], travel_time, 'r-', label = "Годограф отражённой PP-волны")
 
 plt.legend()
 plt.grid()
@@ -424,19 +419,19 @@ plt.close(fig4)
 fig5 = plt.figure()
 
 plt.title("Сейсмограмма (Z-комонента). Модель №{}".format(number_string[model_number]))
+plt.gca().invert_yaxis()
 
 for i in range(rays.shape[0]):
 
-    # plt.fill_between(record_time, gathers_x[i, :] / np.max(abs(gathers_x)) / 1.5 + i + 0.6, np.ones(record_time.shape) * (i + 0.6),
-    #                  linewidth = 0.3, color = 'r', alpha = 0.5)
-    # plt.fill_between(record_time, gathers_y[i, :] / np.max(abs(gathers_y)) / 1.5 + i + 0.6, np.ones(record_time.shape) * (i + 0.6),
-    #                  linewidth = 0.3, color = 'g', alpha = 0.5)
-    plt.fill_between(record_time, gathers_z[i, :] / np.max(abs(gathers_z)) / 1.5 + i + 0.6, np.ones(record_time.shape) * (i + 0.6),
+    plt.fill_between(record_time, gathers_z[i, :] / np.max(abs(gathers_z)) / 1.5 + i,
+                     np.ones(record_time.shape) * i,
                      linewidth = 0.3, color = 'b', alpha = 0.5)
 
-# plt.legend()
-# plt.grid()
+plt.yticks(np.arange(0, rays.shape[0], 1), ["{}".format(int(j)) for j in rec_line[0 : rays.shape[0]]],
+           fontsize = - 5 / 16 * rays.shape[0] + 11 + 21 * 5 / 16)
+# plt.axes().yaxis.grid(which = "major", linewidth = 0.1)
 
+plt.ylabel("Координаты приёмника, м")
 plt.xlabel("Время, с")
 
 plt.savefig("{}/Сейсмограмма. Z-компонента.png".format(dir_name), dpi = 400)
@@ -447,19 +442,19 @@ plt.close(fig5)
 fig6 = plt.figure()
 
 plt.title("Сейсмограмма (X-комонента). Модель №{}".format(number_string[model_number]))
+plt.gca().invert_yaxis()
 
 for i in range(rays.shape[0]):
 
-    plt.fill_between(record_time, gathers_x[i, :] / np.max(abs(gathers_z)) / 1.5 + i + 0.6, np.ones(record_time.shape) * (i + 0.6),
+    plt.fill_between(record_time, gathers_x[i, :] / np.max(abs(gathers_z)) / 1.5 + i,
+                     np.ones(record_time.shape) * i,
                      linewidth = 0.3, color = 'r', alpha = 0.5)
-    # plt.fill_between(record_time, gathers_y[i, :] / np.max(abs(gathers_y)) / 1.5 + i + 0.6, np.ones(record_time.shape) * (i + 0.6),
-    #                  linewidth = 0.3, color = 'g', alpha = 0.5)
-    # plt.fill_between(record_time, gathers_z[i, :] / np.max(abs(gathers_z)) / 1.5 + i + 0.6, np.ones(record_time.shape) * (i + 0.6),
-    #                  linewidth = 0.3, color = 'b', alpha = 0.5)
 
-# plt.legend()
-# plt.grid()
+plt.yticks(np.arange(0, rays.shape[0], 1), ["{}".format(int(j)) for j in rec_line[0 : rays.shape[0]]],
+           fontsize = - 5 / 16 * rays.shape[0] + 11 + 21 * 5 / 16)
+# plt.axes().yaxis.grid(which = "major", linewidth = 0.1)
 
+plt.ylabel("Координаты приёмника, м")
 plt.xlabel("Время, с")
 
 plt.savefig("{}/Сейсмограмма. X-компонента.png".format(dir_name), dpi = 400)
@@ -483,7 +478,4 @@ geom_spread_2.close()
 hodograph.close()
 seismogram_z.close()
 seismogram_x.close()
-
-# print(2.74 - 0.17)
-
-# print(ampl1.segments[1].vtype)
+ray_amplitude.close()

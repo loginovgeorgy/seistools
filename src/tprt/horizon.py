@@ -144,11 +144,11 @@ class FlatHorizon(Horizon):
 
     def get_sec_deriv(self, x, vec):
 
-        # n is unit normal to the surface at the current point. It is pointed to the medium from where the incident ray
+        # n is unit normal to the surface at the current point. It is pointed to the medium where the outgoing ray
         # comes.
 
         n = self.get_normal(x)
-        n = - np.sign(np.dot(n, vec)) * n # it has to be pointed against vec
+        n = np.sign(np.dot(n, vec)) * n # it has to be pointed in direction of vec
 
         # d1 is normed projection of vec (from arguments) on the tangent plane to the surface at the current point.
         # d2 is cross product [n x d1].
@@ -353,11 +353,11 @@ class GridHorizon(Horizon):
         # Very well. Now we have to construct a local coordinate system. It consists of three mutually orthogonal
         # unit vectors: d1, d2 and n.
 
-        # n is unit normal to the surface at the current point. It is pointed to the medium from where the incident ray
+        # n is unit normal to the surface at the current point. It is pointed to the medium where the outgoing ray
         # comes.
 
         n = self.get_normal(x)
-        n = - np.sign(np.dot(n, vec)) * n # it has to be pointed against vec
+        n = np.sign(np.dot(n, vec)) * n # it has to be pointed in direction of vec
 
         # d1 is normed projection of vec (from arguments) on the tangent plane to the surface at the current point.
         # d2 is cross product [n x d1].
