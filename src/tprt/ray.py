@@ -6,6 +6,14 @@ from .rt_coefficients import rt_coefficients
 
 WAVECODE = {0: 'vp', 1: 'vs'}
 
+########################### RAYCODE #######################################
+## In order to initialize a ray with a raycode, you should know:
+## 1. Source and receiver, between them we will define raycode
+## 2. Each element of raycode describes the changing of direction (depth)
+##    between local source and receiver
+## 3. An element is list as [direction, № of Layer from depth=0, wavecode]
+############################################################################
+
 class Ray(object):
     def __init__(self, sou, rec, vel_mod, raycode=None):
         """
@@ -30,7 +38,17 @@ class Ray(object):
 
         sou = np.array(self.source.location, ndmin=1)
         receiver = np.array(self.receiver.location, ndmin=1)
-        dist = np.sqrt(((sou-receiver)**2).sum())
+
+        ##############################################################################
+        ##########################!!!!!!!!!ALARM!!!!!!!!!!!!##########################
+        # HERE IS A TROUBLE WITH INITIAL RAY BEFORE OPTIMIZATION
+        # THIS PROBLEM MUST BE SOLVED
+        shift_dist = np.linalg.norm(sou - receiver)/20 + 10*np.random.random(len(sou))
+        # Now, I have added random to the initialization
+        # Otherwise, when the offset is equal to 0 optimization does not work
+        # I think, that cause of this problem is related to properties of the optimization method
+        ##############################################################################
+
         segments = []
         # МНОГО, ОЧЕНЬ МНОГО if'ов
         for k, (sign, i, vtype) in enumerate(raycode):
@@ -39,7 +57,7 @@ class Ray(object):
             last = k==len(raycode)-1
             layer = vel_mod.layers[i]
 
-            shifted_sou = (sou+dist/20)
+            shifted_sou = (sou + shift_dist)
 
             rec = np.array([shifted_sou[0], shifted_sou[1], layer.top.get_depth(shifted_sou[:2])])       # ЭТО ОСТАЕТСЯ ОТКРЫТЫМ ВОПРОСОМ
             end_horizon = layer.top
@@ -86,13 +104,13 @@ class Ray(object):
             end_horizon = horizons[i]
             if first: start_horizon = None
             else: start_horizon = horizons[i-1]
-            segments.append(Segment(sou, rec, layer, start_horizon, end_horizon))
+            segments.append(Segment(sou, rec, layer, start_horizon, end_horizon, vtype='vp'))
             sou = rec
 
         layer = self._get_location_layer(receiver, vel_mod)
         if len(horizons)==0: start_horizon = None
         else: start_horizon = horizons[-1]
-        segments.append(Segment(sou, receiver, layer, start_horizon, None))
+        segments.append(Segment(sou, receiver, layer, start_horizon, None, vtype='vp'))
 
         return segments
 
@@ -106,21 +124,28 @@ class Ray(object):
     @staticmethod
     def _get_location_layer(x, vel_mod): # ВАЖНО! ПОГРАНИЧНЫЕ СЛУЧАИ ЗАГЛУБЛЯЮТСЯ
         for l in vel_mod.layers:
-            if (l.bottom.get_depth(x[:2]) > x[2] +1e-8 > l.top.get_depth(x[:2])): return l
+            if (l.bottom.get_depth(x[:2]) > x[2] + 1e-8 > l.top.get_depth(x[:2])): return l
 
     def travel_time(self, x=None):
         # TODO: make more pythonic and faster
-        # Если даны новые координаты траектории, тогда обновляются сегменты и следовательно траектория
+        # Если даны новые координаты траектории,
+        # тогда обновляются сегменты и следовательно траектория
+
         if np.any(x):
             new_segments = []
             sou = self.segments[0].source
+
             for seg, rec in zip(self.segments, np.reshape(x, (-1, 2))):
                 receiver = np.array([rec[0], rec[1], seg.end_horizon.get_depth(rec)])
 
-                new_segments.append(Segment(sou, receiver, seg.layer, seg.start_horizon, seg.end_horizon, vtype = seg.vtype))
+                new_segments.append(Segment(sou, receiver, seg.layer,
+                                            seg.start_horizon, seg.end_horizon,
+                                            vtype = seg.vtype))
                 sou = receiver
+
             new_segments.append(Segment(sou, self.segments[-1].receiver, self.segments[-1].layer,
-                                        self.segments[-1].start_horizon, self.segments[-1].end_horizon, vtype = self.segments[-1].vtype))
+                                        self.segments[-1].start_horizon, self.segments[-1].end_horizon,
+                                        vtype = self.segments[-1].vtype))
             self.segments = new_segments
 
         time = 0.0
@@ -128,8 +153,7 @@ class Ray(object):
             time += segment.time
         return time
 
-    # НУЖНО ПЕРЕПИСАТЬ
-    def dtravel(self, r=None):
+    def dtravel(self):
         amount_of_borders = len(self.segments) - 1
         dt = np.zeros((amount_of_borders, 2))             # Производные по dx & dy соответственно, на каждой пересекающей луч границе
 
@@ -153,24 +177,33 @@ class Ray(object):
             dt[ind_border] += dist2 * dv2 / (v2 ** 2)
         return dt
 
-    def optimize(self, method="Nelder-Mead", tol=1e-32,
-                 penalty=False, projection=True, only_snells_law=False):
+    def optimize(self, method='Nelder-Mead', tol=1e-32,
+                 snells_law=False, projection=True, dtravel=True):
         # TODO: Add derivatives and Snels Law check
 
-        x0 = self._get_trajectory()[1:-1, :2]
+        x0 = self._get_trajectory()[1:-1, :-1]
 
         if not np.any(x0):
             return self.travel_time()
 
-        def _fun(x):                # Добавлена штрафная функция, которая представлена разницей отношений синусов к скоростям в соседних слоях
-            f = ((self.snells_law(projection=projection))**2).mean()
-            if not only_snells_law: f += self.travel_time(x)
-            return f
+        # Определим функционал для минимизации, он будет состоять из слагаемых:
+        # 1. Время вдоль пути (которое мы минимизируем солгасно принципу Ферма)
+        # 2. Выполнение закона Снеллиуса (либо через синусы, либо через проекции)
+        # 3. Производная вдоль луча. Там где время минимально, она должна быть = 0
 
-        fun = self.travel_time
-        if penalty: fun = _fun
+        def _fun(x):
+            f1 = self.travel_time(x)
+            f2 = 0
+            if snells_law:
+                f2 += 100*(abs(self.snells_law(projection=projection))).mean()
+            f3 = 0
+            if dtravel:
+                f3 += 100*(abs(self.dtravel())).mean()
 
-        xs = minimize(fun, x0.ravel(), method=method, tol=tol)
+            return f1 + f2 + f3
+
+        # ops = {'adaptive': False}
+        xs = minimize(_fun, x0.ravel(), method=method, tol=tol)
         time = xs.fun
 
         # self.amplitude_fun = self.amplitude_fr_dom() # rewrite the amplitude field.
@@ -185,10 +218,10 @@ class Ray(object):
             plot_line_3d(s.segment.T, **kwargs)
 
     def snells_law(self, projection=True):
-        if not projection: return self.snells_law_by_sin()
-        return self.snells_law_by_projection()
+        if not projection: return self._snells_law_by_sin()
+        return self._snells_law_by_projection()
 
-    def snells_law_by_sin(self):
+    def _snells_law_by_sin(self):
         amount = len(self.segments) - 1  # Amount of boundaries
 
         critic = []
@@ -218,7 +251,7 @@ class Ray(object):
 
         return np.array(snell)
 
-    def snells_law_by_projection(self):
+    def _snells_law_by_projection(self):
         amount = len(self.segments) - 1  # Amount of boundaries
 
         snell = []
@@ -716,7 +749,7 @@ class Segment(object):
         self.end_horizon = end_horizon                              # object of type of Horizon
 
     def get_distance(self):
-        return np.sqrt(((self.receiver - self.source)**2).sum())
+        return np.linalg.norm(self.receiver - self.source)
 
     def get_vector(self):
         dist = self.get_distance()
