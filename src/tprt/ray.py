@@ -195,10 +195,10 @@ class Ray(object):
             f1 = self.travel_time(x)
             f2 = 0
             if snells_law:
-                f2 += 100*(abs(self.snells_law(projection=projection))).mean()
+                f2 += (abs(self.snells_law(projection=projection))**2).mean()
             f3 = 0
             if dtravel:
-                f3 += 100*(abs(self.dtravel())).mean()
+                f3 += (abs(self.dtravel())**2).mean()
 
             return f1 + f2 + f3
 
@@ -275,7 +275,7 @@ class Ray(object):
 
         return np.array(snell)
 
-    def amplitude_fr_dom(self, curv_bool = 1):
+    def amplitude_fr_dom(self):
 
         # This method computes amplitude in the observation point in the frequency domain using formula
         # U = U_0 /sqrt(s0**2 * |П( det M(s*_i-1) / det M(s*_i))|) * П( k_i )
@@ -396,6 +396,10 @@ class Ray(object):
         else:
 
             # If there are some boundaries on the ray's path, we shall need to carry out more complicated calculations.
+            # For sake of inversion, we shall also keep all reflection/transmission coefficients in an array:
+
+            refl_trans_coeff = np.zeros(len(self.segments) - 1, dtype = complex)
+            inc_cosines = np.zeros(len(self.segments) - 1, dtype = complex)
 
             for i in np.arange(1, len(self.segments), 1):
 
@@ -421,6 +425,8 @@ class Ray(object):
                 # cosine of inc_angle
                 cos_inc = abs(np.dot(self.segments[i - 1].vector,
                                      self.segments[i - 1].end_horizon.get_normal(self.segments[i - 1].receiver[0:2])))
+                inc_cosines[i - 1] = cos_inc
+
                 # cosine of tr_angle
                 cos_out = abs(np.dot(self.segments[i].vector,
                                      self.segments[i - 1].end_horizon.get_normal(self.segments[i - 1].receiver[0:2])))
@@ -439,10 +445,6 @@ class Ray(object):
                     self.segments[i - 1].end_horizon.get_sec_deriv(self.segments[i - 1].receiver[0:2],
                                                                    self.segments[i - 1].vector)
                 D[1, 0] = D[0, 1]
-
-                if curv_bool == 0:
-
-                    D = np.zeros((2,2))
 
                 # Here transit_matr is a transition matrix from global Cartesian coordinates to local ones which are
                 # connected to the point of incidence ant the incident ray. Of course, columns of this matrix are
@@ -549,6 +551,10 @@ class Ray(object):
 
                 if self.segments[i].vtype == 'vp':
 
+                    # Append it to the corresponding array:
+
+                    refl_trans_coeff[i - 1] = ampl_coeff[0]
+
                     U = np.linalg.norm(U) * ampl_coeff[0] / np.sqrt(abs(detRat)) * t
 
                 if self.segments[i].vtype == 'vs':
@@ -563,7 +569,9 @@ class Ray(object):
             # to add some coefficients related to the source's layer:
 
             return U / np.sqrt(self.segments[0].layer.get_velocity(0)[self.segments[0].vtype] *
-                               self.segments[0].layer.get_density())
+                               self.segments[0].layer.get_density()),\
+                   refl_trans_coeff,\
+                   inc_cosines
 
     def amplitude_t_dom(self, t):
         # returns amplitude vector in the receiver in a particular time moment t.
@@ -580,13 +588,17 @@ class Ray(object):
         return 2 / np.sqrt(3 * sigma) / np.pi ** (1 / 4) *\
                (1 - ((t - tau )/ sigma)**2) *\
                np.exp(- (t - tau)**2 / (2 * sigma**2)) *\
-               self.amplitude_fun
+               np.dot(self.receiver.orientation.T, self.amplitude_fun)
         # return 2 * np.exp(- (t - tau)**2 / (2 * sigma**2)) * (-3 * sigma**2 + (t - tau)**2) * (t - tau) / \
         #        (np.sqrt(3) * np.pi**(1 / 4) * sigma**(9 / 2)) * self.amplitude_fun
 
-    def spreading(self, curv_bool):
+    def spreading(self, curv_bool, inv_bool):
         # Computes only geometrical spreading along the ray in the observation point. All comments are above.
-        # curv_bool is boolean variable. If it is 1 than curvature of boundaries is taken into account.
+        # curv_bool is a boolean variable. If it is 1 than curvature of boundaries is taken into account.
+        # inv_bool is a boolean variable. It indicates whether to take into account ratios J(x+) / J(x-) or not.
+        # J(x+) is geometrical spreading just below the interface and J(x-) is geometrical spreading just above it.
+        # Note that "inv" comes from "inversion" since all these ratios vanish in the expression for amplitude. So,
+        # in AVO-inversion they will not be needed.
 
         s0 = 1 / 10
 
@@ -728,13 +740,13 @@ class Ray(object):
                 e2 = transit_matr[:, 1]
                 e1 = np.cross(e2, t)
 
-                J = J * cos_out / cos_inc
+                if inv_bool == 0:
 
-            J = J * abs(detRat)
+                    J = J * cos_out / cos_inc
 
-            return J,\
-                   np.sqrt(J) * np.sqrt(self.segments[0].layer.get_velocity(0)[self.segments[0].vtype]) * \
-                   np.sqrt(self.segments[-1].layer.get_velocity(0)[self.segments[-1].vtype])
+                J = J * abs(detRat)
+
+            return J
 
 
 class Segment(object):
