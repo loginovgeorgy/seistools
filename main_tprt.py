@@ -23,11 +23,20 @@ start_time = time.time()
 # TODO: make class for vel_mod, for now init at least one horizon upper the top receiver
 # TODO: check procedure of "is_ray_intersect_boundary"
 
+model_number = 5
+
 # Let's define the interfaces.
 
 # Grid:
-X = np.linspace(- 2000, 2000, 51)
-Y = np.linspace(- 2000, 2000, 51)
+if 1 < model_number < 5:
+
+    X = np.linspace(- 1200, 1200, 1201)
+    Y = np.linspace(- 1200, 1200, 1201)
+
+else:
+
+    X = np.linspace(- 1000, 1000, 1001)
+    Y = np.linspace(- 1000, 1000, 1001)
 
 YY, XX = np.meshgrid(Y, X)
 
@@ -67,7 +76,7 @@ raycode_model_2 = [[1, 0, 0],
 # 4 - vel_mod_2c
 # 5 - vel_mod_3
 
-model_number = 1
+# Models:
 
 if model_number == 1:
 
@@ -109,22 +118,24 @@ else: # in any oser case set the default model:
                                  np.array([1800, 2100]), np.array([1, 2]), horizons)
 
 # And current raycode:
-current_raycode = raycode_model_1_3 # by default
-
-refl_i = 0 # number of the reflection interface
-num_segments = 2 # number of segments
-
-if 1 < model_number <= 4:
+if 1 < model_number < 5:
 
     current_raycode = raycode_model_2
 
     refl_i = 1 # number of the reflection interface
     num_segments = 4 # number of segments
 
+else:
+
+    current_raycode = raycode_model_1_3 # by default
+
+    refl_i = 0 # number of the reflection interface
+    num_segments = 2 # number of segments
+
+
 # Let's construct the observation system:
 sou_line = np.arange(- 1300, 25, 25) # source line starting from - 1300 and ending at 0 with step 100
 rec_line = np.linspace(0, 1300, sou_line.shape[0]) # source line starting from 0 and ending at 1300 with step 100
-
 
 # Let's initiate all arrays:
 
@@ -160,8 +171,8 @@ cosines = np.zeros((rec_line.shape[0], num_segments - 1), dtype = complex)
 
 # Arrays for transformed amplidudes:
 
-transformed_ampl_curv = np.zeros(rec_line.shape[0])
-transformed_ampl_plane = np.zeros(rec_line.shape[0])
+transformed_ampl_curv = np.zeros(rec_line.shape[0], dtype = complex)
+transformed_ampl_plane = np.zeros(rec_line.shape[0], dtype = complex)
 
 # Travel time of waves from sources to the surface receivers
 travel_time = np.zeros(rays.shape)
@@ -263,7 +274,7 @@ ray_amplitude.write("Лучевые амплитуды")
 
 ray_amplitude.write("\n\n")
 
-ray_amplitude.write("Координата приёмника, м\tС учётом кривизны границ")
+ray_amplitude.write("Координата приёмника, м\tАмплитуда")
 
 ray_amplitude.write("\n\n")
 
@@ -280,6 +291,7 @@ hodograph.write("X, м\tT, с\n\n")
 
 inversion.write("Данные AVO-инверсии\n\n")
 inversion.write("Восстанавливаются характеристики слоя №{}\n\n".format(refl_i + 2))
+inversion.write("Значения параметров\n")
 inversion.write("\tМодель\tИнверсия c корректно учтённым геометрическим расхождением\t"
                 "Инверсия c некорректно учтённым геометрическим расхождением\n")
 
@@ -294,9 +306,11 @@ for i in range(sources.shape[0]):
     description_file.write("--- %s луч создан и оптимизирован: %s секунд --- \n" % (i + 1, time.time() - start_time))
     print("\x1b[1;31m --- %s ray constructed: %s seconds ---" % (i + 1, time.time() - start_time))
 
+    rays[i].amplitude_fun, coefficients[i, :], cosines[i, :] = rays[i].amplitude_fr_dom() # rewrite the amplitude field.
+
     # Check if we are in post-critical zone:
 
-    if np.linalg.norm(np.imag(rays[i].amplitude_fr_dom()[0]))!= 0:
+    if np.linalg.norm(np.imag(rays[i].amplitude_fun))!= 0:
 
         rays = np.delete(rays, np.arange(i, rays.shape[0], 1), axis = 0)
 
@@ -324,14 +338,13 @@ for i in range(sources.shape[0]):
               " %s seconds ---" % (i + 1, time.time() - start_time))
 
         break
+    if np.linalg.norm(np.imag(coefficients[i, :])) != 0:
 
-    rays[i].amplitude_fun, coefficients[i, :], cosines[i, :] = rays[i].amplitude_fr_dom() # rewrite the amplitude field.
+        print(np.imag(coefficients[i, :]))
 
     travel_time[i] = rays[i].travel_time()
 
     ray_amplitude.write("{}\t{}\n".format(rec_line[i], np.linalg.norm(rays[i].amplitude_fun)))
-    transformed_ampl_curv[i] = np.linalg.norm(rays[i].amplitude_fun)
-    transformed_ampl_plane[i] = transformed_ampl_curv[i]
 
     geom_spread_curv_1[i] = rays[i].spreading(1, 0)
     geom_spread_plane_1[i] = rays[i].spreading(0, 0)
@@ -398,16 +411,22 @@ for i in range(rays.shape[0]):
 
     rays[i].plot(ax=ax)
 
+if model_number == 1 or model_number == 5:
 
-ax.set_xlim3d(- 1000, 1000)
-ax.set_ylim3d(- 1000, 1000)
-# ax.set_zlim3d(0, 700)
+    ax.set_xlim3d(- 1000, 1000)
+    ax.set_ylim3d(- 1000, 1000)
+
+if 1< model_number < 5:
+
+    ax.set_xlim3d(- 1200, 1200)
+    ax.set_ylim3d(- 1200, 1200)
+
 
 ax.set_xlabel("Расстояние по оси x, м")
 ax.set_ylabel("Расстояние по оси y, м",)
 ax.set_zlabel("Глубина, м")
 
-plt.savefig("{}/Лучи.png".format(dir_name), dpi = 400)
+plt.savefig("{}/Лучи.png".format(dir_name), dpi = 400, bbox_inches = 'tight')
 print("Лучевая схема сохранена: {} секунд".format(time.time() - start_time))
 
 plt.close(fig)
@@ -427,7 +446,7 @@ plt.grid()
 plt.xlabel("Координаты вдоль профиля, м")
 plt.ylabel("Геометрическое расхождение, м^2")
 
-plt.savefig("{}/Геометрическое расхождение.png".format(dir_name), dpi = 400)
+plt.savefig("{}/Геометрическое расхождение.png".format(dir_name), dpi = 400, bbox_inches = 'tight')
 print("График геометрического расхождения сохранён: {} секунд".format(time.time() - start_time))
 
 plt.close(fig2)
@@ -444,7 +463,7 @@ plt.grid()
 plt.xlabel("Координаты вдоль профиля, м")
 plt.ylabel("Время первых вступлений, с")
 
-plt.savefig("{}/Годограф ОСТ.png".format(dir_name), dpi = 400)
+plt.savefig("{}/Годограф ОСТ.png".format(dir_name), dpi = 400, bbox_inches = 'tight')
 print("Годограф сохранён: {} секунд".format(time.time() - start_time))
 
 plt.close(fig4)
@@ -474,7 +493,7 @@ for i in range(rays.shape[0]):
 plt.ylabel("Координаты вдоль профиля, м")
 plt.xlabel("Время, с")
 
-plt.savefig("{}/Сейсмограмма. Z-компонента.png".format(dir_name), dpi = 400)
+plt.savefig("{}/Сейсмограмма. Z-компонента.png".format(dir_name), dpi = 400, bbox_inches = 'tight')
 print("Сейсмограмма (Z-компонента) сохранена: {} секунд".format(time.time() - start_time))
 
 plt.close(fig5)
@@ -499,7 +518,7 @@ for i in range(rays.shape[0]):
 plt.ylabel("Координаты вдоль профиля, м")
 plt.xlabel("Время, с")
 
-plt.savefig("{}/Сейсмограмма. X-компонента.png".format(dir_name), dpi = 400)
+plt.savefig("{}/Сейсмограмма. X-компонента.png".format(dir_name), dpi = 400, bbox_inches = 'tight')
 print("Сейсмограмма (X-компонента) сохранена: {} секунд\n".format(time.time() - start_time))
 
 plt.close(fig6)
@@ -533,11 +552,57 @@ def AVO_residual(layer_2_params, layer_1, real_coeff, real_cosines):
 
     return np.linalg.norm(synt_coeff - real_coeff)
 
+def RMS(gather, t_window, t_central, dt):
+
+    i_central = int(t_central / dt) # position of the central point in window
+
+    i_left = i_central - int(t_window / 2 / dt)
+    i_right = i_central + int(t_window / 2 / dt)
+
+    if i_central >= gather.shape[0]:
+
+        return 0
+
+    elif i_left < 0:
+
+        if i_right < gather.shape[0]:
+
+            return np.linalg.norm(gather[0 : i_right + 1]) / gather[0 : i_right + 1].shape[0]
+
+        else:
+
+            return np.linalg.norm(gather) / gather.shape[0]
+
+    elif i_right >= gather.shape[0]:
+
+        if i_left >= 0:
+
+            return np.linalg.norm(gather[i_left:]) / gather[i_left:].shape[0]
+
+        else:
+
+            return np.linalg.norm(gather) / gather.shape[0]
+
+    else:
+
+        return np.linalg.norm(gather[i_left : i_right]) / gather[i_left : i_right].shape[0]
+
 from scipy.optimize import minimize
 
 # We'll need to transform ray amplitudes as follows:
 
 for i in range(rays.shape[0]):
+
+    # Let's find RMS of the amplitude. We'll sum squared amplitudes in a window with width of 1.5 * T where
+    # T = 1 / frequency_dom.
+
+    transformed_ampl_curv[i] = RMS(np.sqrt(gathers_x[i] ** 2 + gathers_z[i] ** 2),
+                                   1.5 * 1 / frequency_dom,
+                                   travel_time[i],
+                                   record_time[1] - record_time[0])
+
+    transformed_ampl_plane[i] = transformed_ampl_curv[i]
+
     for j in range(coefficients.shape[1]):
 
         if j != refl_i:
@@ -609,7 +674,6 @@ inversion.write("rho\t{}\t{}".format(abs(minim_result_curv[2] -
 
 description_file.write("Инверсия завершена: {} секунд\n\n".format((time.time() - start_time)))
 print("\x1b[1;31mThe inversion has been finished: {} seconds".format((time.time() - start_time)))
-
 
 # print("\x1b[1;31m max x-displacement = ", np.max(abs(gathers_x)))
 # print("\x1b[1;32m max y-displacement = ", np.max(abs(gathers_y)))
