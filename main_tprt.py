@@ -9,6 +9,8 @@ from src.tprt.bicubic_interpolation import *
 import time # for runtime
 import os # for folder's creation
 
+import xlwt # for data files
+
 def createFolder(directory):
     try:
         if not os.path.exists(directory):
@@ -23,20 +25,20 @@ start_time = time.time()
 # TODO: make class for vel_mod, for now init at least one horizon upper the top receiver
 # TODO: check procedure of "is_ray_intersect_boundary"
 
-model_number = 5
+model_number = 1
 
 # Let's define the interfaces.
 
 # Grid:
 if 1 < model_number < 5:
 
-    X = np.linspace(- 1200, 1200, 1201)
-    Y = np.linspace(- 1200, 1200, 1201)
+    X = np.linspace(- 1200, 1200, 1201 // 50)
+    Y = np.linspace(- 1200, 1200, 1201 // 50)
 
 else:
 
-    X = np.linspace(- 1000, 1000, 1001)
-    Y = np.linspace(- 1000, 1000, 1001)
+    X = np.linspace(- 1000, 1000, 1001 // 50)
+    Y = np.linspace(- 1000, 1000, 1001 // 50)
 
 YY, XX = np.meshgrid(Y, X)
 
@@ -158,8 +160,8 @@ for i in range(sou_line.shape[0]):
 rays = np.empty(sou_line.shape[0], dtype = Ray)
 
 # Geometrical spreading along all rays:
-geom_spread_curv_1 = np.zeros(rays.shape)
-geom_spread_plane_1 = np.zeros(rays.shape)
+geom_spread_curv = np.zeros(rays.shape)
+geom_spread_plane = np.zeros(rays.shape)
 
 geom_spread_curv_inv = np.zeros(rays.shape)
 geom_spread_plane_inv = np.zeros(rays.shape)
@@ -208,18 +210,14 @@ createFolder(dir_name)
 description_file = open("{}/Описание.txt".format(dir_name), "w+")
 
 description_file.write("Модель №{} \n \n".format(number_string[model_number]))
-
 description_file.write("Сетка задния границ: \n \n")
-
 description_file.write("Узлы на оси X расположены от {} до {} м с шагом {} м. \n".format(X[0],
                                                                              X[- 1],
                                                                              X[1] - X[0]))
 description_file.write("Узлы на оси Y расположены от {} до {} м с шагом {} м. \n \n".format(Y[0],
                                                                              Y[- 1],
                                                                              Y[1] - Y[0]))
-
 description_file.write("Схема наблюдений: \n \n")
-
 description_file.write("Источники расположены на оси X от {} до {} м с шагом {} м. \n".format(int(sou_line[0]),
                                                                                               int(sou_line[- 1]),
                                                                                               int(sou_line[1] -
@@ -228,72 +226,76 @@ description_file.write("Приёмники расположены на оси X 
                                                                                                  int(rec_line[- 1]),
                                                                                                  int(rec_line[1] -
                                                                                                      rec_line[0])))
-
 description_file.write("Функция источника: импульс Рикера с главной частотой {} Гц. \n \n".format(frequency_dom))
-
 description_file.write("Для пар 'источник-приёмник', находящихся в закритической области,"
                        " лучи строиться не будут.\n\n")
-
 description_file.write("Время записи на станции: {} с \n".format(max_time))
 description_file.write("Длительность отсчётов: {} с \n \n".format(record_time[1] - record_time[0]))
-
 
 description_file.write("============================================================ \n \n")
 
 description_file.write("Время вычислений: \n \n")
-
 description_file.write("Под обработкой луча понимается расчёт амплитуд и геометрического расхождения. \n")
-
 description_file.write("Сетка задния границ: \n \n")
-
 description_file.write("--- Конфигурации границ и схемы наблюдений заданы: %s секунд --- \n \n" % (time.time() -
                                                                                                    start_time))
 print("\x1b[1;31m --- The configuration of interfaces and the observation system are defined: %s seconds ---\n" %
       (time.time() - start_time))
 
-# Before we start processing rays, it will be convenient to create .txt files where we shall write values of the
+# Before we start processing rays, it will be convenient to create .xls files where we shall write values of the
 # amplitude, traveltime and geometrical spreading.
 
-geom_spread_1 = open("{}/Геометрическое расхождение.txt".format(dir_name), "w+")
-seismogram_z = open("{}/Сейсмограммы. Z-компонента.txt".format(dir_name), "w+")
-seismogram_x = open("{}/Сейсмограммы. X-компонента.txt".format(dir_name), "w+")
-ray_amplitude = open("{}/Лучевые амплитуды.txt".format(dir_name), "w+")
-hodograph = open("{}/Годограф.txt".format(dir_name), "w+")
-inversion = open("{}/Данные инверсии.txt".format(dir_name), "w+")
+geom_spread = xlwt.Workbook()
+seismogram_x = xlwt.Workbook()
+seismogram_y = xlwt.Workbook()
+seismogram_z = xlwt.Workbook()
+ray_amplitude = xlwt.Workbook()
+hodograph = xlwt.Workbook()
+inversion = xlwt.Workbook()
+
+geom_spread_sheet = geom_spread.add_sheet("Геометрическое расхождение")
+seismogram_x_sheet = seismogram_x.add_sheet("X-компонента")
+seismogram_y_sheet = seismogram_y.add_sheet("Y-компонента")
+seismogram_z_sheet = seismogram_z.add_sheet("Z-компонента")
+ray_amplitude_sheet = ray_amplitude.add_sheet("Лучевые амплитуды")
+hodograph_sheet = hodograph.add_sheet("Годограф ОСТ")
+inversion_sheet = inversion.add_sheet("Инверсия")
 
 # Let's form up heads for these files:
-geom_spread_1.write("X, м\tС учётом кривизны границы, м^2\tБез учёта кривизны границ, м^2\n\n")
+geom_spread_sheet.write(0, 0, "Геометрическое расхождение")
 
-seismogram_z.write("Z-компонента вектора смещений\n\n")
-seismogram_x.write("X-компонента вектора смещений\n\n")
+geom_spread_sheet.write(2, 0, "X, м")
+geom_spread_sheet.write(2, 1, "С учётом кривизны границы, м^2")
+geom_spread_sheet.write(2, 2, "Без учёта кривизны границ, м^2")
 
-seismogram_z.write("T, с\t")
-seismogram_x.write("T, с\t")
+seismogram_x_sheet.write(0, 0, "X-компонента вектора смещений")
+seismogram_y_sheet.write(0, 0, "Y-компонента вектора смещений")
+seismogram_z_sheet.write(0, 0, "Z-компонента вектора смещений")
 
-ray_amplitude.write("Лучевые амплитуды")
+seismogram_x_sheet.write(2, 0, "T, с")
+seismogram_y_sheet.write(2, 0, "T, с")
+seismogram_z_sheet.write(2, 0, "T, с")
 
-ray_amplitude.write("\n\n")
-
-ray_amplitude.write("Координата приёмника, м\tАмплитуда")
-
-ray_amplitude.write("\n\n")
+ray_amplitude_sheet.write(0, 0, "Лучевые амплитуды")
+ray_amplitude_sheet.write(2, 0, "Координата приёмника, м")
+ray_amplitude_sheet.write(2, 1, "Амплитуда, у.е.")
 
 for i in range(receivers.shape[0]):
 
-    seismogram_z.write("Тр. {}\t".format(i))
-    seismogram_x.write("Тр. {}\t".format(i))
+    seismogram_x_sheet.write(2, i + 1, "Тр. №{}".format(i + 1))
+    seismogram_y_sheet.write(2, i + 1, "Тр. №{}".format(i + 1))
+    seismogram_z_sheet.write(2, i + 1, "Тр. №{}".format(i + 1))
 
-seismogram_z.write("\n\n")
-seismogram_x.write("\n\n")
+hodograph_sheet.write(0, 0, "Годограф первых вступлений")
+hodograph_sheet.write(2, 0, "X, м")
+hodograph_sheet.write(2, 1, "T, с")
 
-hodograph.write("Годограф первых вступлений\n\n")
-hodograph.write("X, м\tT, с\n\n")
-
-inversion.write("Данные AVO-инверсии\n\n")
-inversion.write("Восстанавливаются характеристики слоя №{}\n\n".format(refl_i + 2))
-inversion.write("Значения параметров\n")
-inversion.write("\tМодель\tИнверсия c корректно учтённым геометрическим расхождением\t"
-                "Инверсия c некорректно учтённым геометрическим расхождением\n")
+inversion_sheet.write(0, 0, "Данные AVO-инверсии")
+inversion_sheet.write(2, 0, "Восстанавливаются характеристики слоя №{}".format(refl_i + 2))
+inversion_sheet.write(4, 0, "Значения параметров")
+inversion_sheet.write(5, 1, "Модель")
+inversion_sheet.write(5, 2, "Инверсия c корректно учтённым геометрическим расхождением")
+inversion_sheet.write(5, 3, "Инверсия c некорректно учтённым геометрическим расхождением")
 
 # Constructing rays:
 
@@ -314,8 +316,8 @@ for i in range(sources.shape[0]):
 
         rays = np.delete(rays, np.arange(i, rays.shape[0], 1), axis = 0)
 
-        geom_spread_curv_1 = np.delete(geom_spread_curv_1, np.arange(i, geom_spread_curv_1.shape[0], 1), axis = 0)
-        geom_spread_plane_1 = np.delete(geom_spread_plane_1, np.arange(i, geom_spread_plane_1.shape[0], 1), axis = 0)
+        geom_spread_curv = np.delete(geom_spread_curv, np.arange(i, geom_spread_curv.shape[0], 1), axis = 0)
+        geom_spread_plane = np.delete(geom_spread_plane, np.arange(i, geom_spread_plane.shape[0], 1), axis = 0)
 
         geom_spread_curv_inv = np.delete(geom_spread_curv_inv, np.arange(i, geom_spread_curv_inv.shape[0], 1), axis = 0)
         geom_spread_plane_inv = np.delete(geom_spread_plane_inv, np.arange(i, geom_spread_plane_inv.shape[0], 1), axis = 0)
@@ -344,10 +346,11 @@ for i in range(sources.shape[0]):
 
     travel_time[i] = rays[i].travel_time()
 
-    ray_amplitude.write("{}\t{}\n".format(rec_line[i], np.linalg.norm(rays[i].amplitude_fun)))
+    ray_amplitude_sheet.write(2 + 1 + i, 0, rec_line[i])
+    ray_amplitude_sheet.write(2 + 1 + i, 1, float(np.linalg.norm(rays[i].amplitude_fun)))
 
-    geom_spread_curv_1[i] = rays[i].spreading(1, 0)
-    geom_spread_plane_1[i] = rays[i].spreading(0, 0)
+    geom_spread_curv[i] = rays[i].spreading(1, 0)
+    geom_spread_plane[i] = rays[i].spreading(0, 0)
 
     geom_spread_curv_inv[i] = rays[i].spreading(1, 1)
     geom_spread_plane_inv[i] = rays[i].spreading(0, 1)
@@ -369,23 +372,25 @@ accuracy = int(round(abs(np.log10(max_amplitude))) * 5)
 
 for i in range(record_time.shape[0]):
 
-    seismogram_z.write("{}\t".format(round(record_time[i], 3)))
-    seismogram_x.write("{}\t".format(round(record_time[i], 3)))
+    seismogram_x_sheet.write(2 + 1 + i, 0, round(record_time[i], 3))
+    seismogram_y_sheet.write(2 + 1 + i, 0, round(record_time[i], 3))
+    seismogram_z_sheet.write(2 + 1 + i, 0, round(record_time[i], 3))
 
     for j in range(rays.shape[0]):
 
-        seismogram_z.write("{}\t".format(round(gathers_z[j, i], accuracy)))
-        seismogram_x.write("{}\t".format(round(gathers_x[j, i], accuracy)))
-
-    seismogram_z.write("\n")
-    seismogram_x.write("\n")
+        seismogram_x_sheet.write(2 + 1 + i, 1 + j, round(gathers_x[j, i], accuracy))
+        seismogram_y_sheet.write(2 + 1 + i, 1 + j, round(gathers_y[j, i], accuracy))
+        seismogram_z_sheet.write(2 + 1 + i, 1 + j, round(gathers_z[j, i], accuracy))
 
 # And other data:
 for i in range(rays.shape[0]):
 
-    geom_spread_1.write("{}\t{}\t{}\n".format(rec_line[i], geom_spread_curv_1[i], geom_spread_plane_1[i]))
+    geom_spread_sheet.write(2 + 1 + i, 0, rec_line[i])
+    geom_spread_sheet.write(2 + 1 + i, 1, geom_spread_curv[i])
+    geom_spread_sheet.write(2 + 1 + i, 2, geom_spread_plane[i])
 
-    hodograph.write("{}\t{}\n".format(rec_line[i], travel_time[i]))
+    hodograph_sheet.write(2 + 1 + i, 0, rec_line[i])
+    hodograph_sheet.write(2 + 1 + i, 1, travel_time[i])
 
 description_file.write("============================================================ \n\n")
 description_file.write("Файлы с численными данными сохранены."
@@ -435,9 +440,9 @@ fig2 = plt.figure()
 
 plt.title("Геометрическое расхождение. Модель №{}".format(number_string[model_number]))
 
-plt.plot(rec_line[0 : geom_spread_curv_1.shape[0]], geom_spread_curv_1, 'r-',
+plt.plot(rec_line[0 : geom_spread_curv.shape[0]], geom_spread_curv, 'r-',
          label = "С учётом кривизны границы")
-plt.plot(rec_line[0 : geom_spread_plane_1.shape[0]], geom_spread_plane_1, 'r--',
+plt.plot(rec_line[0 : geom_spread_plane.shape[0]], geom_spread_plane, 'r--',
          label = "Без учёта кривизны границы")
 
 plt.legend()
@@ -596,7 +601,7 @@ for i in range(rays.shape[0]):
     # Let's find RMS of the amplitude. We'll sum squared amplitudes in a window with width of 1.5 * T where
     # T = 1 / frequency_dom.
 
-    transformed_ampl_curv[i] = RMS(np.sqrt(gathers_x[i] ** 2 + gathers_z[i] ** 2),
+    transformed_ampl_curv[i] = RMS(np.sqrt(gathers_x[i] ** 2 + gathers_y[i] ** 2 + gathers_z[i] ** 2),
                                    1.5 * 1 / frequency_dom,
                                    travel_time[i],
                                    record_time[1] - record_time[0])
@@ -638,39 +643,51 @@ minim_result_plane = minimize(AVO_residual,
                               args = (current_mod.layers[refl_i], transformed_ampl_plane, cosines[:, refl_i])).x
 
 
-inversion.write("Vp, м/с\t{}\t{}\t{}\n".format(current_mod.layers[refl_i + 1].get_velocity(0)['vp'],
-                                               minim_result_curv[0],
-                                               minim_result_plane[0]))
-inversion.write("Vp, м/с\t{}\t{}\t{}\n".format(current_mod.layers[refl_i + 1].get_velocity(0)['vs'],
-                                               minim_result_curv[1],
-                                               minim_result_plane[1]))
-inversion.write("Dens, кг/м^3\t{}\t{}\t{}\n".format(current_mod.layers[refl_i + 1].get_density(),
-                                                    minim_result_curv[2],
-                                                    minim_result_plane[2]))
+inversion_sheet.write(6, 0, "Vp, м/с")
+inversion_sheet.write(7, 0, "Vs, м/с")
+inversion_sheet.write(8, 0, "Dens, кг/м^3")
 
-inversion.write("\nОтносительная погрешность в процентах\n")
-inversion.write("\tИнверсия c корректно учтённым геометрическим расхождением\t"
-                "\tИнверсия c некорректно учтённым геометрическим расхождением\n")
-inversion.write("Vp\t{}\t{}\n".format(abs(minim_result_curv[0] -
-                                          current_mod.layers[refl_i + 1].get_velocity(0)['vp']) /
-                                      current_mod.layers[refl_i + 1].get_velocity(0)['vp'] * 100,
-                                      abs(minim_result_plane[0] -
-                                          current_mod.layers[refl_i + 1].get_velocity(0)['vp']) /
-                                      current_mod.layers[refl_i + 1].get_velocity(0)['vp'] * 100))
+inversion_sheet.write(6, 1, float(current_mod.layers[refl_i + 1].get_velocity(0)['vp']))
+inversion_sheet.write(6, 2, float(minim_result_curv[0]))
+inversion_sheet.write(6, 3, float(minim_result_plane[0]))
 
-inversion.write("Vs\t{}\t{}\n".format(abs(minim_result_curv[1] -
-                                          current_mod.layers[refl_i + 1].get_velocity(0)['vs']) /
-                                      current_mod.layers[refl_i + 1].get_velocity(0)['vs'] * 100,
-                                      abs(minim_result_plane[1] -
-                                          current_mod.layers[refl_i + 1].get_velocity(0)['vs']) /
-                                      current_mod.layers[refl_i + 1].get_velocity(0)['vs'] * 100))
+inversion_sheet.write(7, 1, float(current_mod.layers[refl_i + 1].get_velocity(0)['vs']))
+inversion_sheet.write(7, 2, float(minim_result_curv[1]))
+inversion_sheet.write(7, 3, float(minim_result_plane[1]))
 
-inversion.write("rho\t{}\t{}".format(abs(minim_result_curv[2] -
-                                           current_mod.layers[refl_i + 1].get_density()) /
-                                       current_mod.layers[refl_i + 1].get_density() * 100,
-                                       abs(minim_result_plane[2] -
-                                           current_mod.layers[refl_i + 1].get_density()) /
-                                       current_mod.layers[refl_i + 1].get_density() * 100))
+inversion_sheet.write(8, 1, float(current_mod.layers[refl_i + 1].get_density()))
+inversion_sheet.write(8, 2, float(minim_result_curv[2]))
+inversion_sheet.write(8, 3, float(minim_result_plane[2]))
+
+inversion_sheet.write(10, 0, "Относительная погрешность в процентах")
+inversion_sheet.write(11, 1, "Инверсия c корректно учтённым геометрическим расхождением")
+inversion_sheet.write(11, 2, "Инверсия c некорректно учтённым геометрическим расхождением")
+
+inversion_sheet.write(12, 0, "Vp, %")
+inversion_sheet.write(13, 0, "Vs, %")
+inversion_sheet.write(14, 0, "Dens, %")
+
+inversion_sheet.write(12, 1, float(abs(minim_result_curv[0] -
+                                 current_mod.layers[refl_i + 1].get_velocity(0)['vp']) /
+                      current_mod.layers[refl_i + 1].get_velocity(0)['vp'] * 100))
+inversion_sheet.write(12, 2, float(abs(minim_result_plane[0] -
+                                 current_mod.layers[refl_i + 1].get_velocity(0)['vp']) /
+                      current_mod.layers[refl_i + 1].get_velocity(0)['vp'] * 100))
+
+inversion_sheet.write(13, 1, float(abs(minim_result_curv[1] -
+                                 current_mod.layers[refl_i + 1].get_velocity(0)['vs']) /
+                      current_mod.layers[refl_i + 1].get_velocity(0)['vs'] * 100))
+inversion_sheet.write(13, 2, float(abs(minim_result_plane[1] -
+                                 current_mod.layers[refl_i + 1].get_velocity(0)['vs']) /
+                      current_mod.layers[refl_i + 1].get_velocity(0)['vs'] * 100))
+
+inversion_sheet.write(14, 1, float(abs(minim_result_curv[2] -
+                                 current_mod.layers[refl_i + 1].get_density()) /
+                      current_mod.layers[refl_i + 1].get_density() * 100))
+inversion_sheet.write(14, 2, float(abs(minim_result_plane[2] -
+                                 current_mod.layers[refl_i + 1].get_density()) /
+                      current_mod.layers[refl_i + 1].get_density() * 100))
+
 
 description_file.write("Инверсия завершена: {} секунд\n\n".format((time.time() - start_time)))
 print("\x1b[1;31mThe inversion has been finished: {} seconds".format((time.time() - start_time)))
@@ -683,9 +700,17 @@ print("\x1b[1;31mThe inversion has been finished: {} seconds".format((time.time(
 
 description_file.close()
 
-geom_spread_1.close()
-hodograph.close()
-seismogram_z.close()
-seismogram_x.close()
-ray_amplitude.close()
-inversion.close()
+# geom_spread_1.close()
+# hodograph.close()
+# seismogram_z.close()
+# seismogram_x.close()
+# ray_amplitude.close()
+# inversion.close()
+
+geom_spread.save("{}/Геометрическое расхождение.xls".format(dir_name))
+seismogram_x.save("{}/Сейсмограммы. X-компонента.xls".format(dir_name))
+seismogram_y.save("{}/Сейсмограммы. Y-компонента.xls".format(dir_name))
+seismogram_z.save("{}/Сейсмограммы. Z-компонента.xls".format(dir_name))
+ray_amplitude.save("{}/Лучевые амплитуды.xls".format(dir_name))
+hodograph.save("{}/Годограф.xls".format(dir_name))
+inversion.save("{}/Данные инверсии.xls".format(dir_name))
