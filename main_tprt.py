@@ -25,20 +25,20 @@ start_time = time.time()
 # TODO: make class for vel_mod, for now init at least one horizon upper the top receiver
 # TODO: check procedure of "is_ray_intersect_boundary"
 
-model_number = 1
+model_number = 5
 
 # Let's define the interfaces.
 
 # Grid:
 if 1 < model_number < 5:
 
-    X = np.linspace(- 1200, 1200, 1201 // 50)
-    Y = np.linspace(- 1200, 1200, 1201 // 50)
+    X = np.linspace(- 1200, 1200, 1201)
+    Y = np.linspace(- 1200, 1200, 1201)
 
 else:
 
-    X = np.linspace(- 1000, 1000, 1001 // 50)
-    Y = np.linspace(- 1000, 1000, 1001 // 50)
+    X = np.linspace(- 1000, 1000, 1001)
+    Y = np.linspace(- 1000, 1000, 1001)
 
 YY, XX = np.meshgrid(Y, X)
 
@@ -166,6 +166,8 @@ geom_spread_plane = np.zeros(rays.shape)
 geom_spread_curv_inv = np.zeros(rays.shape)
 geom_spread_plane_inv = np.zeros(rays.shape)
 
+geom_spread_homogen = np.zeros(rays.shape)
+
 # Arrays for reflection / transmission coefficents and for cosines of incidence:
 
 coefficients = np.zeros((rec_line.shape[0], num_segments - 1), dtype = complex)
@@ -175,6 +177,8 @@ cosines = np.zeros((rec_line.shape[0], num_segments - 1), dtype = complex)
 
 transformed_ampl_curv = np.zeros(rec_line.shape[0], dtype = complex)
 transformed_ampl_plane = np.zeros(rec_line.shape[0], dtype = complex)
+
+transformed_ampl_homogen = np.zeros(rec_line.shape[0], dtype = complex)
 
 # Travel time of waves from sources to the surface receivers
 travel_time = np.zeros(rays.shape)
@@ -199,11 +203,17 @@ number_string = {1:'1', 2:'2a', 3:'2b', 4:'2c', 5:'3'}
 
 # Create a description file. We shall create a folder for this file and others. So, the name of the directory is:
 
-dir_name = "C:/Users/USER/Documents/Лучевой метод/AVO, коэффициенты отражения-преломления/Результаты вычислений/" \
+dir_name = "C:/Users/ShilovNN/Documents/Лучевой метод/AVO/Результаты вычислений/" \
            "Модель №{}/Вычисления {} {}-{}".format(number_string[model_number],
                                                    datetime.datetime.now().date(),
                                                    datetime.datetime.now().hour,
                                                    datetime.datetime.now().minute)
+
+# dir_name = "C:/Users/USER/Documents/Лучевой метод/AVO, коэффициенты отражения-преломления/Результаты вычислений/" \
+#            "Модель №{}/Вычисления {} {}-{}".format(number_string[model_number],
+#                                                    datetime.datetime.now().date(),
+#                                                    datetime.datetime.now().hour,
+#                                                    datetime.datetime.now().minute)
 
 createFolder(dir_name)
 
@@ -267,6 +277,7 @@ geom_spread_sheet.write(0, 0, "Геометрическое расхождени
 geom_spread_sheet.write(2, 0, "X, м")
 geom_spread_sheet.write(2, 1, "С учётом кривизны границы, м^2")
 geom_spread_sheet.write(2, 2, "Без учёта кривизны границ, м^2")
+geom_spread_sheet.write(2, 3, "Без учёта преломляющих границ и кривизны в точке отражения, м^2")
 
 seismogram_x_sheet.write(0, 0, "X-компонента вектора смещений")
 seismogram_y_sheet.write(0, 0, "Y-компонента вектора смещений")
@@ -294,8 +305,11 @@ inversion_sheet.write(0, 0, "Данные AVO-инверсии")
 inversion_sheet.write(2, 0, "Восстанавливаются характеристики слоя №{}".format(refl_i + 2))
 inversion_sheet.write(4, 0, "Значения параметров")
 inversion_sheet.write(5, 1, "Модель")
-inversion_sheet.write(5, 2, "Инверсия c корректно учтённым геометрическим расхождением")
-inversion_sheet.write(5, 3, "Инверсия c некорректно учтённым геометрическим расхождением")
+inversion_sheet.write(5, 2, "Начальное приближение")
+inversion_sheet.write(5, 3, "Инверсия c корректно учтённым геометрическим расхождением")
+inversion_sheet.write(5, 4, "Инверсия c геометрическим расхождением без учёта кривизны границ")
+inversion_sheet.write(5, 5, "Инверсия c геометрическим расхождением без учёта преломляющих границ"
+                            " и кривизны в точке отражения")
 
 # Constructing rays:
 
@@ -322,11 +336,16 @@ for i in range(sources.shape[0]):
         geom_spread_curv_inv = np.delete(geom_spread_curv_inv, np.arange(i, geom_spread_curv_inv.shape[0], 1), axis = 0)
         geom_spread_plane_inv = np.delete(geom_spread_plane_inv, np.arange(i, geom_spread_plane_inv.shape[0], 1), axis = 0)
 
+        geom_spread_homogen = np.delete(geom_spread_homogen, np.arange(i, geom_spread_homogen.shape[0], 1), axis = 0)
+
         coefficients = np.delete(coefficients, np.arange(i, coefficients.shape[0], 1), axis = 0)
         cosines = np.delete(cosines, np.arange(i, cosines.shape[0], 1), axis = 0)
 
         transformed_ampl_curv = np.delete(transformed_ampl_curv, np.arange(i, transformed_ampl_curv.shape[0], 1), axis = 0)
         transformed_ampl_plane = np.delete(transformed_ampl_plane, np.arange(i, transformed_ampl_plane.shape[0], 1), axis = 0)
+
+        transformed_ampl_homogen = np.delete(transformed_ampl_homogen,
+                                             np.arange(i, transformed_ampl_homogen.shape[0], 1), axis = 0)
 
         travel_time = np.delete(travel_time, np.arange(i, travel_time.shape[0], 1), axis = 0)
 
@@ -349,11 +368,16 @@ for i in range(sources.shape[0]):
     ray_amplitude_sheet.write(2 + 1 + i, 0, rec_line[i])
     ray_amplitude_sheet.write(2 + 1 + i, 1, float(np.linalg.norm(rays[i].amplitude_fun)))
 
-    geom_spread_curv[i] = rays[i].spreading(1, 0)
-    geom_spread_plane[i] = rays[i].spreading(0, 0)
+    geom_spread_curv[i] = rays[i].spreading(0, 0)
+    geom_spread_plane[i] = rays[i].spreading(2, 0)
 
-    geom_spread_curv_inv[i] = rays[i].spreading(1, 1)
-    geom_spread_plane_inv[i] = rays[i].spreading(0, 1)
+    geom_spread_curv_inv[i] = rays[i].spreading(0, 1)
+    geom_spread_plane_inv[i] = rays[i].spreading(2, 1)
+
+    geom_spread_homogen[i] = (np.linalg.norm(rays[i].segments[0].source -
+                                            np.array([0, 0, horizons[- 1].get_depth([0, 0])])) +
+                              np.linalg.norm(rays[i].segments[- 1].receiver -
+                                             np.array([0, 0, horizons[- 1].get_depth([0, 0])]))) ** 2
 
     for j in range(record_time.shape[0]):
 
@@ -388,6 +412,7 @@ for i in range(rays.shape[0]):
     geom_spread_sheet.write(2 + 1 + i, 0, rec_line[i])
     geom_spread_sheet.write(2 + 1 + i, 1, geom_spread_curv[i])
     geom_spread_sheet.write(2 + 1 + i, 2, geom_spread_plane[i])
+    geom_spread_sheet.write(2 + 1 + i, 3, geom_spread_homogen[i])
 
     hodograph_sheet.write(2 + 1 + i, 0, rec_line[i])
     hodograph_sheet.write(2 + 1 + i, 1, travel_time[i])
@@ -426,9 +451,17 @@ if 1< model_number < 5:
     ax.set_xlim3d(- 1200, 1200)
     ax.set_ylim3d(- 1200, 1200)
 
+# Create cubic bounding box to simulate equal aspect ratio
+max_range = np.array([horizons[-1].X.max()-horizons[-1].X.min(), horizons[-1].Y.max()-horizons[-1].Y.min(), horizons[-1].Z.max()-horizons[-1].Z.min()]).max()
+Xb = 0.5*max_range*np.mgrid[-1:2:2,-1:2:2,-1:2:2][0].flatten() + 0.5*(horizons[-1].X.max()+horizons[-1].X.min())
+Yb = 0.5*max_range*np.mgrid[-1:2:2,-1:2:2,-1:2:2][1].flatten() + 0.5*(horizons[-1].Y.max()+horizons[-1].Y.min())
+Zb = 0.5*max_range*np.mgrid[-1:2:2,-1:2:2,-1:2:2][2].flatten() + 0.5*(horizons[-1].Z.max()+horizons[-1].Z.min())
+# Comment or uncomment following both lines to test the fake bounding box:
+for xb, yb, zb in zip(Xb, Yb, Zb):
+    ax.plot([xb], [yb], [zb], 'w')
 
 ax.set_xlabel("Расстояние по оси x, м")
-ax.set_ylabel("Расстояние по оси y, м",)
+# ax.set_ylabel("Расстояние по оси y, м",)
 ax.set_zlabel("Глубина, м")
 
 plt.savefig("{}/Лучи.png".format(dir_name), dpi = 400, bbox_inches = 'tight')
@@ -533,6 +566,13 @@ print("\x1b[1;31mPlots have been saved. Inversion procedure has been started: {}
 
 # Let's go ahead to the inversion.
 
+# Our initial guess:
+
+vp_init = current_mod.layers[- 1].get_velocity(0)["vp"] * 1.15
+vs_init = current_mod.layers[- 1].get_velocity(0)["vs"] * 0.85
+rho_init = current_mod.layers[- 1].get_density() * 1.1
+
+
 def AVO_residual(layer_2_params, layer_1, real_coeff, real_cosines):
 
     # layer_2_params = [vp, vs, rho, top_horizon]
@@ -608,6 +648,8 @@ for i in range(rays.shape[0]):
 
     transformed_ampl_plane[i] = transformed_ampl_curv[i]
 
+    transformed_ampl_homogen[i] = transformed_ampl_curv[i]
+
     for j in range(coefficients.shape[1]):
 
         if j != refl_i:
@@ -617,6 +659,7 @@ for i in range(rays.shape[0]):
 
     transformed_ampl_curv[i] = transformed_ampl_curv[i] * np.sqrt(geom_spread_curv_inv[i])
     transformed_ampl_plane[i] = transformed_ampl_plane[i] * np.sqrt(geom_spread_plane_inv[i])
+    transformed_ampl_homogen[i] = transformed_ampl_homogen[i] * np.sqrt(geom_spread_homogen[i])
 
 
 transformed_ampl_curv = transformed_ampl_curv * rt_coefficients(current_mod.layers[refl_i],
@@ -633,6 +676,12 @@ transformed_ampl_plane = transformed_ampl_plane * rt_coefficients(current_mod.la
                                                                   current_mod.layers[refl_i].get_velocity(0)['vp'],
                                                                   - 1)[0] / transformed_ampl_plane[0]
 
+transformed_ampl_homogen = transformed_ampl_homogen * rt_coefficients(current_mod.layers[refl_i],
+                                                                      current_mod.layers[refl_i + 1],
+                                                                      1,
+                                                                      np.array([0, 0, 1]),
+                                                                      current_mod.layers[refl_i].get_velocity(0)['vp'],
+                                                                      - 1)[0] / transformed_ampl_homogen[0]
 
 minim_result_curv = minimize(AVO_residual,
                              np.array([3000, 1500, 2100]),
@@ -642,70 +691,80 @@ minim_result_plane = minimize(AVO_residual,
                               np.array([3000, 1500, 2100]),
                               args = (current_mod.layers[refl_i], transformed_ampl_plane, cosines[:, refl_i])).x
 
+minim_result_homogen = minimize(AVO_residual,
+                                np.array([3000, 1500, 2100]),
+                                args = (current_mod.layers[refl_i], transformed_ampl_homogen, cosines[:, refl_i])).x
+
 
 inversion_sheet.write(6, 0, "Vp, м/с")
 inversion_sheet.write(7, 0, "Vs, м/с")
 inversion_sheet.write(8, 0, "Dens, кг/м^3")
 
 inversion_sheet.write(6, 1, float(current_mod.layers[refl_i + 1].get_velocity(0)['vp']))
-inversion_sheet.write(6, 2, float(minim_result_curv[0]))
-inversion_sheet.write(6, 3, float(minim_result_plane[0]))
+inversion_sheet.write(6, 2, float(vp_init))
+inversion_sheet.write(6, 3, float(minim_result_curv[0]))
+inversion_sheet.write(6, 4, float(minim_result_plane[0]))
+inversion_sheet.write(6, 5, float(minim_result_homogen[0]))
 
 inversion_sheet.write(7, 1, float(current_mod.layers[refl_i + 1].get_velocity(0)['vs']))
-inversion_sheet.write(7, 2, float(minim_result_curv[1]))
-inversion_sheet.write(7, 3, float(minim_result_plane[1]))
+inversion_sheet.write(7, 2, float(vs_init))
+inversion_sheet.write(7, 3, float(minim_result_curv[1]))
+inversion_sheet.write(7, 4, float(minim_result_plane[1]))
+inversion_sheet.write(7, 5, float(minim_result_homogen[1]))
 
 inversion_sheet.write(8, 1, float(current_mod.layers[refl_i + 1].get_density()))
-inversion_sheet.write(8, 2, float(minim_result_curv[2]))
-inversion_sheet.write(8, 3, float(minim_result_plane[2]))
+inversion_sheet.write(8, 2, float(rho_init))
+inversion_sheet.write(8, 3, float(minim_result_curv[2]))
+inversion_sheet.write(8, 4, float(minim_result_plane[2]))
+inversion_sheet.write(8, 5, float(minim_result_homogen[2]))
 
 inversion_sheet.write(10, 0, "Относительная погрешность в процентах")
 inversion_sheet.write(11, 1, "Инверсия c корректно учтённым геометрическим расхождением")
-inversion_sheet.write(11, 2, "Инверсия c некорректно учтённым геометрическим расхождением")
+inversion_sheet.write(11, 2, "Инверсия c геометрическим расхождением без учёта кривизны границ")
+inversion_sheet.write(11, 3, "Инверсия c геометрическим расхождением без учёта преломляющих границ"
+                            " и кривизны в точке отражения")
 
 inversion_sheet.write(12, 0, "Vp, %")
 inversion_sheet.write(13, 0, "Vs, %")
 inversion_sheet.write(14, 0, "Dens, %")
 
 inversion_sheet.write(12, 1, float(abs(minim_result_curv[0] -
-                                 current_mod.layers[refl_i + 1].get_velocity(0)['vp']) /
-                      current_mod.layers[refl_i + 1].get_velocity(0)['vp'] * 100))
+                                       current_mod.layers[refl_i + 1].get_velocity(0)['vp']) /
+                                   current_mod.layers[refl_i + 1].get_velocity(0)['vp'] * 100))
 inversion_sheet.write(12, 2, float(abs(minim_result_plane[0] -
-                                 current_mod.layers[refl_i + 1].get_velocity(0)['vp']) /
-                      current_mod.layers[refl_i + 1].get_velocity(0)['vp'] * 100))
+                                       current_mod.layers[refl_i + 1].get_velocity(0)['vp']) /
+                                   current_mod.layers[refl_i + 1].get_velocity(0)['vp'] * 100))
+inversion_sheet.write(12, 3, float(abs(minim_result_homogen[0] -
+                                       current_mod.layers[refl_i + 1].get_velocity(0)['vp']) /
+                                   current_mod.layers[refl_i + 1].get_velocity(0)['vp'] * 100))
 
 inversion_sheet.write(13, 1, float(abs(minim_result_curv[1] -
-                                 current_mod.layers[refl_i + 1].get_velocity(0)['vs']) /
-                      current_mod.layers[refl_i + 1].get_velocity(0)['vs'] * 100))
+                                       current_mod.layers[refl_i + 1].get_velocity(0)['vs']) /
+                                   current_mod.layers[refl_i + 1].get_velocity(0)['vs'] * 100))
 inversion_sheet.write(13, 2, float(abs(minim_result_plane[1] -
-                                 current_mod.layers[refl_i + 1].get_velocity(0)['vs']) /
-                      current_mod.layers[refl_i + 1].get_velocity(0)['vs'] * 100))
+                                       current_mod.layers[refl_i + 1].get_velocity(0)['vs']) /
+                                   current_mod.layers[refl_i + 1].get_velocity(0)['vs'] * 100))
+inversion_sheet.write(13, 3, float(abs(minim_result_homogen[1] -
+                                       current_mod.layers[refl_i + 1].get_velocity(0)['vs']) /
+                                   current_mod.layers[refl_i + 1].get_velocity(0)['vs'] * 100))
 
 inversion_sheet.write(14, 1, float(abs(minim_result_curv[2] -
-                                 current_mod.layers[refl_i + 1].get_density()) /
-                      current_mod.layers[refl_i + 1].get_density() * 100))
+                                       current_mod.layers[refl_i + 1].get_density()) /
+                                   current_mod.layers[refl_i + 1].get_density() * 100))
 inversion_sheet.write(14, 2, float(abs(minim_result_plane[2] -
-                                 current_mod.layers[refl_i + 1].get_density()) /
-                      current_mod.layers[refl_i + 1].get_density() * 100))
+                                       current_mod.layers[refl_i + 1].get_density()) /
+                                   current_mod.layers[refl_i + 1].get_density() * 100))
+inversion_sheet.write(14, 3, float(abs(minim_result_homogen[2] -
+                                       current_mod.layers[refl_i + 1].get_density()) /
+                                   current_mod.layers[refl_i + 1].get_density() * 100))
 
 
 description_file.write("Инверсия завершена: {} секунд\n\n".format((time.time() - start_time)))
 print("\x1b[1;31mThe inversion has been finished: {} seconds".format((time.time() - start_time)))
 
-# print("\x1b[1;31m max x-displacement = ", np.max(abs(gathers_x)))
-# print("\x1b[1;32m max y-displacement = ", np.max(abs(gathers_y)))
-# print("\x1b[1;34m max z-displacement = ", np.max(abs(gathers_z)))
-
 # And finally, let's close all .txt files:
 
 description_file.close()
-
-# geom_spread_1.close()
-# hodograph.close()
-# seismogram_z.close()
-# seismogram_x.close()
-# ray_amplitude.close()
-# inversion.close()
 
 geom_spread.save("{}/Геометрическое расхождение.xls".format(dir_name))
 seismogram_x.save("{}/Сейсмограммы. X-компонента.xls".format(dir_name))

@@ -592,9 +592,13 @@ class Ray(object):
         # return 2 * np.exp(- (t - tau)**2 / (2 * sigma**2)) * (-3 * sigma**2 + (t - tau)**2) * (t - tau) / \
         #        (np.sqrt(3) * np.pi**(1 / 4) * sigma**(9 / 2)) * self.amplitude_fun
 
-    def spreading(self, curv_bool, inv_bool):
+    def spreading(self, curv_factor, inv_bool):
         # Computes only geometrical spreading along the ray in the observation point. All comments are above.
-        # curv_bool is a boolean variable. If it is 1 than curvature of boundaries is taken into account.
+
+        # curv_factor is an integer variable. If it is 0 then curvature of all boundaries is taken into account.
+        # If it equals to 1 then only curvature in the reflection point is considered.
+        # If curv_factor = 2 then curvature of interfaces is neglected.
+
         # inv_bool is a boolean variable. It indicates whether to take into account ratios J(x+) / J(x-) or not.
         # J(x+) is geometrical spreading just below the interface and J(x-) is geometrical spreading just above it.
         # Note that "inv" comes from "inversion" since all these ratios vanish in the expression for amplitude. So,
@@ -671,9 +675,13 @@ class Ray(object):
                                                                    self.segments[i - 1].vector)
                 D[1, 0] = D[0, 1]
 
-                if curv_bool == 0:
+                if curv_factor == 2:
 
                     D = np.zeros((2,2))
+
+                elif curv_factor == 1 and rt_sign == 1:
+
+                    D = np.zeros((2, 2))
 
                 # Here transit_matr is a transition matrix from global Cartesian coordinates to local ones which are
                 # connected to the point of incidence ant the incident ray. Of course, columns of this matrix are
