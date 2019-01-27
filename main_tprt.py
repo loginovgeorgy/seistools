@@ -25,20 +25,20 @@ start_time = time.time()
 # TODO: make class for vel_mod, for now init at least one horizon upper the top receiver
 # TODO: check procedure of "is_ray_intersect_boundary"
 
-model_number = 5
+model_number = 1
 
 # Let's define the interfaces.
 
 # Grid:
 if 1 < model_number < 5:
 
-    X = np.linspace(- 1200, 1200, 1201)
-    Y = np.linspace(- 1200, 1200, 1201)
+    X = np.linspace(- 1200, 1200, 1201 // 40)
+    Y = np.linspace(- 1200, 1200, 1201 // 40)
 
 else:
 
-    X = np.linspace(- 1000, 1000, 1001)
-    Y = np.linspace(- 1000, 1000, 1001)
+    X = np.linspace(- 1000, 1000, 1001 // 40)
+    Y = np.linspace(- 1000, 1000, 1001 // 40)
 
 YY, XX = np.meshgrid(Y, X)
 
@@ -134,6 +134,10 @@ else:
     refl_i = 0 # number of the reflection interface
     num_segments = 2 # number of segments
 
+# Later it will be needed to insert the current model's name into titles of plots. In order to do this, let's
+# define a dictionary:
+
+number_string = {1:'1', 2:'2a', 3:'2b', 4:'2c', 5:'3'}
 
 # Let's construct the observation system:
 sou_line = np.arange(- 1300, 25, 25) # source line starting from - 1300 and ending at 0 with step 100
@@ -194,26 +198,23 @@ gathers_x = np.zeros((rec_line.shape[0], record_time.shape[0]))
 gathers_y = np.zeros((rec_line.shape[0], record_time.shape[0]))
 gathers_z = np.zeros((rec_line.shape[0], record_time.shape[0]))
 
-# Later it will be needed to insert the current model's name into titles of plots. In order to do this, let's
-# define a dictionary:
-
-number_string = {1:'1', 2:'2a', 3:'2b', 4:'2c', 5:'3'}
-
 # File management:
 
 # Create a description file. We shall create a folder for this file and others. So, the name of the directory is:
 
-dir_name = "C:/Users/ShilovNN/Documents/Лучевой метод/AVO/Результаты вычислений/" \
-           "Модель №{}/Вычисления {} {}-{}".format(number_string[model_number],
-                                                   datetime.datetime.now().date(),
-                                                   datetime.datetime.now().hour,
-                                                   datetime.datetime.now().minute)
-
-# dir_name = "C:/Users/USER/Documents/Лучевой метод/AVO, коэффициенты отражения-преломления/Результаты вычислений/" \
+# For IPGG computer:
+# dir_name = "C:/Users/ShilovNN/Documents/Лучевой метод/AVO/Результаты вычислений/" \
 #            "Модель №{}/Вычисления {} {}-{}".format(number_string[model_number],
 #                                                    datetime.datetime.now().date(),
 #                                                    datetime.datetime.now().hour,
 #                                                    datetime.datetime.now().minute)
+
+# For your laptop:
+dir_name = "C:/Users/USER/Documents/Лучевой метод/AVO, коэффициенты отражения-преломления/Результаты вычислений/" \
+           "Модель №{}/Вычисления {} {}-{}".format(number_string[model_number],
+                                                   datetime.datetime.now().date(),
+                                                   datetime.datetime.now().hour,
+                                                   datetime.datetime.now().minute)
 
 createFolder(dir_name)
 
@@ -634,6 +635,10 @@ def RMS(gather, t_window, t_central, dt):
 
 from scipy.optimize import minimize
 
+# Let's create an array for cosines of angles of incidence for calculations for homogeneous overburden:
+
+cosines_homogen = np.zeros(rays.shape)
+
 # We'll need to transform ray amplitudes as follows:
 
 for i in range(rays.shape[0]):
@@ -649,6 +654,10 @@ for i in range(rays.shape[0]):
     transformed_ampl_plane[i] = transformed_ampl_curv[i]
 
     transformed_ampl_homogen[i] = transformed_ampl_curv[i]
+
+    cosines_homogen[i] = horizons[- 1].get_depth([0, 0]) /\
+                         np.linalg.norm(rays[i].segments[0].source -
+                                        np.array([0, 0, horizons[- 1].get_depth([0, 0])]))
 
     for j in range(coefficients.shape[1]):
 
@@ -693,7 +702,7 @@ minim_result_plane = minimize(AVO_residual,
 
 minim_result_homogen = minimize(AVO_residual,
                                 np.array([3000, 1500, 2100]),
-                                args = (current_mod.layers[refl_i], transformed_ampl_homogen, cosines[:, refl_i])).x
+                                args = (current_mod.layers[refl_i], transformed_ampl_homogen, cosines_homogen)).x
 
 
 inversion_sheet.write(6, 0, "Vp, м/с")
@@ -773,3 +782,68 @@ seismogram_z.save("{}/Сейсмограммы. Z-компонента.xls".form
 ray_amplitude.save("{}/Лучевые амплитуды.xls".format(dir_name))
 hodograph.save("{}/Годограф.xls".format(dir_name))
 inversion.save("{}/Данные инверсии.xls".format(dir_name))
+#
+# # Let's spend some time on saving interfaces and rays.
+# ray_hor_dir = "C:/Users/USER/Documents/Rays and Interfaces/" \
+#               "Model №{}/Calculations {} {}-{}".format(number_string[model_number],
+#                                                        datetime.datetime.now().date(),
+#                                                        datetime.datetime.now().hour,
+#                                                        datetime.datetime.now().minute)
+#
+# createFolder(ray_hor_dir)
+#
+# for k in range(len(current_mod.horizons)):
+#
+#     the_horizon = xlwt.Workbook()
+#     the_horizon_sheet = the_horizon.add_sheet("Horizon")
+#
+#     the_horizon_sheet.write(0, 0, "Таблица значений глубины для горизонта №{}".format(k + 1))
+#
+#     the_horizon_sheet.write(2, 0, "X \ Y")
+#
+#     for i in range(current_mod.horizons[k].X.shape[0]):
+#
+#         the_horizon_sheet.write(3 + i, 0, current_mod.horizons[k].X[i])
+#
+#     for j in range(current_mod.horizons[k].Y.shape[0]):
+#
+#         the_horizon_sheet.write(2, 1 + j, current_mod.horizons[k].Y[j])
+#
+#     for i in range(current_mod.horizons[k].X.shape[0]):
+#         for j in range(current_mod.horizons[k].Y.shape[0]):
+#
+#             the_horizon_sheet.write(3 + i, 1 + j, current_mod.horizons[k].Z[i, j])
+#
+#     the_horizon.save("{}/Horizon №{}.xls".format(ray_hor_dir, k + 1))
+#
+# the_rays = xlwt.Workbook()
+# the_rays_sheet = the_rays.add_sheet("Rays")
+#
+# the_rays_sheet.write(0, 0, "Лучи")
+#
+# the_rays_sheet.write(3, 0, "X{}".format(1))
+# the_rays_sheet.write(4, 0, "Y{}".format(1))
+# the_rays_sheet.write(5, 0, "Z{}".format(1))
+#
+# for k in range(rays.shape[0]):
+#
+#     the_rays_sheet.write(2, k + 1, "Луч №{}".format(k))
+#
+#     the_rays_sheet.write(3, k + 1, float(rays[k].segments[0].source[0]))
+#     the_rays_sheet.write(4, k + 1, float(rays[k].segments[0].source[1]))
+#     the_rays_sheet.write(5, k + 1, float(rays[k].segments[0].source[2]))
+#
+# for i in np.arange(1, len(rays[0].segments) + 1, 1):
+#
+#     the_rays_sheet.write(3 * int(i) + 3, 0, "X{}".format(i + 1))
+#     the_rays_sheet.write(3 * int(i) + 4, 0, "Y{}".format(i + 1))
+#     the_rays_sheet.write(3 * int(i) + 5, 0, "Z{}".format(i + 1))
+#
+#     for k in range(rays.shape[0]):
+#
+#         the_rays_sheet.write(3 * i + 3, k + 1, float(rays[k].segments[i - 1].receiver[0]))
+#         the_rays_sheet.write(3 * i + 4, k + 1, float(rays[k].segments[i - 1].receiver[1]))
+#         the_rays_sheet.write(3 * i + 5, k + 1, float(rays[k].segments[i - 1].receiver[2]))
+#
+#
+# the_rays.save("{}/Rays.xls".format(ray_hor_dir))
