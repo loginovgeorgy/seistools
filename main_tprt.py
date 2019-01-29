@@ -25,7 +25,13 @@ start_time = time.time()
 # TODO: make class for vel_mod, for now init at least one horizon upper the top receiver
 # TODO: check procedure of "is_ray_intersect_boundary"
 
-model_number = 1
+model_number = 2
+
+# We'll calculate the geometrical spreading in several assumptions. For example, we can not consider curvature at
+# reflection point, or vice versa, consider the curvature only at this point. So:
+
+tranmission_curv = False
+reflection_curv = False
 
 # Let's define the interfaces.
 
@@ -243,6 +249,13 @@ description_file.write("Для пар 'источник-приёмник', на�
 description_file.write("Время записи на станции: {} с \n".format(max_time))
 description_file.write("Длительность отсчётов: {} с \n \n".format(record_time[1] - record_time[0]))
 
+description_file.write("В графиках и численных данных с пометкой <<без учёта кривизны границ>> не учитывается: \n\n")
+
+if 1 < model_number < 5 and tranmission_curv == False:
+    description_file.write("- Кривизна преломляющих границ;\n")
+if reflection_curv == False:
+    description_file.write("- Кривизна отражающей границы;\n\n")
+
 description_file.write("============================================================ \n \n")
 
 description_file.write("Время вычислений: \n \n")
@@ -369,11 +382,11 @@ for i in range(sources.shape[0]):
     ray_amplitude_sheet.write(2 + 1 + i, 0, rec_line[i])
     ray_amplitude_sheet.write(2 + 1 + i, 1, float(np.linalg.norm(rays[i].amplitude_fun)))
 
-    geom_spread_curv[i] = rays[i].spreading(0, 0)
-    geom_spread_plane[i] = rays[i].spreading(2, 0)
+    geom_spread_curv[i] = rays[i].spreading([True, True], 0)
+    geom_spread_plane[i] = rays[i].spreading([tranmission_curv, reflection_curv], 0)
 
-    geom_spread_curv_inv[i] = rays[i].spreading(0, 1)
-    geom_spread_plane_inv[i] = rays[i].spreading(2, 1)
+    geom_spread_curv_inv[i] = rays[i].spreading([True, True], 1)
+    geom_spread_plane_inv[i] = rays[i].spreading([tranmission_curv, reflection_curv], 1)
 
     geom_spread_homogen[i] = (np.linalg.norm(rays[i].segments[0].source -
                                             np.array([0, 0, horizons[- 1].get_depth([0, 0])])) +

@@ -595,9 +595,9 @@ class Ray(object):
     def spreading(self, curv_factor, inv_bool):
         # Computes only geometrical spreading along the ray in the observation point. All comments are above.
 
-        # curv_factor is an integer variable. If it is 0 then curvature of all boundaries is taken into account.
-        # If it equals to 1 then only curvature in the reflection point is considered.
-        # If curv_factor = 2 then curvature of interfaces is neglected.
+        # curv_factor is an array of two boolean variables. curv_factor[0] indicates if we have to consider curvature
+        # in the transmission points. curv_factor[1] indicates the same for the reflection point.
+        # 1 = consider, 0 = don't consider
 
         # inv_bool is a boolean variable. It indicates whether to take into account ratios J(x+) / J(x-) or not.
         # J(x+) is geometrical spreading just below the interface and J(x-) is geometrical spreading just above it.
@@ -675,13 +675,9 @@ class Ray(object):
                                                                    self.segments[i - 1].vector)
                 D[1, 0] = D[0, 1]
 
-                if curv_factor == 2:
+                if (curv_factor[0] == 0 and rt_sign == 1) or (curv_factor[1] == 0 and rt_sign == - 1):
 
                     D = np.zeros((2,2))
-
-                elif curv_factor == 1 and rt_sign == 1:
-
-                    D = np.zeros((2, 2))
 
                 # Here transit_matr is a transition matrix from global Cartesian coordinates to local ones which are
                 # connected to the point of incidence ant the incident ray. Of course, columns of this matrix are
