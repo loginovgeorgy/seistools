@@ -423,7 +423,7 @@ class Ray(object):
                     rt_sign = - 1 # but then check whether we were right or not.
 
                 # cosine of inc_angle
-                cos_inc = abs(np.dot(self.segments[i - 1].vector,
+                cos_inc = abs(np.dot(self.segments[i - 1].vector / np.linalg.norm(self.segments[i - 1].vector),
                                      self.segments[i - 1].end_horizon.get_normal(self.segments[i - 1].receiver[0:2])))
                 inc_cosines[i - 1] = cos_inc
 
