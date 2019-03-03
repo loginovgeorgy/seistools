@@ -226,30 +226,40 @@ class GridHorizon(Horizon):
     # Here we decided to use cubic spline interpolation. Corresponding formulas allow us to construct a surface with
     # second-order smoothness.
 
-    def __init__(self, X, Y, Z, bool_parab = 1):
+    def __init__(self, X, Y, Z, bool_parab = 1, *args):
         # Here the input arrays X and Y form up a rectangular coordinate grid. The grid is supposed to be regular for
         # each direction (X and Y).
         # In order to decrease influence of breaking out points, we shall construct more frequent grid using
         # so-called averaged parabolic interpolation defined in the corresponding module. However, you can switch off
         # this feature and keep only points given by X, Y and Z by setting bool_parab equal to 0.
 
-        if bool_parab == 1:
-
-            self.X = np.linspace(X[0], X[-1], 2 * X.shape[0] - 1)
-            self.Y = np.linspace(X[0], X[-1], 2 * X.shape[0] - 1)
-            # minus one - since we would like to save all input points.
-
-            self.Z = two_dim_parab_inter_surf(X, Y, Z, self.X, self.Y)
-
-        else:
+        if len(args) != 0:
 
             self.X = X
             self.Y = Y
             self.Z = Z
 
-        # In addition it will be needed to compute and keep array of all polynomial coefficients of our bicubic splines:
+            self.polynomial = args[0]
 
-        self.polynomial = two_dim_polynomial(self.X, self.Y, self.Z)
+        else:
+
+            if bool_parab == 1:
+
+                self.X = np.linspace(X[0], X[-1], 2 * X.shape[0] - 1)
+                self.Y = np.linspace(X[0], X[-1], 2 * X.shape[0] - 1)
+                # minus one - since we would like to save all input points.
+
+                self.Z = two_dim_parab_inter_surf(X, Y, Z, self.X, self.Y)
+
+            else:
+
+                self.X = X
+                self.Y = Y
+                self.Z = Z
+
+            # In addition it will be needed to compute and keep array of all polynomial coefficients of our bicubic splines:
+
+            self.polynomial = two_dim_polynomial(self.X, self.Y, self.Z)
 
     def get_depth(self, x):
 
