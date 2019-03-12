@@ -446,6 +446,8 @@ class Ray(object):
                                                                    self.segments[i - 1].vector)
                 D[1, 0] = D[0, 1]
 
+                print(D[0, 0], D[1, 0], D[1, 1])
+
                 # Here transit_matr is a transition matrix from global Cartesian coordinates to local ones which are
                 # connected to the point of incidence ant the incident ray. Of course, columns of this matrix are
                 # coordinate unit vectors of the local system d1, d2 and n.

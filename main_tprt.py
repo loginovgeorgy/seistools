@@ -8,6 +8,7 @@ from src.tprt.bicubic_interpolation import get_left_i
 
 import time # for runtime
 import os # for folder's creation
+import datetime # for folder's naming
 
 import openpyxl as opxl
 
@@ -18,7 +19,19 @@ def createFolder(directory):
     except OSError:
         print ('Error: Creating directory. ' +  directory)
 
-import datetime # for folder's naming
+def time_window(gather, rec_time, t_window, t_central):
+
+    if rec_time[0] <= t_central + t_window and rec_time[- 1] >= t_central - t_window:
+
+        i_left = get_left_i(rec_time, t_central - t_window)
+        i_right = get_left_i(rec_time, t_central + t_window)
+
+
+        return gather[i_left : i_right + 1]
+
+    else:
+
+        return np.array([])
 
 start_time = time.time()
 
@@ -220,7 +233,7 @@ elif model_number == 5:
                         "Модель №{}/"
                         "Кривизна {}/"
                         "Горизонты/"
-                        "Concave_Gauss_500_Incident.npy".format(number_string[model_number], 0.0004 * curv_scale))
+                        "Concave_Gauss_500_Center.npy".format(number_string[model_number], 0.0004 * curv_scale))
 
     horizons = [GridHorizon(X, Y, Concave_Gauss_500_Center, 0, first_hor)]
     current_mod = Velocity_model(np.array([ISOVelocity(2000, 1100), ISOVelocity(2800, 1600)]),
@@ -479,7 +492,6 @@ seismogram_y = opxl.Workbook()
 seismogram_z = opxl.Workbook()
 ray_amplitude = opxl.Workbook()
 hodograph = opxl.Workbook()
-inversion = opxl.Workbook()
 
 geom_spread_sheet = geom_spread.active
 geom_spread_sheet.title = "Геометрическое расхождение"
@@ -496,9 +508,6 @@ ray_amplitude_sheet.title = "Лучевые амплитуды"
 
 hodograph_sheet = hodograph.active
 hodograph_sheet.title = "Годограф ОСТ"
-
-inversion_sheet = inversion.active
-inversion_sheet.title = "Инверсия"
 
 # Let's form up heads for these files:
 geom_spread_sheet.cell(row = 1, column = 1).value = "Геометрическое расхождение"
@@ -539,30 +548,6 @@ for i in range(receivers.shape[0]):
 hodograph_sheet.cell(row = 1, column = 1).value = "Годограф первых вступлений"
 hodograph_sheet.cell(row = 3, column = 1).value = "X, м"
 hodograph_sheet.cell(row = 3, column = 2).value = "T, с"
-
-inversion_sheet.cell(row = 1, column = 1).value = "Данные AVO-инверсии"
-inversion_sheet.cell(row = 3, column = 1).value = "Восстанавливаются характеристики слоя №{}".format(refl_i + 2)
-inversion_sheet.cell(row = 5, column = 1).value = "Значения параметров"
-inversion_sheet.cell(row = 6, column = 2).value = "Модель"
-inversion_sheet.cell(row = 6, column = 3).value = "Начальное приближение"
-inversion_sheet.cell(row = 6, column = 4).value = "Инверсия c корректно учтённым геометрическим расхождением"
-if 1 < model_number < 5:
-    if transmission_curv == False:
-        if reflection_curv == False:
-            inversion_sheet.cell(row = 6, column = 5).value = "Инверсия c геометрическим расхождением без учёта " \
-                                                              "кривизны границ"
-        else:
-            inversion_sheet.cell(row = 6, column = 5).value = "Инверсия c геометрическим расхождением без учёта " \
-                                                              "кривизны преломляющих границ"
-    else:
-        inversion_sheet.cell(row = 6, column = 5).value = "Инверсия c геометрическим расхождением без учёта " \
-                                                          "кривизны отражающей границы"
-else:
-    if reflection_curv == False:
-        inversion_sheet.cell(row = 6, column = 5).value = "Инверсия c геометрическим расхождением без учёта " \
-                                                          "кривизны отражающей границы"
-inversion_sheet.cell(row = 6, column = 6).value = "Инверсия c геометрическим расхождением без учёта преломляющих " \
-                                                  "границ и кривизны в точке отражения"
 
 # Now, let's save seismograms:
 
@@ -742,7 +727,7 @@ plt.close(fig4)
 
 fig5 = plt.figure()
 
-plt.title("Сейсмограмма (Z-комонента). Модель №{}".format(number_string[model_number]))
+plt.title("Сейсмограмма (Z-компонента). Модель №{}".format(number_string[model_number]))
 plt.gca().invert_yaxis()
 
 plt.yticks(np.arange(0, rays.shape[0], 1), ["{}".format(int(j)) for j in rec_line[0 : rays.shape[0]]],
@@ -750,16 +735,23 @@ plt.yticks(np.arange(0, rays.shape[0], 1), ["{}".format(int(j)) for j in rec_lin
 
 for i in range(rays.shape[0]):
 
-    # plt.twinx()
-    # loc_axis = plt.gca()
-    #
-    # ll, bb, ww, hh = loc_axis.get_position().bounds
-    # loc_axis.set_position([ll, bb + hh / rays.shape[0] * i, ww, hh / rays.shape[0]])
-    # loc_axis.set_axis_off()
-
     plt.fill_between(record_time, gathers_z[i, :] / np.max(abs(gathers_z)) / 1.5 + i,
                      np.ones(record_time.shape) * i,
                      linewidth = 0.3, color = 'b', alpha = 0.5)
+
+    plt.fill_between(time_window(record_time,
+                                 record_time,
+                                 3 * 1.5 * 1 / frequency_dom,
+                                 travel_time[i]),
+                     time_window(gathers_z[i, :] / np.max(abs(gathers_z)) / 1.5 + i,
+                                 record_time,
+                                 3 * 1.5 * 1 / frequency_dom,
+                                 travel_time[i]),
+                     np.ones(time_window(record_time,
+                                         record_time,
+                                         3 * 1.5 * 1 / frequency_dom,
+                                         travel_time[i]).shape) * i,
+                     linewidth = 0.3, color = 'g', alpha = 0.5)
 
 
 plt.ylabel("Координаты вдоль профиля, м")
@@ -772,20 +764,34 @@ plt.close(fig5)
 
 fig6 = plt.figure()
 
-plt.title("Сейсмограмма (X-комонента). Модель №{}".format(number_string[model_number]))
+plt.title("Сейсмограмма (X-компонента). Модель №{}".format(number_string[model_number]))
 plt.gca().invert_yaxis()
 plt.yticks(np.arange(0, rays.shape[0], 1), ["{}".format(int(j)) for j in rec_line[0 : rays.shape[0]]],
            fontsize = - 5 / 16 * rays.shape[0] + 11 + 21 * 5 / 16)
-
-# plt.twinx()
-# plt.gca().set_axis_off()
-# plt.gca().set_clip_on(1)
 
 for i in range(rays.shape[0]):
 
     plt.fill_between(record_time, gathers_x[i, :] / np.max(abs(gathers_z)) / 1.5 + i,
                      np.ones(record_time.shape) * i,
                      linewidth = 0.3, color = 'r', alpha = 0.5)
+
+    plt.fill_between(record_time, gathers_x[i, :] / np.max(abs(gathers_z)) / 1.5 + i,
+                     np.ones(record_time.shape) * i,
+                     linewidth = 0.3, color = 'r', alpha = 0.5)
+
+    plt.fill_between(time_window(record_time,
+                                 record_time,
+                                 3 * 1.5 * 1 / frequency_dom,
+                                 travel_time[i]),
+                     time_window(gathers_x[i, :] / np.max(abs(gathers_z)) / 1.5 + i,
+                                 record_time,
+                                 3 * 1.5 * 1 / frequency_dom,
+                                 travel_time[i]),
+                     np.ones(time_window(record_time,
+                                         record_time,
+                                         3 * 1.5 * 1 / frequency_dom,
+                                         travel_time[i]).shape) * i,
+                     linewidth = 0.3, color = 'g', alpha = 0.5)
 
 plt.ylabel("Координаты вдоль профиля, м")
 plt.xlabel("Время, с")
@@ -831,21 +837,6 @@ def AVO_residual(layer_2_params, layer_1, real_coeff, real_cosines):
 
     return np.linalg.norm(synt_coeff - real_coeff)
 
-def time_window(gather, rec_time, t_window, t_central):
-
-    if rec_time[0] <= t_central + t_window and rec_time[- 1] >= t_central - t_window:
-
-        i_left = get_left_i(rec_time, t_central - t_window)
-        i_right = get_left_i(rec_time, t_central + t_window)
-
-
-        return gather[i_left : i_right + 1]
-
-    else:
-
-        return np.array([])
-
-
 def RMS(gather, rec_time, t_window, t_central):
 
     if rec_time[0] <= t_central + t_window and rec_time[- 1] >= t_central - t_window:
@@ -853,8 +844,7 @@ def RMS(gather, rec_time, t_window, t_central):
         i_left = get_left_i(rec_time, t_central - t_window)
         i_right = get_left_i(rec_time, t_central + t_window)
 
-
-        return np.linalg.norm(gather[i_left : i_right + 1]) / gather[i_left : i_right + 1].shape[0]
+        return np.linalg.norm(gather[i_left : i_right + 1]) / np.sqrt(gather[i_left : i_right + 1].shape[0])
 
     else:
 
@@ -868,109 +858,232 @@ cosines_homogen = np.zeros(rays.shape)
 
 # We'll need to transform ray amplitudes as follows:
 
-# Let's add some random noise to our seismograms (standart normal distribution, amplitude equals to 1/10 of the maximal
-# recorded amplitude):
+inversion = opxl.Workbook()
+number_of_iterations = 10
 
-gathers_x = gathers_x + np.random.randn(gathers_x.shape[0], gathers_x.shape[1]) * 0.1 * np.max(gathers_x)
-gathers_y = gathers_y + np.random.randn(gathers_y.shape[0], gathers_y.shape[1]) * 0.1 * np.max(gathers_y)
-gathers_z = gathers_z + np.random.randn(gathers_z.shape[0], gathers_z.shape[1]) * 0.1 * np.max(gathers_z)
+transformed_ampl_curv_array = np.zeros((number_of_iterations, rays.shape[0]))
+transformed_ampl_plane_array = np.zeros((number_of_iterations, rays.shape[0]))
+transformed_ampl_homogen_array = np.zeros((number_of_iterations, rays.shape[0]))
 
-fig7 = plt.figure()
+for n in range(number_of_iterations):
 
-plt.title("Сейсмограмма (X-комонента). Модель №{}".format(number_string[model_number]))
-plt.gca().invert_yaxis()
-plt.yticks(np.arange(0, rays.shape[0], 1), ["{}".format(int(j)) for j in rec_line[0 : rays.shape[0]]],
-           fontsize = - 5 / 16 * rays.shape[0] + 11 + 21 * 5 / 16)
+    # Let's add some random noise to our seismograms (standart normal distribution, amplitude equals to 1/10 of the maximal
+    # recorded amplitude):
 
-for i in range(rays.shape[0]):
+    gathers_x_inv = gathers_x + 0*np.random.randn(gathers_x.shape[0], gathers_x.shape[1]) * 0.1 * max(np.max(gathers_x), np.max(gathers_y), np.max(gathers_z))
+    gathers_y_inv = gathers_y + 0*np.random.randn(gathers_y.shape[0], gathers_y.shape[1]) * 0.1 * max(np.max(gathers_x), np.max(gathers_y), np.max(gathers_z))
+    gathers_z_inv = gathers_z + 0*np.random.randn(gathers_z.shape[0], gathers_z.shape[1]) * 0.1 * max(np.max(gathers_x), np.max(gathers_y), np.max(gathers_z))
 
-    plt.fill_between(record_time, gathers_x[i, :] / np.max(abs(gathers_z)) / 1.5 + i,
-                     np.ones(record_time.shape) * i,
-                     linewidth = 0.3, color = 'r', alpha = 0.5)
+    for i in range(rays.shape[0]):
 
-    plt.fill_between(time_window(record_time,
-                                 record_time,
-                                 3 * 1.5 * 1 / frequency_dom,
-                                 travel_time[i]),
-                     time_window(gathers_x[i, :] / np.max(abs(gathers_z)) / 1.5 + i,
-                                 record_time,
-                                 3 * 1.5 * 1 / frequency_dom,
-                                 travel_time[i]),
-                     np.ones(time_window(record_time,
-                                         record_time,
-                                         3 * 1.5 * 1 / frequency_dom,
-                                         travel_time[i]).shape) * i,
-                     linewidth = 0.3, color = 'g', alpha = 0.5)
+        # Let's find RMS of the amplitude. We'll sum squared amplitudes in a window with width of 3 * 1.5 * T where
+        # T = 1 / frequency_dom.
 
-plt.ylabel("Координаты вдоль профиля, м")
-plt.xlabel("Время, с")
+        # transformed_ampl_curv[i] = RMS(np.sqrt(gathers_x_inv[i] ** 2 + gathers_z_inv[i] ** 2),
+        #                                record_time,
+        #                                3 * 1.5 * 1 / frequency_dom,
+        #                                travel_time[i])
 
-plt.show()
-plt.close(fig7)
+        transformed_ampl_curv[i] = RMS(np.sqrt(gathers_x_inv[i] ** 2 + gathers_y_inv[i] ** 2 + gathers_z_inv[i] ** 2),
+                                       record_time,
+                                       3 * 1.5 * 1 / frequency_dom,
+                                       travel_time[i])
 
-for i in range(rays.shape[0]):
+        transformed_ampl_plane[i] = transformed_ampl_curv[i]
 
-    # Let's find RMS of the amplitude. We'll sum squared amplitudes in a window with width of 3 * 1.5 * T where
-    # T = 1 / frequency_dom.
+        transformed_ampl_homogen[i] = transformed_ampl_curv[i]
 
-    transformed_ampl_curv[i] = RMS(np.sqrt(gathers_x[i] ** 2 + gathers_y[i] ** 2 + gathers_z[i] ** 2),
-                                   record_time,
-                                   3 * 1.5 * 1 / frequency_dom,
-                                   travel_time[i])
+        cosines_homogen[i] = horizons[- 1].get_depth([0, 0]) /\
+                             np.linalg.norm(rays[i].segments[0].source -
+                                            np.array([0, 0, horizons[- 1].get_depth([0, 0])]))
 
-    transformed_ampl_plane[i] = transformed_ampl_curv[i]
+        for j in range(coefficients.shape[1]):
 
-    transformed_ampl_homogen[i] = transformed_ampl_curv[i]
+            if j != refl_i:
 
-    cosines_homogen[i] = horizons[- 1].get_depth([0, 0]) /\
-                         np.linalg.norm(rays[i].segments[0].source -
-                                        np.array([0, 0, horizons[- 1].get_depth([0, 0])]))
+                transformed_ampl_curv[i] = transformed_ampl_curv[i] / coefficients[i, j]
+                transformed_ampl_plane[i] = transformed_ampl_plane[i] / coefficients[i, j]
 
-    for j in range(coefficients.shape[1]):
-
-        if j != refl_i:
-
-            transformed_ampl_curv[i] = transformed_ampl_curv[i] / coefficients[i, j]
-            transformed_ampl_plane[i] = transformed_ampl_plane[i] / coefficients[i, j]
-
-    transformed_ampl_curv[i] = transformed_ampl_curv[i] * np.sqrt(geom_spread_curv_inv[i])
-    transformed_ampl_plane[i] = transformed_ampl_plane[i] * np.sqrt(geom_spread_plane_inv[i])
-    transformed_ampl_homogen[i] = transformed_ampl_homogen[i] * np.sqrt(geom_spread_homogen[i])
+        transformed_ampl_curv[i] = transformed_ampl_curv[i] * np.sqrt(geom_spread_curv_inv[i])
+        transformed_ampl_plane[i] = transformed_ampl_plane[i] * np.sqrt(geom_spread_plane_inv[i])
+        transformed_ampl_homogen[i] = transformed_ampl_homogen[i] * np.sqrt(geom_spread_homogen[i])
 
 
-transformed_ampl_curv = transformed_ampl_curv * rt_coefficients(current_mod.layers[refl_i],
-                                                                current_mod.layers[refl_i + 1],
-                                                                1,
-                                                                np.array([0, 0, 1]),
-                                                                current_mod.layers[refl_i].get_velocity(0)['vp'],
-                                                                - 1)[0] / transformed_ampl_curv[0]
+    transformed_ampl_curv = transformed_ampl_curv * rt_coefficients(current_mod.layers[refl_i],
+                                                                    current_mod.layers[refl_i + 1],
+                                                                    1,
+                                                                    np.array([0, 0, 1]),
+                                                                    current_mod.layers[refl_i].get_velocity(0)['vp'],
+                                                                    - 1)[0] / transformed_ampl_curv[0]
 
-transformed_ampl_plane = transformed_ampl_plane * rt_coefficients(current_mod.layers[refl_i],
-                                                                  current_mod.layers[refl_i + 1],
-                                                                  1,
-                                                                  np.array([0, 0, 1]),
-                                                                  current_mod.layers[refl_i].get_velocity(0)['vp'],
-                                                                  - 1)[0] / transformed_ampl_plane[0]
-
-transformed_ampl_homogen = transformed_ampl_homogen * rt_coefficients(current_mod.layers[refl_i],
+    transformed_ampl_plane = transformed_ampl_plane * rt_coefficients(current_mod.layers[refl_i],
                                                                       current_mod.layers[refl_i + 1],
                                                                       1,
                                                                       np.array([0, 0, 1]),
                                                                       current_mod.layers[refl_i].get_velocity(0)['vp'],
-                                                                      - 1)[0] / transformed_ampl_homogen[0]
+                                                                      - 1)[0] / transformed_ampl_plane[0]
 
-minim_result_curv = minimize(AVO_residual,
-                             np.array([3000, 1500, 2100]),
-                             args = (current_mod.layers[refl_i], transformed_ampl_curv, cosines[:, refl_i])).x
+    transformed_ampl_homogen = transformed_ampl_homogen * rt_coefficients(current_mod.layers[refl_i],
+                                                                          current_mod.layers[refl_i + 1],
+                                                                          1,
+                                                                          np.array([0, 0, 1]),
+                                                                          current_mod.layers[refl_i].get_velocity(0)['vp'],
+                                                                          - 1)[0] / transformed_ampl_homogen[0]
 
-minim_result_plane = minimize(AVO_residual,
-                              np.array([3000, 1500, 2100]),
-                              args = (current_mod.layers[refl_i], transformed_ampl_plane, cosines[:, refl_i])).x
+    transformed_ampl_curv_array[n] = np.real(transformed_ampl_curv)
+    transformed_ampl_plane_array[n] = np.real(transformed_ampl_plane)
+    transformed_ampl_homogen_array[n] = np.real(transformed_ampl_homogen)
 
-minim_result_homogen = minimize(AVO_residual,
-                                np.array([3000, 1500, 2100]),
-                                args = (current_mod.layers[refl_i], transformed_ampl_homogen, cosines_homogen)).x
+    minim_result_curv = minimize(AVO_residual,
+                                 np.array([3000, 1500, 2100]),
+                                 args = (current_mod.layers[refl_i], transformed_ampl_curv, cosines[:, refl_i])).x
 
+    minim_result_plane = minimize(AVO_residual,
+                                  np.array([3000, 1500, 2100]),
+                                  args = (current_mod.layers[refl_i], transformed_ampl_plane, cosines[:, refl_i])).x
+
+    minim_result_homogen = minimize(AVO_residual,
+                                    np.array([3000, 1500, 2100]),
+                                    args = (current_mod.layers[refl_i], transformed_ampl_homogen, cosines_homogen)).x
+
+    if n == 0:
+        inversion_sheet = inversion.active
+        inversion_sheet.title = "Инверсия. Итерация №1"
+    else:
+        inversion_sheet = inversion.create_sheet("Инверсия. Итерация №{}".format(n + 1))
+
+
+    inversion_sheet.cell(row = 1, column = 1).value = "Данные AVO-инверсии"
+    inversion_sheet.cell(row = 3, column = 1).value = "Восстанавливаются характеристики слоя №{}".format(refl_i + 2)
+    inversion_sheet.cell(row = 4, column = 1).value = "В сейсмограммы независимо внесены погрешности 10% от максимального" \
+                                                      " значения амплитуд"
+    inversion_sheet.cell(row = 5, column = 1).value = "Значения параметров"
+    inversion_sheet.cell(row = 6, column = 2).value = "Модель"
+    inversion_sheet.cell(row = 6, column = 3).value = "Начальное приближение"
+    inversion_sheet.cell(row = 6, column = 4).value = "Инверсия c корректно учтённым геометрическим расхождением"
+    if 1 < model_number < 5:
+        if transmission_curv == False:
+            if reflection_curv == False:
+                inversion_sheet.cell(row = 6, column = 5).value = "Инверсия c геометрическим расхождением без учёта " \
+                                                                  "кривизны границ"
+            else:
+                inversion_sheet.cell(row = 6, column = 5).value = "Инверсия c геометрическим расхождением без учёта " \
+                                                                  "кривизны преломляющих границ"
+        else:
+            inversion_sheet.cell(row = 6, column = 5).value = "Инверсия c геометрическим расхождением без учёта " \
+                                                              "кривизны отражающей границы"
+    else:
+        if reflection_curv == False:
+            inversion_sheet.cell(row = 6, column = 5).value = "Инверсия c геометрическим расхождением без учёта " \
+                                                              "кривизны отражающей границы"
+    inversion_sheet.cell(row = 6, column = 6).value = "Инверсия c геометрическим расхождением без учёта преломляющих " \
+                                                      "границ и кривизны в точке отражения"
+
+    inversion_sheet.cell(row = 7, column = 1).value = "Vp, м/с"
+    inversion_sheet.cell(row = 8, column = 1).value = "Vs, м/с"
+    inversion_sheet.cell(row = 9, column = 1).value = "Dens, кг/м^3"
+
+    inversion_sheet.cell(row = 7, column = 2).value = float(current_mod.layers[refl_i + 1].get_velocity(0)['vp'])
+    inversion_sheet.cell(row = 7, column = 3).value = float(vp_init)
+    inversion_sheet.cell(row = 7, column = 4).value = float(minim_result_curv[0])
+    inversion_sheet.cell(row = 7, column = 5).value = float(minim_result_plane[0])
+    inversion_sheet.cell(row = 7, column = 6).value = float(minim_result_homogen[0])
+
+    inversion_sheet.cell(row = 8, column = 2).value = float(current_mod.layers[refl_i + 1].get_velocity(0)['vs'])
+    inversion_sheet.cell(row = 8, column = 3).value = float(vs_init)
+    inversion_sheet.cell(row = 8, column = 4).value = float(minim_result_curv[1])
+    inversion_sheet.cell(row = 8, column = 5).value = float(minim_result_plane[1])
+    inversion_sheet.cell(row = 8, column = 6).value = float(minim_result_homogen[1])
+
+    inversion_sheet.cell(row = 9, column = 2).value = float(current_mod.layers[refl_i + 1].get_density())
+    inversion_sheet.cell(row = 9, column = 3).value = float(rho_init)
+    inversion_sheet.cell(row = 9, column = 4).value = float(minim_result_curv[2])
+    inversion_sheet.cell(row = 9, column = 5).value = float(minim_result_plane[2])
+    inversion_sheet.cell(row = 9, column = 6).value = float(minim_result_homogen[2])
+
+    inversion_sheet.cell(row = 11, column = 1).value = "Относительная погрешность в процентах"
+    inversion_sheet.cell(row = 12, column = 2).value = "Инверсия c корректно учтённым геометрическим расхождением"
+    if 1 < model_number < 5:
+        if transmission_curv == False:
+            if reflection_curv == False:
+                inversion_sheet.cell(row = 12, column = 3).value = "Инверсия c геометрическим расхождением без учёта " \
+                                                                   "кривизны границ"
+            else:
+                inversion_sheet.cell(row = 12, column = 3).value = "Инверсия c геометрическим расхождением без учёта " \
+                                                                   "кривизны преломляющих границ"
+        else:
+            inversion_sheet.cell(row = 12, column = 3).value = "Инверсия c геометрическим расхождением без учёта " \
+                                                               "кривизны отражающей границы"
+    else:
+        if reflection_curv == False:
+            inversion_sheet.cell(row = 12, column = 3).value = "Инверсия c геометрическим расхождением без учёта " \
+                                                               "кривизны отражающей границы"
+    inversion_sheet.cell(row = 12, column = 4).value = "Инверсия c геометрическим расхождением без учёта преломляющих " \
+                                                       "границ и кривизны в точке отражения"
+
+    inversion_sheet.cell(row = 13, column = 1).value = "delta Vp, %"
+    inversion_sheet.cell(row = 14, column = 1).value = "delta Vs, %"
+    inversion_sheet.cell(row = 15, column = 1).value = "delta Dens, %"
+
+    inversion_sheet.cell(row = 13, column = 2).value = float(abs(minim_result_curv[0] -
+                                                                 current_mod.layers[refl_i + 1].get_velocity(0)['vp']) /
+                                                             current_mod.layers[refl_i + 1].get_velocity(0)['vp'] * 100)
+    inversion_sheet.cell(row = 13, column = 3).value = float(abs(minim_result_plane[0] -
+                                                                 current_mod.layers[refl_i + 1].get_velocity(0)['vp']) /
+                                                             current_mod.layers[refl_i + 1].get_velocity(0)['vp'] * 100)
+    inversion_sheet.cell(row = 13, column = 4).value = float(abs(minim_result_homogen[0] -
+                                                                 current_mod.layers[refl_i + 1].get_velocity(0)['vp']) /
+                                                             current_mod.layers[refl_i + 1].get_velocity(0)['vp'] * 100)
+
+    inversion_sheet.cell(row = 14, column = 2).value = float(abs(minim_result_curv[1] -
+                                                                 current_mod.layers[refl_i + 1].get_velocity(0)['vs']) /
+                                                             current_mod.layers[refl_i + 1].get_velocity(0)['vs'] * 100)
+    inversion_sheet.cell(row = 14, column = 3).value = float(abs(minim_result_plane[1] -
+                                                                 current_mod.layers[refl_i + 1].get_velocity(0)['vs']) /
+                                                             current_mod.layers[refl_i + 1].get_velocity(0)['vs'] * 100)
+    inversion_sheet.cell(row = 14, column = 4).value = float(abs(minim_result_homogen[1] -
+                                                                current_mod.layers[refl_i + 1].get_velocity(0)['vs']) /
+                                                            current_mod.layers[refl_i + 1].get_velocity(0)['vs'] * 100)
+
+    inversion_sheet.cell(row = 15, column = 2).value = float(abs(minim_result_curv[2] -
+                                                                 current_mod.layers[refl_i + 1].get_density()) /
+                                                             current_mod.layers[refl_i + 1].get_density() * 100)
+    inversion_sheet.cell(row = 15, column = 3).value = float(abs(minim_result_plane[2] -
+                                                                 current_mod.layers[refl_i + 1].get_density()) /
+                                                             current_mod.layers[refl_i + 1].get_density() * 100)
+    inversion_sheet.cell(row = 15, column = 4).value = float(abs(minim_result_homogen[2] -
+                                                                 current_mod.layers[refl_i + 1].get_density()) /
+                                                             current_mod.layers[refl_i + 1].get_density() * 100)
+
+
+inversion_sheet = inversion.create_sheet("Инверсия. Среднее".format(n + 1))
+
+
+inversion_sheet.cell(row = 1, column = 1).value = "Усреднение данных AVO-инверсии"
+inversion_sheet.cell(row = 3, column = 1).value = "Восстанавливаются характеристики слоя №{}".format(refl_i + 2)
+inversion_sheet.cell(row = 4, column = 1).value = "В сейсмограммы независимо внесены погрешности 10% от максимального" \
+                                                  " значения амплитуд"
+inversion_sheet.cell(row = 5, column = 1).value = "Значения параметров"
+inversion_sheet.cell(row = 6, column = 2).value = "Модель"
+inversion_sheet.cell(row = 6, column = 3).value = "Начальное приближение"
+inversion_sheet.cell(row = 6, column = 4).value = "Инверсия c корректно учтённым геометрическим расхождением"
+if 1 < model_number < 5:
+    if transmission_curv == False:
+        if reflection_curv == False:
+            inversion_sheet.cell(row = 6, column = 5).value = "Инверсия c геометрическим расхождением без учёта " \
+                                                              "кривизны границ"
+        else:
+            inversion_sheet.cell(row = 6, column = 5).value = "Инверсия c геометрическим расхождением без учёта " \
+                                                              "кривизны преломляющих границ"
+    else:
+        inversion_sheet.cell(row = 6, column = 5).value = "Инверсия c геометрическим расхождением без учёта " \
+                                                          "кривизны отражающей границы"
+else:
+    if reflection_curv == False:
+        inversion_sheet.cell(row = 6, column = 5).value = "Инверсия c геометрическим расхождением без учёта " \
+                                                          "кривизны отражающей границы"
+inversion_sheet.cell(row = 6, column = 6).value = "Инверсия c геометрическим расхождением без учёта преломляющих " \
+                                                  "границ и кривизны в точке отражения"
 
 inversion_sheet.cell(row = 7, column = 1).value = "Vp, м/с"
 inversion_sheet.cell(row = 8, column = 1).value = "Vs, м/с"
@@ -978,21 +1091,40 @@ inversion_sheet.cell(row = 9, column = 1).value = "Dens, кг/м^3"
 
 inversion_sheet.cell(row = 7, column = 2).value = float(current_mod.layers[refl_i + 1].get_velocity(0)['vp'])
 inversion_sheet.cell(row = 7, column = 3).value = float(vp_init)
-inversion_sheet.cell(row = 7, column = 4).value = float(minim_result_curv[0])
-inversion_sheet.cell(row = 7, column = 5).value = float(minim_result_plane[0])
-inversion_sheet.cell(row = 7, column = 6).value = float(minim_result_homogen[0])
-
 inversion_sheet.cell(row = 8, column = 2).value = float(current_mod.layers[refl_i + 1].get_velocity(0)['vs'])
 inversion_sheet.cell(row = 8, column = 3).value = float(vs_init)
-inversion_sheet.cell(row = 8, column = 4).value = float(minim_result_curv[1])
-inversion_sheet.cell(row = 8, column = 5).value = float(minim_result_plane[1])
-inversion_sheet.cell(row = 8, column = 6).value = float(minim_result_homogen[1])
-
 inversion_sheet.cell(row = 9, column = 2).value = float(current_mod.layers[refl_i + 1].get_density())
 inversion_sheet.cell(row = 9, column = 3).value = float(rho_init)
-inversion_sheet.cell(row = 9, column = 4).value = float(minim_result_curv[2])
-inversion_sheet.cell(row = 9, column = 5).value = float(minim_result_plane[2])
-inversion_sheet.cell(row = 9, column = 6).value = float(minim_result_homogen[2])
+
+averageVp = np.zeros(3)
+averageVs = np.zeros(3)
+averageDens = np.zeros(3)
+
+for i in range(number_of_iterations):
+
+    sheet = inversion["Инверсия. Итерация №{}".format(i + 1)]
+
+    averageVp = averageVp + np.array([sheet["D7"].value, sheet["E7"].value, sheet["F7"].value])
+    averageVs = averageVs + np.array([sheet["D8"].value, sheet["E8"].value, sheet["F8"].value])
+    averageDens = averageDens + np.array([sheet["D9"].value, sheet["E9"].value, sheet["F9"].value])
+
+averageVp = averageVp / number_of_iterations
+averageVs = averageVs / number_of_iterations
+averageDens = averageDens / number_of_iterations
+
+inversion_sheet.cell(row = 7, column = 4).value = averageVp[0]
+inversion_sheet.cell(row = 8, column = 4).value = averageVs[0]
+inversion_sheet.cell(row = 9, column = 4).value = averageDens[0]
+
+
+inversion_sheet.cell(row = 7, column = 5).value = averageVp[1]
+inversion_sheet.cell(row = 8, column = 5).value = averageVs[1]
+inversion_sheet.cell(row = 9, column = 5).value = averageDens[1]
+
+
+inversion_sheet.cell(row = 7, column = 6).value = averageVp[2]
+inversion_sheet.cell(row = 8, column = 6).value = averageVs[2]
+inversion_sheet.cell(row = 9, column = 6).value = averageDens[2]
 
 inversion_sheet.cell(row = 11, column = 1).value = "Относительная погрешность в процентах"
 inversion_sheet.cell(row = 12, column = 2).value = "Инверсия c корректно учтённым геометрическим расхождением"
@@ -1014,40 +1146,39 @@ else:
 inversion_sheet.cell(row = 12, column = 4).value = "Инверсия c геометрическим расхождением без учёта преломляющих " \
                                                    "границ и кривизны в точке отражения"
 
-inversion_sheet.cell(row = 13, column = 1).value = "Vp, %"
-inversion_sheet.cell(row = 14, column = 1).value = "Vs, %"
-inversion_sheet.cell(row = 15, column = 1).value = "Dens, %"
+inversion_sheet.cell(row = 13, column = 1).value = "delta Vp, %"
+inversion_sheet.cell(row = 14, column = 1).value = "delta Vs, %"
+inversion_sheet.cell(row = 15, column = 1).value = "delta Dens, %"
 
-inversion_sheet.cell(row = 13, column = 2).value = float(abs(minim_result_curv[0] -
+inversion_sheet.cell(row = 13, column = 2).value = float(abs(averageVp[0] -
                                                              current_mod.layers[refl_i + 1].get_velocity(0)['vp']) /
                                                          current_mod.layers[refl_i + 1].get_velocity(0)['vp'] * 100)
-inversion_sheet.cell(row = 13, column = 3).value = float(abs(minim_result_plane[0] -
+inversion_sheet.cell(row = 13, column = 3).value = float(abs(averageVp[1] -
                                                              current_mod.layers[refl_i + 1].get_velocity(0)['vp']) /
                                                          current_mod.layers[refl_i + 1].get_velocity(0)['vp'] * 100)
-inversion_sheet.cell(row = 13, column = 4).value = float(abs(minim_result_homogen[0] -
+inversion_sheet.cell(row = 13, column = 4).value = float(abs(averageVp[2] -
                                                              current_mod.layers[refl_i + 1].get_velocity(0)['vp']) /
                                                          current_mod.layers[refl_i + 1].get_velocity(0)['vp'] * 100)
 
-inversion_sheet.cell(row = 14, column = 2).value = float(abs(minim_result_curv[1] -
+inversion_sheet.cell(row = 14, column = 2).value = float(abs(averageVs[0] -
                                                              current_mod.layers[refl_i + 1].get_velocity(0)['vs']) /
                                                          current_mod.layers[refl_i + 1].get_velocity(0)['vs'] * 100)
-inversion_sheet.cell(row = 14, column = 3).value = float(abs(minim_result_plane[1] -
+inversion_sheet.cell(row = 14, column = 3).value = float(abs(averageVs[1] -
                                                              current_mod.layers[refl_i + 1].get_velocity(0)['vs']) /
                                                          current_mod.layers[refl_i + 1].get_velocity(0)['vs'] * 100)
-inversion_sheet.cell(row = 14, column = 4).value = float(abs(minim_result_homogen[1] -
-                                                            current_mod.layers[refl_i + 1].get_velocity(0)['vs']) /
-                                                        current_mod.layers[refl_i + 1].get_velocity(0)['vs'] * 100)
+inversion_sheet.cell(row = 14, column = 4).value = float(abs(averageVs[2] -
+                                                             current_mod.layers[refl_i + 1].get_velocity(0)['vs']) /
+                                                         current_mod.layers[refl_i + 1].get_velocity(0)['vs'] * 100)
 
-inversion_sheet.cell(row = 15, column = 2).value = float(abs(minim_result_curv[2] -
+inversion_sheet.cell(row = 15, column = 2).value = float(abs(averageDens[0] -
                                                              current_mod.layers[refl_i + 1].get_density()) /
                                                          current_mod.layers[refl_i + 1].get_density() * 100)
-inversion_sheet.cell(row = 15, column = 3).value = float(abs(minim_result_plane[2] -
+inversion_sheet.cell(row = 15, column = 3).value = float(abs(averageDens[1] -
                                                              current_mod.layers[refl_i + 1].get_density()) /
                                                          current_mod.layers[refl_i + 1].get_density() * 100)
-inversion_sheet.cell(row = 15, column = 4).value = float(abs(minim_result_homogen[2] -
+inversion_sheet.cell(row = 15, column = 4).value = float(abs(averageDens[2] -
                                                              current_mod.layers[refl_i + 1].get_density()) /
                                                          current_mod.layers[refl_i + 1].get_density() * 100)
-
 
 description_file.write("Инверсия завершена: {} секунд\n\n".format((time.time() - start_time)))
 print("\x1b[1;31mThe inversion has been finished: {} seconds".format((time.time() - start_time)))
@@ -1059,84 +1190,143 @@ description_file.close()
 inversion.save("{}/Данные инверсии.xlsx".format(dir_name))
 inversion.close()
 
-the_horizons = opxl.Workbook()
-the_horizons_sheet = the_horizons.active
-the_horizons_sheet.title = "Horizon №1"
+transformed_ampl = opxl.Workbook()
 
-the_horizons_sheet.cell(row = 1, column = 1).value = "Таблица значений глубины для горизонта №1"
-the_horizons_sheet.cell(row = 3, column = 1).value = "X \ Y"
+curved_sheet = transformed_ampl.active
+curved_sheet.title = "С учётом кривизны"
 
-for i in range(current_mod.horizons[0].X.shape[0]):
+plane_sheet = transformed_ampl.create_sheet("Без учёта кривизны")
+homogen_sheet = transformed_ampl.create_sheet("Сферическое расхождение")
+real_sheet = transformed_ampl.create_sheet("Коэффициенты отражения")
 
-    the_horizons_sheet.cell(row = 4 + i, column = 1).value = current_mod.horizons[0].X[i]
+curved_sheet["A1"].value = "Значения трансформированных среднеквадратичных амплитуд"
+curved_sheet["A3"].value = "В геометрическом расхождении учитывалась кривизна всех границ"
+curved_sheet["A5"].value = "№ итерации \ X, м"
 
-for j in range(current_mod.horizons[0].Y.shape[0]):
+plane_sheet["A1"].value = "Значения трансформированных среднеквадратичных амплитуд"
+if 1 < model_number < 5:
+    if transmission_curv == False:
+        if reflection_curv == False:
+            plane_sheet["A3"].value = "В геометрическом расхождении не учитывалась кривизна всех границ"
+        else:
+            plane_sheet["A3"].value = "В геометрическом расхождении не учитывалась кривизна преломляющих границ"
+    else:
+        plane_sheet["A3"].value = "В геометрическом расхождении не учитывалась кривизна отражающей границы"
+else:
+    if reflection_curv == False:
+        plane_sheet["A3"].value = "В геометрическом расхождении не учитывалась кривизна отражающей границы"
+plane_sheet["A5"].value = "№ итерации \ X, м"
 
-    the_horizons_sheet.cell(row = 3, column = 2 + j).value = current_mod.horizons[0].Y[j]
+homogen_sheet["A1"].value = "Значения трансформированных среднеквадратичных амплитуд"
+homogen_sheet["A3"].value = "В геометрическом расхождении не учитывались преломляющие слои и кривизна отражающей" \
+                            " границы"
+homogen_sheet["A5"].value = "№ итерации \ X, м"
 
-for i in range(current_mod.horizons[0].X.shape[0]):
-    for j in range(current_mod.horizons[0].Y.shape[0]):
+real_sheet["A1"].value = "Значения коэффициентов отражения"
+real_sheet["A3"].value = "X, м"
+real_sheet["A4"].value = "Коэффициент"
 
-        the_horizons_sheet.cell(row = 4 + i, column = 2 + j).value = current_mod.horizons[0].Z[i, j]
+for i in range(number_of_iterations):
+    curved_sheet.cell(row = 6 + i, column = 1).value = i + 1
+    plane_sheet.cell(row = 6 + i, column = 1).value = i + 1
+    homogen_sheet.cell(row = 6 + i, column = 1).value = i + 1
+    for j in range(rays.shape[0]):
 
+        curved_sheet.cell(row = 6 + i, column = j + 2).value = transformed_ampl_curv_array[i, j]
+        plane_sheet.cell(row = 6 + i, column = j + 2).value = transformed_ampl_plane_array[i, j]
+        homogen_sheet.cell(row = 6 + i, column = j + 2).value = transformed_ampl_homogen_array[i, j]
 
-for k in np.arange(1, len(current_mod.horizons), 1):
+for i in range(rays.shape[0]):
 
-    the_horizons_sheet = the_horizons.create_sheet("Horizon №{}".format(k + 1))
+    curved_sheet.cell(row = 5, column = i + 2).value = rec_line[i]
+    plane_sheet.cell(row = 5, column = i + 2).value = rec_line[i]
+    homogen_sheet.cell(row = 5, column = i + 2).value = rec_line[i]
 
-    the_horizons_sheet.cell(row = 1, column = 1).value = "Таблица значений глубины для горизонта №{}".format(k + 1)
+    real_sheet.cell(row = 3, column = i + 2).value = rec_line[i]
+    real_sheet.cell(row = 4, column = i + 2).value = np.real(coefficients[i, refl_i])
 
-    the_horizons_sheet.cell(row = 3, column = 1).value = "X \ Y"
-
-    for i in range(current_mod.horizons[k].X.shape[0]):
-
-        the_horizons_sheet.cell(row = 4 + i, column = 1).value = current_mod.horizons[k].X[i]
-
-    for j in range(current_mod.horizons[k].Y.shape[0]):
-
-        the_horizons_sheet.cell(row = 3, column = 2 + j).value = current_mod.horizons[k].Y[j]
-
-    for i in range(current_mod.horizons[k].X.shape[0]):
-        for j in range(current_mod.horizons[k].Y.shape[0]):
-
-            the_horizons_sheet.cell(row = 4 + i, column = 2 + j).value = current_mod.horizons[k].Z[i, j]
-
-the_horizons.save("{}/Horizons.xlsx".format(dir_name))
-the_horizons.close()
-
-the_rays = opxl.Workbook()
-the_rays_sheet = the_rays.active
-the_rays_sheet.title = "Rays"
-
-the_rays_sheet.cell(row = 1, column = 1).value = "Rays"
-
-the_rays_sheet.cell(row = 4, column = 1).value = "X{}".format(1)
-the_rays_sheet.cell(row = 5, column = 1).value = "Y{}".format(1)
-the_rays_sheet.cell(row = 6, column = 1).value = "Z{}".format(1)
-
-for k in range(rays.shape[0]):
-
-    the_rays_sheet.cell(row = 3, column = k + 2).value = "Луч №{}".format(k)
-
-    the_rays_sheet.cell(row = 4, column = k + 2).value = float(rays[k].segments[0].source[0])
-    the_rays_sheet.cell(row = 5, column = k + 2).value = float(rays[k].segments[0].source[1])
-    the_rays_sheet.cell(row = 6, column = k + 2).value = float(rays[k].segments[0].source[2])
-
-for i in np.arange(1, len(rays[0].segments) + 1, 1):
-
-    the_rays_sheet.cell(row = 3 * i + 4, column = 1).value = "X{}".format(i + 1)
-    the_rays_sheet.cell(row = 3 * i + 5, column = 1).value = "Y{}".format(i + 1)
-    the_rays_sheet.cell(row = 3 * i + 6, column = 1).value = "Z{}".format(i + 1)
-
-    for k in range(rays.shape[0]):
-
-        the_rays_sheet.cell(row = 3 * i + 4, column = k + 2).value = float(rays[k].segments[i - 1].receiver[0])
-        the_rays_sheet.cell(row = 3 * i + 5, column = k + 2).value = float(rays[k].segments[i - 1].receiver[1])
-        the_rays_sheet.cell(row = 3 * i + 6, column = k + 2).value = float(rays[k].segments[i - 1].receiver[2])
+transformed_ampl.save("{}/Трансформированные амплитуды.xlsx".format(dir_name))
+transformed_ampl.close()
 
 
-the_rays.save("{}/Rays.xlsx".format(dir_name))
-the_rays.close()
+# the_horizons = opxl.Workbook()
+# the_horizons_sheet = the_horizons.active
+# the_horizons_sheet.title = "Horizon №1"
+#
+# the_horizons_sheet.cell(row = 1, column = 1).value = "Таблица значений глубины для горизонта №1"
+# the_horizons_sheet.cell(row = 3, column = 1).value = "X \ Y"
+#
+# for i in range(current_mod.horizons[0].X.shape[0]):
+#
+#     the_horizons_sheet.cell(row = 4 + i, column = 1).value = current_mod.horizons[0].X[i]
+#
+# for j in range(current_mod.horizons[0].Y.shape[0]):
+#
+#     the_horizons_sheet.cell(row = 3, column = 2 + j).value = current_mod.horizons[0].Y[j]
+#
+# for i in range(current_mod.horizons[0].X.shape[0]):
+#     for j in range(current_mod.horizons[0].Y.shape[0]):
+#
+#         the_horizons_sheet.cell(row = 4 + i, column = 2 + j).value = current_mod.horizons[0].Z[i, j]
+#
+#
+# for k in np.arange(1, len(current_mod.horizons), 1):
+#
+#     the_horizons_sheet = the_horizons.create_sheet("Horizon №{}".format(k + 1))
+#
+#     the_horizons_sheet.cell(row = 1, column = 1).value = "Таблица значений глубины для горизонта №{}".format(k + 1)
+#
+#     the_horizons_sheet.cell(row = 3, column = 1).value = "X \ Y"
+#
+#     for i in range(current_mod.horizons[k].X.shape[0]):
+#
+#         the_horizons_sheet.cell(row = 4 + i, column = 1).value = current_mod.horizons[k].X[i]
+#
+#     for j in range(current_mod.horizons[k].Y.shape[0]):
+#
+#         the_horizons_sheet.cell(row = 3, column = 2 + j).value = current_mod.horizons[k].Y[j]
+#
+#     for i in range(current_mod.horizons[k].X.shape[0]):
+#         for j in range(current_mod.horizons[k].Y.shape[0]):
+#
+#             the_horizons_sheet.cell(row = 4 + i, column = 2 + j).value = current_mod.horizons[k].Z[i, j]
+#
+# the_horizons.save("{}/Horizons.xlsx".format(dir_name))
+# the_horizons.close()
+#
+# the_rays = opxl.Workbook()
+# the_rays_sheet = the_rays.active
+# the_rays_sheet.title = "Rays"
+#
+# the_rays_sheet.cell(row = 1, column = 1).value = "Rays"
+#
+# the_rays_sheet.cell(row = 4, column = 1).value = "X{}".format(1)
+# the_rays_sheet.cell(row = 5, column = 1).value = "Y{}".format(1)
+# the_rays_sheet.cell(row = 6, column = 1).value = "Z{}".format(1)
+#
+# for k in range(rays.shape[0]):
+#
+#     the_rays_sheet.cell(row = 3, column = k + 2).value = "Луч №{}".format(k)
+#
+#     the_rays_sheet.cell(row = 4, column = k + 2).value = float(rays[k].segments[0].source[0])
+#     the_rays_sheet.cell(row = 5, column = k + 2).value = float(rays[k].segments[0].source[1])
+#     the_rays_sheet.cell(row = 6, column = k + 2).value = float(rays[k].segments[0].source[2])
+#
+# for i in np.arange(1, len(rays[0].segments) + 1, 1):
+#
+#     the_rays_sheet.cell(row = 3 * i + 4, column = 1).value = "X{}".format(i + 1)
+#     the_rays_sheet.cell(row = 3 * i + 5, column = 1).value = "Y{}".format(i + 1)
+#     the_rays_sheet.cell(row = 3 * i + 6, column = 1).value = "Z{}".format(i + 1)
+#
+#     for k in range(rays.shape[0]):
+#
+#         the_rays_sheet.cell(row = 3 * i + 4, column = k + 2).value = float(rays[k].segments[i - 1].receiver[0])
+#         the_rays_sheet.cell(row = 3 * i + 5, column = k + 2).value = float(rays[k].segments[i - 1].receiver[1])
+#         the_rays_sheet.cell(row = 3 * i + 6, column = k + 2).value = float(rays[k].segments[i - 1].receiver[2])
+#
+#
+# the_rays.save("{}/Rays.xlsx".format(dir_name))
+# the_rays.close()
 
 # if model_number == 6:
 #
