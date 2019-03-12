@@ -110,19 +110,33 @@ raycode_model_2 = [[1, 0, 0],
 
 # Models:
 
+# For IPGG computer:
+models_dir_name = "C:/" \
+                  "Users/" \
+                  "ShilovNN/" \
+                  "Documents/" \
+                  "Лучевой метод/" \
+                  "AVO/" \
+                  "Результаты вычислений/" \
+                  "Модель №{}/" \
+                  "Кривизна {}/"\
+                  "Горизонты".format(number_string[model_number], 0.0004 * curv_scale)
+
+
+# For your laptop:
+# models_dir_name = "C:/" \
+#                   "USER/" \
+#                   "Documents/" \
+#                   "Лучевой метод/" \
+#                   "AVO, коэффициенты отражения-преломления/" \
+#                   "Результаты вычислений/" \
+#                   "Модель №{}/" \
+#                   "Кривизна {}/"\
+#                   "Горизонты/".format(number_string[model_number], 0.0004 * curv_scale)
+
 if model_number == 1:
 
-    first_hor = np.load("C:/"
-                        "Users/"
-                        "USER/"
-                        "Documents/"
-                        "Лучевой метод/"
-                        "AVO, коэффициенты отражения-преломления/"
-                        "Результаты вычислений/"
-                        "Модель №{}/"
-                        "Кривизна {}/"
-                        "Горизонты/"
-                        "Convex_Gauss_500_Center.npy".format(number_string[model_number], 0.0004 * curv_scale))
+    first_hor = np.load("{}/Convex_Gauss_500_Center.npy".format(models_dir_name))
 
     horizons = [GridHorizon(X, Y, Convex_Gauss_500_Center, 0, first_hor)]
     current_mod = Velocity_model(np.array([ISOVelocity(2000, 1100), ISOVelocity(2800, 1600)]),
@@ -130,29 +144,9 @@ if model_number == 1:
 
 elif model_number == 2:
 
-    first_hor = np.load("C:/"
-                        "Users/"
-                        "USER/"
-                        "Documents/"
-                        "Лучевой метод/"
-                        "AVO, коэффициенты отражения-преломления/"
-                        "Результаты вычислений/"
-                        "Модель №{}/"
-                        "Кривизна {}/"
-                        "Горизонты/"
-                        "Convex_Gauss_500_Incident.npy".format(number_string[model_number], 0.0004 * curv_scale))
+    first_hor = np.load("{}/Convex_Gauss_500_Incident.npy".format(models_dir_name))
 
-    second_hor = np.load("C:/"
-                        "Users/"
-                        "USER/"
-                        "Documents/"
-                        "Лучевой метод/"
-                        "AVO, коэффициенты отражения-преломления/"
-                        "Результаты вычислений/"
-                        "Модель №{}/"
-                        "Кривизна {}/"
-                        "Горизонты/"
-                        "Convex_Gauss_1000_Center.npy".format(number_string[model_number], 0.0004 * curv_scale))
+    second_hor = np.load("{}/Convex_Gauss_1000_Center.npy".format(models_dir_name))
 
     horizons = [GridHorizon(X, Y, Convex_Gauss_500_Incident, 0, first_hor),
                 GridHorizon(X, Y, Convex_Gauss_1000_Center, 0, second_hor)]
@@ -161,29 +155,9 @@ elif model_number == 2:
 
 elif model_number == 3:
 
-    first_hor = np.load("C:/"
-                        "Users/"
-                        "USER/"
-                        "Documents/"
-                        "Лучевой метод/"
-                        "AVO, коэффициенты отражения-преломления/"
-                        "Результаты вычислений/"
-                        "Модель №{}/"
-                        "Кривизна {}/"
-                        "Горизонты/"
-                        "Convex_Gauss_500_Center.npy".format(number_string[model_number], 0.0004 * curv_scale))
+    first_hor = np.load("{}/Convex_Gauss_500_Center.npy".format(models_dir_name))
 
-    second_hor = np.load("C:/"
-                         "Users/"
-                         "USER/"
-                         "Documents/"
-                         "Лучевой метод/"
-                         "AVO, коэффициенты отражения-преломления/"
-                         "Результаты вычислений/"
-                         "Модель №{}/"
-                         "Кривизна {}/"
-                         "Горизонты/"
-                         "Convex_Gauss_1000_Center.npy".format(number_string[model_number], 0.0004 * curv_scale))
+    second_hor = np.load("{}/Convex_Gauss_1000_Center.npy".format(models_dir_name))
 
     horizons = [GridHorizon(X, Y, Convex_Gauss_500_Center, 0, first_hor),
                 GridHorizon(X, Y, Convex_Gauss_1000_Center, 0, second_hor)]
@@ -192,29 +166,9 @@ elif model_number == 3:
 
 elif model_number == 4:
 
-    first_hor = np.load("C:/"
-                        "Users/"
-                        "USER/"
-                        "Documents/"
-                        "Лучевой метод/"
-                        "AVO, коэффициенты отражения-преломления/"
-                        "Результаты вычислений/"
-                        "Модель №{}/"
-                        "Кривизна {}/"
-                        "Горизонты/"
-                        "Convex_Gauss_500_Upcoming.npy".format(number_string[model_number], 0.0004 * curv_scale))
+    first_hor = np.load("{}/Convex_Gauss_500_Upcoming.npy".format(models_dir_name))
 
-    second_hor = np.load("C:/"
-                         "Users/"
-                         "USER/"
-                         "Documents/"
-                         "Лучевой метод/"
-                         "AVO, коэффициенты отражения-преломления/"
-                         "Результаты вычислений/"
-                         "Модель №{}/"
-                         "Кривизна {}/"
-                         "Горизонты/"
-                         "Convex_Gauss_1000_Center.npy".format(number_string[model_number], 0.0004 * curv_scale))
+    second_hor = np.load("{}/Convex_Gauss_1000_Center.npy".format(models_dir_name))
 
     horizons = [GridHorizon(X, Y, Convex_Gauss_500_Upcoming, 0, first_hor),
                 GridHorizon(X, Y, Convex_Gauss_1000_Center, 0, second_hor)]
@@ -223,17 +177,7 @@ elif model_number == 4:
 
 elif model_number == 5:
 
-    first_hor = np.load("C:/"
-                        "Users/"
-                        "USER/"
-                        "Documents/"
-                        "Лучевой метод/"
-                        "AVO, коэффициенты отражения-преломления/"
-                        "Результаты вычислений/"
-                        "Модель №{}/"
-                        "Кривизна {}/"
-                        "Горизонты/"
-                        "Concave_Gauss_500_Center.npy".format(number_string[model_number], 0.0004 * curv_scale))
+    first_hor = np.load("{}/Concave_Gauss_500_Center.npy".format(models_dir_name))
 
     horizons = [GridHorizon(X, Y, Concave_Gauss_500_Center, 0, first_hor)]
     current_mod = Velocity_model(np.array([ISOVelocity(2000, 1100), ISOVelocity(2800, 1600)]),
@@ -247,17 +191,7 @@ elif model_number == 6:
 
 else: # in any oser case set the default model:
 
-    first_hor = np.load("C:/"
-                        "Users/"
-                        "USER/"
-                        "Documents/"
-                        "Лучевой метод/"
-                        "AVO, коэффициенты отражения-преломления/"
-                        "Результаты вычислений/"
-                        "Модель №{}/"
-                        "Кривизна {}/"
-                        "Горизонты/"
-                        "Convex_Gauss_500_Center.npy".format(number_string[model_number], 0.0004 * curv_scale))
+    first_hor = np.load("{}/Convex_Gauss_500_Center.npy".format(models_dir_name))
 
     horizons = [GridHorizon(X, Y, Convex_Gauss_500_Center, 0, first_hor)]
     current_mod = Velocity_model(np.array([ISOVelocity(2000, 1100), ISOVelocity(2800, 1600)]),
@@ -342,19 +276,20 @@ gathers_z = np.zeros((rec_line.shape[0], record_time.shape[0]))
 # Create a description file. We shall create a folder for this file and others. So, the name of the directory is:
 
 # For IPGG computer:
-# dir_name = "C:/Users/ShilovNN/Documents/Лучевой метод/AVO/Результаты вычислений/" \
-#            "Модель №{}/Вычисления {} {}-{}".format(number_string[model_number],
-#                                                    datetime.datetime.now().date(),
-#                                                    datetime.datetime.now().hour,
-#                                                    datetime.datetime.now().minute)
-
-# For your laptop:
-dir_name = "C:/Users/USER/Documents/Лучевой метод/AVO, коэффициенты отражения-преломления/Результаты вычислений/" \
+dir_name = "C:/Users/ShilovNN/Documents/Лучевой метод/AVO/Результаты вычислений/" \
            "Модель №{}/Кривизна {}/Вычисления {} {}-{}".format(number_string[model_number],
                                                                0.0004 * curv_scale,
                                                                datetime.datetime.now().date(),
                                                                datetime.datetime.now().hour,
                                                                datetime.datetime.now().minute)
+
+# For your laptop:
+# dir_name = "C:/Users/USER/Documents/Лучевой метод/AVO, коэффициенты отражения-преломления/Результаты вычислений/" \
+#            "Модель №{}/Кривизна {}/Вычисления {} {}-{}".format(number_string[model_number],
+#                                                                0.0004 * curv_scale,
+#                                                                datetime.datetime.now().date(),
+#                                                                datetime.datetime.now().hour,
+#                                                                datetime.datetime.now().minute)
 
 createFolder(dir_name)
 
@@ -870,9 +805,9 @@ for n in range(number_of_iterations):
     # Let's add some random noise to our seismograms (standart normal distribution, amplitude equals to 1/10 of the maximal
     # recorded amplitude):
 
-    gathers_x_inv = gathers_x + 0*np.random.randn(gathers_x.shape[0], gathers_x.shape[1]) * 0.1 * max(np.max(gathers_x), np.max(gathers_y), np.max(gathers_z))
-    gathers_y_inv = gathers_y + 0*np.random.randn(gathers_y.shape[0], gathers_y.shape[1]) * 0.1 * max(np.max(gathers_x), np.max(gathers_y), np.max(gathers_z))
-    gathers_z_inv = gathers_z + 0*np.random.randn(gathers_z.shape[0], gathers_z.shape[1]) * 0.1 * max(np.max(gathers_x), np.max(gathers_y), np.max(gathers_z))
+    gathers_x_inv = gathers_x + np.random.randn(gathers_x.shape[0], gathers_x.shape[1]) * 0.1 * max(np.max(gathers_x), np.max(gathers_y), np.max(gathers_z))
+    gathers_y_inv = gathers_y + np.random.randn(gathers_y.shape[0], gathers_y.shape[1]) * 0.1 * max(np.max(gathers_x), np.max(gathers_y), np.max(gathers_z))
+    gathers_z_inv = gathers_z + np.random.randn(gathers_z.shape[0], gathers_z.shape[1]) * 0.1 * max(np.max(gathers_x), np.max(gathers_y), np.max(gathers_z))
 
     for i in range(rays.shape[0]):
 
@@ -1244,6 +1179,44 @@ for i in range(rays.shape[0]):
 
     real_sheet.cell(row = 3, column = i + 2).value = rec_line[i]
     real_sheet.cell(row = 4, column = i + 2).value = np.real(coefficients[i, refl_i])
+
+
+from openpyxl.chart import (
+    ScatterChart,
+    Reference,
+    Series,
+)
+
+chart_sheet = transformed_ampl.create_sheet("График")
+
+chart = ScatterChart()
+chart.title = "Коэффициенты отражения"
+chart.style = 13
+chart.x_axis.title = "X, м"
+chart.y_axis.title = "Коэффициент"
+
+x_values = Reference(real_sheet, min_col = 2, max_col = rays.shape[0] + 1, min_row = 3)
+
+for i in range(number_of_iterations):
+
+    curv_values = Reference(curved_sheet, min_col = 2, max_col = rays.shape[0] + 1, min_row = 6 + i)
+    plane_values = Reference(plane_sheet, min_col=2, max_col=rays.shape[0] + 1, min_row=6 + i)
+    homogen_values = Reference(homogen_sheet, min_col=2, max_col=rays.shape[0] + 1, min_row=6 + i)
+
+    curv_series = Series(curv_values, x_values, title = "С учётом кривизны. Итерация №{}".format(i + 1))
+    plane_series = Series(plane_values, x_values, title="Без учёта кривизны. Итерация №{}".format(i + 1))
+    homogen_series = Series(homogen_values, x_values, title="Сферическое расхождение. Итерация №{}".format(i + 1))
+
+    chart.series.append(curv_series)
+    chart.series.append(plane_series)
+    chart.series.append(homogen_series)
+
+real_values = Reference(real_sheet, min_col = 2, max_col = rays.shape[0] + 1, min_row = 4)
+real_series = Series(real_values, x_values, title = "Истинные коэффициенты")
+
+chart.series.append(real_series)
+
+chart_sheet.add_chart(chart, "A1")
 
 transformed_ampl.save("{}/Трансформированные амплитуды.xlsx".format(dir_name))
 transformed_ampl.close()
