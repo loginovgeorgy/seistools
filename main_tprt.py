@@ -111,28 +111,29 @@ raycode_model_2 = [[1, 0, 0],
 # Models:
 
 # For IPGG computer:
+# models_dir_name = "C:/" \
+#                   "Users/" \
+#                   "ShilovNN/" \
+#                   "Documents/" \
+#                   "Лучевой метод/" \
+#                   "AVO/" \
+#                   "Результаты вычислений/" \
+#                   "Модель №{}/" \
+#                   "Кривизна {}/"\
+#                   "Горизонты".format(number_string[model_number], 0.0004 * curv_scale)
+
+
+# For your laptop:
 models_dir_name = "C:/" \
                   "Users/" \
-                  "ShilovNN/" \
+                  "USER/" \
                   "Documents/" \
                   "Лучевой метод/" \
-                  "AVO/" \
+                  "AVO, коэффициенты отражения-преломления/" \
                   "Результаты вычислений/" \
                   "Модель №{}/" \
                   "Кривизна {}/"\
                   "Горизонты".format(number_string[model_number], 0.0004 * curv_scale)
-
-
-# For your laptop:
-# models_dir_name = "C:/" \
-#                   "USER/" \
-#                   "Documents/" \
-#                   "Лучевой метод/" \
-#                   "AVO, коэффициенты отражения-преломления/" \
-#                   "Результаты вычислений/" \
-#                   "Модель №{}/" \
-#                   "Кривизна {}/"\
-#                   "Горизонты/".format(number_string[model_number], 0.0004 * curv_scale)
 
 if model_number == 1:
 
@@ -276,20 +277,20 @@ gathers_z = np.zeros((rec_line.shape[0], record_time.shape[0]))
 # Create a description file. We shall create a folder for this file and others. So, the name of the directory is:
 
 # For IPGG computer:
-dir_name = "C:/Users/ShilovNN/Documents/Лучевой метод/AVO/Результаты вычислений/" \
-           "Модель №{}/Кривизна {}/Вычисления {} {}-{}".format(number_string[model_number],
-                                                               0.0004 * curv_scale,
-                                                               datetime.datetime.now().date(),
-                                                               datetime.datetime.now().hour,
-                                                               datetime.datetime.now().minute)
-
-# For your laptop:
-# dir_name = "C:/Users/USER/Documents/Лучевой метод/AVO, коэффициенты отражения-преломления/Результаты вычислений/" \
+# dir_name = "C:/Users/ShilovNN/Documents/Лучевой метод/AVO/Результаты вычислений/" \
 #            "Модель №{}/Кривизна {}/Вычисления {} {}-{}".format(number_string[model_number],
 #                                                                0.0004 * curv_scale,
 #                                                                datetime.datetime.now().date(),
 #                                                                datetime.datetime.now().hour,
 #                                                                datetime.datetime.now().minute)
+
+# For your laptop:
+dir_name = "C:/Users/USER/Documents/Лучевой метод/AVO, коэффициенты отражения-преломления/Результаты вычислений/" \
+           "Модель №{}/Кривизна {}/Вычисления {} {}-{}".format(number_string[model_number],
+                                                               0.0004 * curv_scale,
+                                                               datetime.datetime.now().date(),
+                                                               datetime.datetime.now().hour,
+                                                               datetime.datetime.now().minute)
 
 createFolder(dir_name)
 
@@ -660,7 +661,100 @@ print("Годограф сохранён: {} секунд".format(time.time() - 
 
 plt.close(fig4)
 
+# Let's come up with the level of noise in seismograms. The distribution should be normal with zero mean value. Its
+# dispersion will be proportional to the average absolute value in the Ricker wavelet.
+
+average_signal = np.zeros(rays.shape[0])
+for i in range(rays.shape[0]):
+
+    average_signal[i] = np.average(time_window(np.sqrt(gathers_x[i] ** 2
+                                                       + gathers_y[i] ** 2
+                                                       + gathers_z[i] ** 2),
+                                               record_time,
+                                               3 * 1.5 * 1 / frequency_dom,
+                                               travel_time[i]))
+
+
+
+noise_dispersion = 0.1 * np.max(average_signal)
+
+gathers_x_inv = gathers_x + np.random.randn(gathers_x.shape[0], gathers_x.shape[1]) * noise_dispersion
+gathers_y_inv = gathers_y + np.random.randn(gathers_y.shape[0], gathers_y.shape[1]) * noise_dispersion
+gathers_z_inv = gathers_z + np.random.randn(gathers_z.shape[0], gathers_z.shape[1]) * noise_dispersion
+
 fig5 = plt.figure()
+
+plt.title("Сейсмограмма (X-компонента). Модель №{}".format(number_string[model_number]))
+plt.gca().invert_yaxis()
+plt.yticks(np.arange(0, rays.shape[0], 1), ["{}".format(int(j)) for j in rec_line[0 : rays.shape[0]]],
+           fontsize = - 5 / 16 * rays.shape[0] + 11 + 21 * 5 / 16)
+
+for i in range(rays.shape[0]):
+
+    plt.fill_between(record_time, gathers_x_inv[i, :] / np.max(abs(gathers_z)) / 1.5 + i,
+                     np.ones(record_time.shape) * i,
+                     linewidth = 0.3, color = 'r', alpha = 0.5)
+
+    plt.fill_between(time_window(record_time,
+                                 record_time,
+                                 3 * 1.5 * 1 / frequency_dom,
+                                 travel_time[i]),
+                     time_window(gathers_x_inv[i, :] / np.max(abs(gathers_z)) / 1.5 + i,
+                                 record_time,
+                                 3 * 1.5 * 1 / frequency_dom,
+                                 travel_time[i]),
+                     np.ones(time_window(record_time,
+                                         record_time,
+                                         3 * 1.5 * 1 / frequency_dom,
+                                         travel_time[i]).shape) * i,
+                     linewidth = 0.3, color = 'g', alpha = 0.5)
+
+plt.ylabel("Координаты вдоль профиля, м")
+plt.xlabel("Время, с")
+
+plt.savefig("{}/Сейсмограмма. X-компонента.png".format(dir_name), dpi = 400, bbox_inches = 'tight')
+print("Сейсмограмма (X-компонента) сохранена: {} секунд".format(time.time() - start_time))
+
+plt.close(fig5)
+
+fig6 = plt.figure()
+
+plt.title("Сейсмограмма (Y-компонента). Модель №{}".format(number_string[model_number]))
+plt.gca().invert_yaxis()
+
+plt.yticks(np.arange(0, rays.shape[0], 1), ["{}".format(int(j)) for j in rec_line[0 : rays.shape[0]]],
+           fontsize = - 5 / 16 * rays.shape[0] + 11 + 21 * 5 / 16)
+
+for i in range(rays.shape[0]):
+
+    plt.fill_between(record_time, gathers_y_inv[i, :] / np.max(abs(gathers_z)) / 1.5 + i,
+                     np.ones(record_time.shape) * i,
+                     linewidth = 0.3, color = 'g', alpha = 0.5)
+
+    plt.fill_between(time_window(record_time,
+                                 record_time,
+                                 3 * 1.5 * 1 / frequency_dom,
+                                 travel_time[i]),
+                     time_window(gathers_y_inv[i, :] / np.max(abs(gathers_z)) / 1.5 + i,
+                                 record_time,
+                                 3 * 1.5 * 1 / frequency_dom,
+                                 travel_time[i]),
+                     np.ones(time_window(record_time,
+                                         record_time,
+                                         3 * 1.5 * 1 / frequency_dom,
+                                         travel_time[i]).shape) * i,
+                     linewidth = 0.3, color = 'r', alpha = 0.5)
+
+
+plt.ylabel("Координаты вдоль профиля, м")
+plt.xlabel("Время, с")
+
+plt.savefig("{}/Сейсмограмма. Y-компонента.png".format(dir_name), dpi = 400, bbox_inches = 'tight')
+print("Сейсмограмма (Y-компонента) сохранена: {} секунд".format(time.time() - start_time))
+
+plt.close(fig6)
+
+fig7 = plt.figure()
 
 plt.title("Сейсмограмма (Z-компонента). Модель №{}".format(number_string[model_number]))
 plt.gca().invert_yaxis()
@@ -670,7 +764,7 @@ plt.yticks(np.arange(0, rays.shape[0], 1), ["{}".format(int(j)) for j in rec_lin
 
 for i in range(rays.shape[0]):
 
-    plt.fill_between(record_time, gathers_z[i, :] / np.max(abs(gathers_z)) / 1.5 + i,
+    plt.fill_between(record_time, gathers_z_inv[i, :] / np.max(abs(gathers_z)) / 1.5 + i,
                      np.ones(record_time.shape) * i,
                      linewidth = 0.3, color = 'b', alpha = 0.5)
 
@@ -678,7 +772,7 @@ for i in range(rays.shape[0]):
                                  record_time,
                                  3 * 1.5 * 1 / frequency_dom,
                                  travel_time[i]),
-                     time_window(gathers_z[i, :] / np.max(abs(gathers_z)) / 1.5 + i,
+                     time_window(gathers_z_inv[i, :] / np.max(abs(gathers_z)) / 1.5 + i,
                                  record_time,
                                  3 * 1.5 * 1 / frequency_dom,
                                  travel_time[i]),
@@ -693,48 +787,9 @@ plt.ylabel("Координаты вдоль профиля, м")
 plt.xlabel("Время, с")
 
 plt.savefig("{}/Сейсмограмма. Z-компонента.png".format(dir_name), dpi = 400, bbox_inches = 'tight')
-print("Сейсмограмма (Z-компонента) сохранена: {} секунд".format(time.time() - start_time))
+print("Сейсмограмма (Z-компонента) сохранена: {} секунд\n".format(time.time() - start_time))
 
-plt.close(fig5)
-
-fig6 = plt.figure()
-
-plt.title("Сейсмограмма (X-компонента). Модель №{}".format(number_string[model_number]))
-plt.gca().invert_yaxis()
-plt.yticks(np.arange(0, rays.shape[0], 1), ["{}".format(int(j)) for j in rec_line[0 : rays.shape[0]]],
-           fontsize = - 5 / 16 * rays.shape[0] + 11 + 21 * 5 / 16)
-
-for i in range(rays.shape[0]):
-
-    plt.fill_between(record_time, gathers_x[i, :] / np.max(abs(gathers_z)) / 1.5 + i,
-                     np.ones(record_time.shape) * i,
-                     linewidth = 0.3, color = 'r', alpha = 0.5)
-
-    plt.fill_between(record_time, gathers_x[i, :] / np.max(abs(gathers_z)) / 1.5 + i,
-                     np.ones(record_time.shape) * i,
-                     linewidth = 0.3, color = 'r', alpha = 0.5)
-
-    plt.fill_between(time_window(record_time,
-                                 record_time,
-                                 3 * 1.5 * 1 / frequency_dom,
-                                 travel_time[i]),
-                     time_window(gathers_x[i, :] / np.max(abs(gathers_z)) / 1.5 + i,
-                                 record_time,
-                                 3 * 1.5 * 1 / frequency_dom,
-                                 travel_time[i]),
-                     np.ones(time_window(record_time,
-                                         record_time,
-                                         3 * 1.5 * 1 / frequency_dom,
-                                         travel_time[i]).shape) * i,
-                     linewidth = 0.3, color = 'g', alpha = 0.5)
-
-plt.ylabel("Координаты вдоль профиля, м")
-plt.xlabel("Время, с")
-
-plt.savefig("{}/Сейсмограмма. X-компонента.png".format(dir_name), dpi = 400, bbox_inches = 'tight')
-print("Сейсмограмма (X-компонента) сохранена: {} секунд\n".format(time.time() - start_time))
-
-plt.close(fig6)
+plt.close(fig7)
 
 description_file.write("Графики построены и сохранены. Запускается процедура инверсии: %s секунд\n\n" % (time.time() - start_time))
 print("\x1b[1;31mPlots have been saved. Inversion procedure has been started: {} seconds\n".format((time.time() - start_time)))
@@ -791,10 +846,17 @@ from scipy.optimize import minimize
 
 cosines_homogen = np.zeros(rays.shape)
 
-# We'll need to transform ray amplitudes as follows:
+# We'll need to transform ray amplitudes.
+
+# We'll add some random noise to our seismograms and then perform the AVO-inversion. But since the noise is random, the
+# result obtained will also be random, so, we shall need to run over several iterations. At each step we shall
+# add to the original seismograms new noise sample and execute inversion procedure. All the results will be written in
+# an .xlsx file.
 
 inversion = opxl.Workbook()
-number_of_iterations = 10
+number_of_iterations = 1
+
+# Let's introduce arrays where we shall collect all transformed data:
 
 transformed_ampl_curv_array = np.zeros((number_of_iterations, rays.shape[0]))
 transformed_ampl_plane_array = np.zeros((number_of_iterations, rays.shape[0]))
@@ -805,9 +867,9 @@ for n in range(number_of_iterations):
     # Let's add some random noise to our seismograms (standart normal distribution, amplitude equals to 1/10 of the maximal
     # recorded amplitude):
 
-    gathers_x_inv = gathers_x + np.random.randn(gathers_x.shape[0], gathers_x.shape[1]) * 0.1 * max(np.max(gathers_x), np.max(gathers_y), np.max(gathers_z))
-    gathers_y_inv = gathers_y + np.random.randn(gathers_y.shape[0], gathers_y.shape[1]) * 0.1 * max(np.max(gathers_x), np.max(gathers_y), np.max(gathers_z))
-    gathers_z_inv = gathers_z + np.random.randn(gathers_z.shape[0], gathers_z.shape[1]) * 0.1 * max(np.max(gathers_x), np.max(gathers_y), np.max(gathers_z))
+    gathers_x_inv = gathers_x + np.random.randn(gathers_x.shape[0], gathers_x.shape[1]) * noise_dispersion
+    gathers_y_inv = gathers_y + np.random.randn(gathers_y.shape[0], gathers_y.shape[1]) * noise_dispersion
+    gathers_z_inv = gathers_z + np.random.randn(gathers_z.shape[0], gathers_z.shape[1]) * noise_dispersion
 
     for i in range(rays.shape[0]):
 
@@ -890,8 +952,8 @@ for n in range(number_of_iterations):
 
     inversion_sheet.cell(row = 1, column = 1).value = "Данные AVO-инверсии"
     inversion_sheet.cell(row = 3, column = 1).value = "Восстанавливаются характеристики слоя №{}".format(refl_i + 2)
-    inversion_sheet.cell(row = 4, column = 1).value = "В сейсмограммы независимо внесены погрешности 10% от максимального" \
-                                                      " значения амплитуд"
+    inversion_sheet.cell(row = 4, column = 1).value = "В сейсмограммы независимо внесены погрешности 10% от cреднего" \
+                                                      " значения амплитуд в импульсе"
     inversion_sheet.cell(row = 5, column = 1).value = "Значения параметров"
     inversion_sheet.cell(row = 6, column = 2).value = "Модель"
     inversion_sheet.cell(row = 6, column = 3).value = "Начальное приближение"
@@ -996,8 +1058,8 @@ inversion_sheet = inversion.create_sheet("Инверсия. Среднее".form
 
 inversion_sheet.cell(row = 1, column = 1).value = "Усреднение данных AVO-инверсии"
 inversion_sheet.cell(row = 3, column = 1).value = "Восстанавливаются характеристики слоя №{}".format(refl_i + 2)
-inversion_sheet.cell(row = 4, column = 1).value = "В сейсмограммы независимо внесены погрешности 10% от максимального" \
-                                                  " значения амплитуд"
+inversion_sheet.cell(row = 4, column = 1).value = "В сейсмограммы независимо внесены погрешности 10% от cреднего" \
+                                                  " значения амплитуд в импульсе"
 inversion_sheet.cell(row = 5, column = 1).value = "Значения параметров"
 inversion_sheet.cell(row = 6, column = 2).value = "Модель"
 inversion_sheet.cell(row = 6, column = 3).value = "Начальное приближение"
@@ -1188,10 +1250,12 @@ from openpyxl.chart import (
 )
 
 chart_sheet = transformed_ampl.create_sheet("График")
+from openpyxl.drawing.line import LineProperties
+from openpyxl.drawing.colors import ColorChoice
 
 chart = ScatterChart()
 chart.title = "Коэффициенты отражения"
-chart.style = 13
+chart.style = 9
 chart.x_axis.title = "X, м"
 chart.y_axis.title = "Коэффициент"
 
@@ -1207,12 +1271,23 @@ for i in range(number_of_iterations):
     plane_series = Series(plane_values, x_values, title="Без учёта кривизны. Итерация №{}".format(i + 1))
     homogen_series = Series(homogen_values, x_values, title="Сферическое расхождение. Итерация №{}".format(i + 1))
 
+    curv_Prop = LineProperties(solidFill = ColorChoice(prstClr='red'), w = 1)
+    plane_Prop = LineProperties(solidFill = ColorChoice(prstClr='green'), w = 1)
+    homogen_Prop = LineProperties(solidFill = ColorChoice(prstClr='blue'), w = 1)
+
+    curv_series.graphicalProperties.line = curv_Prop
+    plane_series.graphicalProperties.line = plane_Prop
+    homogen_series.graphicalProperties.line = homogen_Prop
+
     chart.series.append(curv_series)
     chart.series.append(plane_series)
     chart.series.append(homogen_series)
 
 real_values = Reference(real_sheet, min_col = 2, max_col = rays.shape[0] + 1, min_row = 4)
 real_series = Series(real_values, x_values, title = "Истинные коэффициенты")
+
+real_Prop = LineProperties(solidFill = ColorChoice(prstClr='black'), w = 1)
+real_series.graphicalProperties.line = real_Prop
 
 chart.series.append(real_series)
 
@@ -1221,6 +1296,32 @@ chart_sheet.add_chart(chart, "A1")
 transformed_ampl.save("{}/Трансформированные амплитуды.xlsx".format(dir_name))
 transformed_ampl.close()
 
+# Let's form up 2D sections of the residual functional.
+
+# 1. Vp-Vs sections.
+# Let's set rho parameter and arrays for other parameters:
+sect_rho = current_mod.layers[refl_i + 1].get_density() * 0.8
+sect_vp = np.linspace(current_mod.layers[refl_i + 1].get_velocity(0)["vp"] * 0.8,
+                      current_mod.layers[refl_i + 1].get_velocity(0)["vp"] * 1.2,
+                      100)
+sect_vs = np.linspace(current_mod.layers[refl_i + 1].get_velocity(0)["vs"] * 0.8,
+                      current_mod.layers[refl_i + 1].get_velocity(0)["vs"] * 1.2,
+                      100)
+# Let's construct the secrion:
+section = np.zeros((100, 100))
+
+for i in range(100):
+    for j in range(100):
+
+        section[i, j] = AVO_residual(np.array([sect_vp[i], sect_vs[j], sect_rho]),
+                               current_mod.layers[refl_i],
+                               transformed_ampl_curv,
+                               cosines[:, refl_i])
+        print(i, j)
+
+section[1, 2] = 1
+plt.imshow(section, extent = [sect_vs[0], sect_vs[- 1], sect_vp[0], sect_vp[- 1]])
+plt.show()
 
 # the_horizons = opxl.Workbook()
 # the_horizons_sheet = the_horizons.active
