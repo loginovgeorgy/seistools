@@ -23,18 +23,12 @@ import cmath as cm
 from .polarizations import *
 
 
-def rt_coefficients(layer1, layer2, cos_inc, inc_polariz, inc_vel, rt_signum):
-
-    # print("\x1b[1;30m velp1 = ", layer1.get_velocity(0)['vp'])
-    # print("\x1b[1;30m velp2 = ", layer2.get_velocity(0)['vp'])
-    # print("\x1b[1;30m cos_inc = ", cos_inc)
-    # print("\x1b[1;30m inc_polariz = ", inc_polariz)
-    # print("\x1b[1;30m inc_vel = ", inc_vel)
-    # print("\x1b[1;30m rt_signum = ", rt_signum, '\n')
+def rt_coefficients(vp1, vs1, rho1, vp2, vs2, rho2, cos_inc, inc_polariz, inc_vel, rt_signum):
+# def rt_coefficients(layer1, layer2, cos_inc, inc_polariz, inc_vel, rt_signum):
 
     # Для решения поставленной задачи потребуются матрицы упругих модулей сред 1 и 2:
-    c_ij1 = c_ij([layer1.get_velocity(0)['vp'], layer1.get_velocity(0)['vs']], layer1.density / 1000)
-    c_ij2 = c_ij([layer2.get_velocity(0)['vp'], layer2.get_velocity(0)['vs']], layer2.density / 1000)
+    c_ij1 = c_ij([vp1, vs1], rho1 / 1000)
+    c_ij2 = c_ij([vp2, vs2], rho2 / 1000)
     # Делим на 1000, чтобы избежать зашкаливающе больших чисел и соответствующих ошибок. На решения системы такая
     # нормировка не повлияет.
 
@@ -58,40 +52,40 @@ def rt_coefficients(layer1, layer2, cos_inc, inc_polariz, inc_vel, rt_signum):
 
     # Зададим сначала все волновые векторы в соответствии с законом Снеллиуса:
 
-    k_refl[0] = np.array([k0[0] * layer1.get_velocity(0)['vp'] / v0,
+    k_refl[0] = np.array([k0[0] * vp1 / v0,
                           0,
-                          - cm.sqrt(1 - (k0[0] * layer1.get_velocity(0)['vp'] / v0) ** 2)])
+                          - cm.sqrt(1 - (k0[0] * vp1 / v0) ** 2)])
 
-    k_refl[1] = np.array([k0[0] * layer1.get_velocity(0)['vs'] / v0,
+    k_refl[1] = np.array([k0[0] * vs1 / v0,
                           0,
-                          - cm.sqrt(1 - (k0[0] * layer1.get_velocity(0)['vs'] / v0) ** 2)])
+                          - cm.sqrt(1 - (k0[0] * vs1 / v0) ** 2)])
     k_refl[2] = k_refl[1] # волновые векторы для SV- и SH-волн в изотропной среде совпадают
 
-    k_trans[0] = np.array([k0[0] * layer2.get_velocity(0)['vp'] / v0,
+    k_trans[0] = np.array([k0[0] * vp2 / v0,
                            0,
-                           cm.sqrt(1 - (k0[0] * layer2.get_velocity(0)['vp'] / v0) ** 2)])
+                           cm.sqrt(1 - (k0[0] * vp2 / v0) ** 2)])
 
-    k_trans[1] = np.array([k0[0] * layer2.get_velocity(0)['vs'] / v0,
+    k_trans[1] = np.array([k0[0] * vs2 / v0,
                            0,
-                           cm.sqrt(1 - (k0[0] * layer2.get_velocity(0)['vs'] / v0) ** 2)])
+                           cm.sqrt(1 - (k0[0] * vs2 / v0) ** 2)])
     k_trans[2] = k_trans[1] # волновые векторы для SV- и SH-волн в изотропной среде совпадают
 
     # Теперь заводим векторы медленности:
 
     # отражённые волны
-    p_refl_p = k_refl[0] / layer1.get_velocity(0)['vp']
+    p_refl_p = k_refl[0] / vp1
 
-    p_refl_s1 = k_refl[1] / layer1.get_velocity(0)['vs']
+    p_refl_s1 = k_refl[1] / vs1
 
-    p_refl_s2 = k_refl[2] / layer1.get_velocity(0)['vs']
+    p_refl_s2 = k_refl[2] / vs1
 
     # преломлённые волны
 
-    p_trans_p = k_trans[0] / layer2.get_velocity(0)['vp']
+    p_trans_p = k_trans[0] / vp2
 
-    p_trans_s1 = k_trans[1] / layer2.get_velocity(0)['vs']
+    p_trans_s1 = k_trans[1] / vs2
 
-    p_trans_s2 = k_trans[2] / layer2.get_velocity(0)['vs']
+    p_trans_s2 = k_trans[2] / vs2
         
     # Поляризации отражённых и преломлённых волн:
     # отражённые волны
@@ -202,15 +196,6 @@ def rt_coefficients(layer1, layer2, cos_inc, inc_polariz, inc_vel, rt_signum):
 
     # Решим эту систему уравнений:
     rp, rs1, rs2, tp, ts1, ts2 = np.linalg.solve(matrix, right_part)
-
-    # print("\x1b[1;30m rp = ", rp)
-    # print("\x1b[1;30m rs1 = ", rs1)
-    # print("\x1b[1;30m rs2= ", rs2)
-    # print("\x1b[1;30m tp = ", tp)
-    # print("\x1b[1;30m ts1 = ", ts1)
-    # print("\x1b[1;30m ts2 = ", ts2, '\n')
-    # print("\x1b[1;30m matrix = ", matrix)
-    # print("\x1b[1;30m right part = ", right_part, '\n')
 
     # И вернём результат:
 

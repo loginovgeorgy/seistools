@@ -508,8 +508,18 @@ class Ray(object):
                 # existing vector of polarization U in the local coordinate system. Remember that we've already
                 # found necessary transition matrix.
 
-                ampl_coeff = rt_coefficients(self.velmod.layers[self.raycode[i - 1][1]],
-                                             self.velmod.layers[self.raycode[i - 1][1] + self.raycode[i - 1][0]],
+                # It would be convenient to give parameters of the layers explicitly:
+
+                vp1 = self.velmod.layers[self.raycode[i - 1][1]].get_velocity(0)["vp"]
+                vs1 = self.velmod.layers[self.raycode[i - 1][1]].get_velocity(0)["vs"]
+                rho1 = self.velmod.layers[self.raycode[i - 1][1]].get_density()
+
+                vp2 = self.velmod.layers[self.raycode[i - 1][1] + self.raycode[i - 1][0]].get_velocity(0)["vp"]
+                vs2 = self.velmod.layers[self.raycode[i - 1][1] + self.raycode[i - 1][0]].get_velocity(0)["vs"]
+                rho2 = self.velmod.layers[self.raycode[i - 1][1] + self.raycode[i - 1][0]].get_density()
+
+                ampl_coeff = rt_coefficients(vp1, vs1, rho1,
+                                             vp2, vs2, rho2,
                                              cos_inc,
                                              np.dot(transit_matr.T, U),
                                              self.segments[i - 1].layer.get_velocity(0)[self.segments[i - 1].vtype],

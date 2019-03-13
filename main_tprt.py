@@ -11,6 +11,15 @@ import os # for folder's creation
 import datetime # for folder's naming
 
 import openpyxl as opxl
+from openpyxl.chart import (
+    ScatterChart,
+    Reference,
+    Series,
+)
+from openpyxl.drawing.line import LineProperties
+from openpyxl.drawing.colors import ColorChoice
+
+from scipy.optimize import minimize
 
 def createFolder(directory):
     try:
@@ -111,29 +120,29 @@ raycode_model_2 = [[1, 0, 0],
 # Models:
 
 # For IPGG computer:
-# models_dir_name = "C:/" \
-#                   "Users/" \
-#                   "ShilovNN/" \
-#                   "Documents/" \
-#                   "Лучевой метод/" \
-#                   "AVO/" \
-#                   "Результаты вычислений/" \
-#                   "Модель №{}/" \
-#                   "Кривизна {}/"\
-#                   "Горизонты".format(number_string[model_number], 0.0004 * curv_scale)
-
-
-# For your laptop:
 models_dir_name = "C:/" \
                   "Users/" \
-                  "USER/" \
+                  "ShilovNN/" \
                   "Documents/" \
                   "Лучевой метод/" \
-                  "AVO, коэффициенты отражения-преломления/" \
+                  "AVO/" \
                   "Результаты вычислений/" \
                   "Модель №{}/" \
                   "Кривизна {}/"\
                   "Горизонты".format(number_string[model_number], 0.0004 * curv_scale)
+
+
+# For your laptop:
+# models_dir_name = "C:/" \
+#                   "Users/" \
+#                   "USER/" \
+#                   "Documents/" \
+#                   "Лучевой метод/" \
+#                   "AVO, коэффициенты отражения-преломления/" \
+#                   "Результаты вычислений/" \
+#                   "Модель №{}/" \
+#                   "Кривизна {}/"\
+#                   "Горизонты".format(number_string[model_number], 0.0004 * curv_scale)
 
 if model_number == 1:
 
@@ -277,20 +286,20 @@ gathers_z = np.zeros((rec_line.shape[0], record_time.shape[0]))
 # Create a description file. We shall create a folder for this file and others. So, the name of the directory is:
 
 # For IPGG computer:
-# dir_name = "C:/Users/ShilovNN/Documents/Лучевой метод/AVO/Результаты вычислений/" \
-#            "Модель №{}/Кривизна {}/Вычисления {} {}-{}".format(number_string[model_number],
-#                                                                0.0004 * curv_scale,
-#                                                                datetime.datetime.now().date(),
-#                                                                datetime.datetime.now().hour,
-#                                                                datetime.datetime.now().minute)
-
-# For your laptop:
-dir_name = "C:/Users/USER/Documents/Лучевой метод/AVO, коэффициенты отражения-преломления/Результаты вычислений/" \
+dir_name = "C:/Users/ShilovNN/Documents/Лучевой метод/AVO/Результаты вычислений/" \
            "Модель №{}/Кривизна {}/Вычисления {} {}-{}".format(number_string[model_number],
                                                                0.0004 * curv_scale,
                                                                datetime.datetime.now().date(),
                                                                datetime.datetime.now().hour,
                                                                datetime.datetime.now().minute)
+
+# For your laptop:
+# dir_name = "C:/Users/USER/Documents/Лучевой метод/AVO, коэффициенты отражения-преломления/Результаты вычислений/" \
+#            "Модель №{}/Кривизна {}/Вычисления {} {}-{}".format(number_string[model_number],
+#                                                                0.0004 * curv_scale,
+#                                                                datetime.datetime.now().date(),
+#                                                                datetime.datetime.now().hour,
+#                                                                datetime.datetime.now().minute)
 
 createFolder(dir_name)
 
@@ -530,6 +539,30 @@ seismogram_z.close()
 ray_amplitude.close()
 hodograph.close()
 
+# The seismograms in the inversion and adjacent procedures will be noisy. The distribution of the noise should be normal
+# with zero mean value. Its dispersion will be proportional to the average absolute value in the Ricker wavelet. So,
+# let's form up these noisy gathers:
+
+average_signal = np.zeros(rays.shape[0])
+for i in range(rays.shape[0]):
+
+    average_signal[i] = np.average(time_window(np.sqrt(gathers_x[i] ** 2
+                                                       + gathers_y[i] ** 2
+                                                       + gathers_z[i] ** 2),
+                                               record_time,
+                                               3 * 1.5 * 1 / frequency_dom,
+                                               travel_time[i]))
+
+
+
+noise_dispersion = 0.1 * np.max(average_signal)
+
+gathers_x_inv = gathers_x + np.random.randn(gathers_x.shape[0], gathers_x.shape[1]) * noise_dispersion
+gathers_y_inv = gathers_y + np.random.randn(gathers_y.shape[0], gathers_y.shape[1]) * noise_dispersion
+gathers_z_inv = gathers_z + np.random.randn(gathers_z.shape[0], gathers_z.shape[1]) * noise_dispersion
+
+# There will be no nedd in saving these arrays. So, we move on!
+
 description_file.write("============================================================ \n\n")
 description_file.write("Файлы с численными данными сохранены."
                        " Переход к построению графиков: {} секунд\n\n".format(time.time() - start_time))
@@ -661,27 +694,6 @@ print("Годограф сохранён: {} секунд".format(time.time() - 
 
 plt.close(fig4)
 
-# Let's come up with the level of noise in seismograms. The distribution should be normal with zero mean value. Its
-# dispersion will be proportional to the average absolute value in the Ricker wavelet.
-
-average_signal = np.zeros(rays.shape[0])
-for i in range(rays.shape[0]):
-
-    average_signal[i] = np.average(time_window(np.sqrt(gathers_x[i] ** 2
-                                                       + gathers_y[i] ** 2
-                                                       + gathers_z[i] ** 2),
-                                               record_time,
-                                               3 * 1.5 * 1 / frequency_dom,
-                                               travel_time[i]))
-
-
-
-noise_dispersion = 0.1 * np.max(average_signal)
-
-gathers_x_inv = gathers_x + np.random.randn(gathers_x.shape[0], gathers_x.shape[1]) * noise_dispersion
-gathers_y_inv = gathers_y + np.random.randn(gathers_y.shape[0], gathers_y.shape[1]) * noise_dispersion
-gathers_z_inv = gathers_z + np.random.randn(gathers_z.shape[0], gathers_z.shape[1]) * noise_dispersion
-
 fig5 = plt.figure()
 
 plt.title("Сейсмограмма (X-компонента). Модель №{}".format(number_string[model_number]))
@@ -795,38 +807,41 @@ description_file.write("Графики построены и сохранены.
 print("\x1b[1;31mPlots have been saved. Inversion procedure has been started: {} seconds\n".format((time.time() - start_time)))
 
 # Let's go ahead to the inversion.
+inversion = opxl.Workbook()
 
-# Our initial guess:
+# We shall work with noisy data. Since the noise is random, results of the inversion will also be random. In order to
+# obtain more stable results we shall perform several iterations of the inversion algorithms, at each step creating new
+# noisy gathers. Let's set up total number of iterations:
+number_of_iterations = 1
 
-vp_init = current_mod.layers[- 1].get_velocity(0)["vp"] * 1.15
-vs_init = current_mod.layers[- 1].get_velocity(0)["vs"] * 0.85
-rho_init = current_mod.layers[- 1].get_density() * 1.1
 
+# Let's define the target functional:
+def AVO_residual(layer_2_params, layer_1_params, real_coeff, real_cosines):
 
-def AVO_residual(layer_2_params, layer_1, real_coeff, real_cosines):
-
-    # layer_2_params = [vp, vs, rho, top_horizon]
-
-    layer_2 = Layer(ISOVelocity(layer_2_params[0], layer_2_params[1]),
-                    layer_2_params[2],
-                    None,
-                    None,
-                    name = "2")
+    # vp1 = layer_1_params[0]
+    # vs1 = layer_1_params[1]
+    # rho1 = layer_1_params[2]
+    #
+    # vp2 = layer_2_params[0]
+    # vs2 = layer_2_params[1]
+    # rho2 = layer_2_params[2]
 
     synt_coeff = np.zeros(real_coeff.shape, dtype = complex)
 
     for i in range(synt_coeff.shape[0]):
 
-        synt_coeff[i] = rt_coefficients(layer_1,
-                                        layer_2,
+        synt_coeff[i] = rt_coefficients(layer_1_params[0], layer_1_params[1], layer_1_params[2],
+                                        layer_2_params[0], layer_2_params[1], layer_2_params[2],
                                         real_cosines[i],
                                         np.array([np.sqrt(1 - real_cosines[i]**2), 0, real_cosines[i]]),
-                                        layer_1.get_velocity(0)['vp'],
+                                        layer_1_params[0],
                                         - 1)[0]
 
 
     return np.linalg.norm(synt_coeff - real_coeff)
 
+
+# And an auxiliary function:
 def RMS(gather, rec_time, t_window, t_central):
 
     if rec_time[0] <= t_central + t_window and rec_time[- 1] >= t_central - t_window:
@@ -840,32 +855,28 @@ def RMS(gather, rec_time, t_window, t_central):
 
         return 0
 
-from scipy.optimize import minimize
+
+# Initial guess for the minimizer:
+vp_init = current_mod.layers[- 1].get_velocity(0)["vp"] * 1.15
+vs_init = current_mod.layers[- 1].get_velocity(0)["vs"] * 0.85
+rho_init = current_mod.layers[- 1].get_density() * 1.1
+
+
+# We shall need to write and save some data during these procedures. Consequently, it would be convenient to create all
+# corresponding arrays at one moment.
 
 # Let's create an array for cosines of angles of incidence for calculations for homogeneous overburden:
-
 cosines_homogen = np.zeros(rays.shape)
 
-# We'll need to transform ray amplitudes.
-
-# We'll add some random noise to our seismograms and then perform the AVO-inversion. But since the noise is random, the
-# result obtained will also be random, so, we shall need to run over several iterations. At each step we shall
-# add to the original seismograms new noise sample and execute inversion procedure. All the results will be written in
-# an .xlsx file.
-
-inversion = opxl.Workbook()
-number_of_iterations = 1
-
 # Let's introduce arrays where we shall collect all transformed data:
-
 transformed_ampl_curv_array = np.zeros((number_of_iterations, rays.shape[0]))
 transformed_ampl_plane_array = np.zeros((number_of_iterations, rays.shape[0]))
 transformed_ampl_homogen_array = np.zeros((number_of_iterations, rays.shape[0]))
 
+# Let's get started!
 for n in range(number_of_iterations):
 
-    # Let's add some random noise to our seismograms (standart normal distribution, amplitude equals to 1/10 of the maximal
-    # recorded amplitude):
+    # Let's add some random noise to our seismograms:
 
     gathers_x_inv = gathers_x + np.random.randn(gathers_x.shape[0], gathers_x.shape[1]) * noise_dispersion
     gathers_y_inv = gathers_y + np.random.randn(gathers_y.shape[0], gathers_y.shape[1]) * noise_dispersion
@@ -876,24 +887,24 @@ for n in range(number_of_iterations):
         # Let's find RMS of the amplitude. We'll sum squared amplitudes in a window with width of 3 * 1.5 * T where
         # T = 1 / frequency_dom.
 
-        # transformed_ampl_curv[i] = RMS(np.sqrt(gathers_x_inv[i] ** 2 + gathers_z_inv[i] ** 2),
+        transformed_ampl_curv[i] = RMS(np.sqrt(gathers_x_inv[i] ** 2 + gathers_z_inv[i] ** 2),
+                                       record_time,
+                                       3 * 1.5 * 1 / frequency_dom,
+                                       travel_time[i]) # we assume that there is only noise at the Y component.
+
+        # transformed_ampl_curv[i] = RMS(np.sqrt(gathers_x_inv[i] ** 2 + gathers_y_inv[i] ** 2 + gathers_z_inv[i] ** 2),
         #                                record_time,
         #                                3 * 1.5 * 1 / frequency_dom,
         #                                travel_time[i])
 
-        transformed_ampl_curv[i] = RMS(np.sqrt(gathers_x_inv[i] ** 2 + gathers_y_inv[i] ** 2 + gathers_z_inv[i] ** 2),
-                                       record_time,
-                                       3 * 1.5 * 1 / frequency_dom,
-                                       travel_time[i])
-
         transformed_ampl_plane[i] = transformed_ampl_curv[i]
-
         transformed_ampl_homogen[i] = transformed_ampl_curv[i]
 
         cosines_homogen[i] = horizons[- 1].get_depth([0, 0]) /\
                              np.linalg.norm(rays[i].segments[0].source -
                                             np.array([0, 0, horizons[- 1].get_depth([0, 0])]))
 
+        # Cancel all transmission coefficients from the amplitudes:
         for j in range(coefficients.shape[1]):
 
             if j != refl_i:
@@ -901,48 +912,87 @@ for n in range(number_of_iterations):
                 transformed_ampl_curv[i] = transformed_ampl_curv[i] / coefficients[i, j]
                 transformed_ampl_plane[i] = transformed_ampl_plane[i] / coefficients[i, j]
 
+        # And add geometrical spreading factor:
         transformed_ampl_curv[i] = transformed_ampl_curv[i] * np.sqrt(geom_spread_curv_inv[i])
         transformed_ampl_plane[i] = transformed_ampl_plane[i] * np.sqrt(geom_spread_plane_inv[i])
         transformed_ampl_homogen[i] = transformed_ampl_homogen[i] * np.sqrt(geom_spread_homogen[i])
 
+    # We are interested in variation of the amplitude along the profile. So, at zero offset all amplitudes should be
+    # equal to the zero-angle reflection amplitude (we assume that zero-angle reflection coefficient is known):
 
-    transformed_ampl_curv = transformed_ampl_curv * rt_coefficients(current_mod.layers[refl_i],
-                                                                    current_mod.layers[refl_i + 1],
-                                                                    1,
-                                                                    np.array([0, 0, 1]),
-                                                                    current_mod.layers[refl_i].get_velocity(0)['vp'],
-                                                                    - 1)[0] / transformed_ampl_curv[0]
+    transformed_ampl_curv = transformed_ampl_curv /\
+                            transformed_ampl_curv[0] *\
+                            rt_coefficients(current_mod.layers[refl_i].get_velocity(0)["vp"],
+                                            current_mod.layers[refl_i].get_velocity(0)["vs"],
+                                            current_mod.layers[refl_i].get_density(),
+                                            current_mod.layers[refl_i + 1].get_velocity(0)["vp"],
+                                            current_mod.layers[refl_i + 1].get_velocity(0)["vs"],
+                                            current_mod.layers[refl_i + 1].get_density(),
+                                            1,
+                                            np.array([0, 0, 1]),
+                                            current_mod.layers[refl_i].get_velocity(0)['vp'],
+                                            - 1)[0]
 
-    transformed_ampl_plane = transformed_ampl_plane * rt_coefficients(current_mod.layers[refl_i],
-                                                                      current_mod.layers[refl_i + 1],
-                                                                      1,
-                                                                      np.array([0, 0, 1]),
-                                                                      current_mod.layers[refl_i].get_velocity(0)['vp'],
-                                                                      - 1)[0] / transformed_ampl_plane[0]
+    transformed_ampl_plane = transformed_ampl_plane  /\
+                             transformed_ampl_plane[0] *\
+                             rt_coefficients(current_mod.layers[refl_i].get_velocity(0)["vp"],
+                                             current_mod.layers[refl_i].get_velocity(0)["vs"],
+                                             current_mod.layers[refl_i].get_density(),
+                                             current_mod.layers[refl_i + 1].get_velocity(0)["vp"],
+                                             current_mod.layers[refl_i + 1].get_velocity(0)["vs"],
+                                             current_mod.layers[refl_i + 1].get_density(),
+                                             1,
+                                             np.array([0, 0, 1]),
+                                             current_mod.layers[refl_i].get_velocity(0)['vp'],
+                                             - 1)[0]
 
-    transformed_ampl_homogen = transformed_ampl_homogen * rt_coefficients(current_mod.layers[refl_i],
-                                                                          current_mod.layers[refl_i + 1],
-                                                                          1,
-                                                                          np.array([0, 0, 1]),
-                                                                          current_mod.layers[refl_i].get_velocity(0)['vp'],
-                                                                          - 1)[0] / transformed_ampl_homogen[0]
+    transformed_ampl_homogen = transformed_ampl_homogen /\
+                               transformed_ampl_homogen[0] *\
+                               rt_coefficients(current_mod.layers[refl_i].get_velocity(0)["vp"],
+                                               current_mod.layers[refl_i].get_velocity(0)["vs"],
+                                               current_mod.layers[refl_i].get_density(),
+                                               current_mod.layers[refl_i + 1].get_velocity(0)["vp"],
+                                               current_mod.layers[refl_i + 1].get_velocity(0)["vs"],
+                                               current_mod.layers[refl_i + 1].get_density(),
+                                               1,
+                                               np.array([0, 0, 1]),
+                                               current_mod.layers[refl_i].get_velocity(0)['vp'],
+                                               - 1)[0]
 
+
+    # Fill arrays for .xlsx files. Note that we are working in the pre-critical area, so np.real cancels zero
+    # imaginary part.
     transformed_ampl_curv_array[n] = np.real(transformed_ampl_curv)
     transformed_ampl_plane_array[n] = np.real(transformed_ampl_plane)
     transformed_ampl_homogen_array[n] = np.real(transformed_ampl_homogen)
 
+    # Let's minimize our functionals:
     minim_result_curv = minimize(AVO_residual,
                                  np.array([3000, 1500, 2100]),
-                                 args = (current_mod.layers[refl_i], transformed_ampl_curv, cosines[:, refl_i])).x
+                                 args = (np.array([current_mod.layers[refl_i].get_velocity(0)["vp"],
+                                                   current_mod.layers[refl_i].get_velocity(0)["vs"],
+                                                   current_mod.layers[refl_i].get_density()]),
+                                         transformed_ampl_curv,
+                                         cosines[:, refl_i])).x
 
     minim_result_plane = minimize(AVO_residual,
                                   np.array([3000, 1500, 2100]),
-                                  args = (current_mod.layers[refl_i], transformed_ampl_plane, cosines[:, refl_i])).x
+                                  args = (np.array([current_mod.layers[refl_i].get_velocity(0)["vp"],
+                                                    current_mod.layers[refl_i].get_velocity(0)["vs"],
+                                                    current_mod.layers[refl_i].get_density()]),
+                                          transformed_ampl_plane,
+                                          cosines[:, refl_i])).x
 
     minim_result_homogen = minimize(AVO_residual,
                                     np.array([3000, 1500, 2100]),
-                                    args = (current_mod.layers[refl_i], transformed_ampl_homogen, cosines_homogen)).x
+                                    args = (np.array([current_mod.layers[refl_i].get_velocity(0)["vp"],
+                                                      current_mod.layers[refl_i].get_velocity(0)["vs"],
+                                                      current_mod.layers[refl_i].get_density()]),
+                                            transformed_ampl_homogen,
+                                            cosines_homogen)).x
 
+
+    # Now, let's write the results in .xlsx file:
     if n == 0:
         inversion_sheet = inversion.active
         inversion_sheet.title = "Инверсия. Итерация №1"
@@ -1053,7 +1103,8 @@ for n in range(number_of_iterations):
                                                              current_mod.layers[refl_i + 1].get_density() * 100)
 
 
-inversion_sheet = inversion.create_sheet("Инверсия. Среднее".format(n + 1))
+# Now all inversions are finished, but we'd like to automatically take average from all of them.
+inversion_sheet = inversion.create_sheet("Инверсия. Среднее")
 
 
 inversion_sheet.cell(row = 1, column = 1).value = "Усреднение данных AVO-инверсии"
@@ -1177,25 +1228,34 @@ inversion_sheet.cell(row = 15, column = 4).value = float(abs(averageDens[2] -
                                                              current_mod.layers[refl_i + 1].get_density()) /
                                                          current_mod.layers[refl_i + 1].get_density() * 100)
 
-description_file.write("Инверсия завершена: {} секунд\n\n".format((time.time() - start_time)))
-print("\x1b[1;31mThe inversion has been finished: {} seconds".format((time.time() - start_time)))
+description_file.write("Инверсия завершена. Переход к сохранению "
+                       "трансформированных амплитуд: {} секунд\n\n".format((time.time() - start_time)))
+print("\x1b[1;31mThe inversion has been finished. Now saving"
+      " transformed amplitudes: {} seconds\n".format((time.time() - start_time)))
 
-# And finally, let's close all аiles:
-
-description_file.close()
-
+# And finally, let's close the inversion file:
 inversion.save("{}/Данные инверсии.xlsx".format(dir_name))
 inversion.close()
 
+
+# Time has come to write into .xlsx files all transformed amplitudes.
 transformed_ampl = opxl.Workbook()
 
+# Create a sheet for correct transformation (curvatures are taken into account):
 curved_sheet = transformed_ampl.active
 curved_sheet.title = "С учётом кривизны"
 
+# Create a sheet for incorrect transformation (curvatures are not taken into account):
 plane_sheet = transformed_ampl.create_sheet("Без учёта кривизны")
+
+# Create a sheet for incorrect transformation (spherical divergence):
 homogen_sheet = transformed_ampl.create_sheet("Сферическое расхождение")
+
+# Create a sheet for actual reflection coefficients:
 real_sheet = transformed_ampl.create_sheet("Коэффициенты отражения")
 
+
+# Fill the .xlsx file:
 curved_sheet["A1"].value = "Значения трансформированных среднеквадратичных амплитуд"
 curved_sheet["A3"].value = "В геометрическом расхождении учитывалась кривизна всех границ"
 curved_sheet["A5"].value = "№ итерации \ X, м"
@@ -1242,16 +1302,8 @@ for i in range(rays.shape[0]):
     real_sheet.cell(row = 3, column = i + 2).value = rec_line[i]
     real_sheet.cell(row = 4, column = i + 2).value = np.real(coefficients[i, refl_i])
 
-
-from openpyxl.chart import (
-    ScatterChart,
-    Reference,
-    Series,
-)
-
+# Let's create a chart representing all curves of transformated amplitudes:
 chart_sheet = transformed_ampl.create_sheet("График")
-from openpyxl.drawing.line import LineProperties
-from openpyxl.drawing.colors import ColorChoice
 
 chart = ScatterChart()
 chart.title = "Коэффициенты отражения"
@@ -1272,7 +1324,7 @@ for i in range(number_of_iterations):
     homogen_series = Series(homogen_values, x_values, title="Сферическое расхождение. Итерация №{}".format(i + 1))
 
     curv_Prop = LineProperties(solidFill = ColorChoice(prstClr='red'), w = 1)
-    plane_Prop = LineProperties(solidFill = ColorChoice(prstClr='green'), w = 1)
+    plane_Prop = LineProperties(solidFill = ColorChoice(prstClr='limeGreen'), w = 1)
     homogen_Prop = LineProperties(solidFill = ColorChoice(prstClr='blue'), w = 1)
 
     curv_series.graphicalProperties.line = curv_Prop
@@ -1283,18 +1335,27 @@ for i in range(number_of_iterations):
     chart.series.append(plane_series)
     chart.series.append(homogen_series)
 
+
+# Add there a curve of the actual coefficients:
 real_values = Reference(real_sheet, min_col = 2, max_col = rays.shape[0] + 1, min_row = 4)
 real_series = Series(real_values, x_values, title = "Истинные коэффициенты")
 
-real_Prop = LineProperties(solidFill = ColorChoice(prstClr='black'), w = 1)
+real_Prop = LineProperties(solidFill = ColorChoice(prstClr='black'), w = 3.5)
 real_series.graphicalProperties.line = real_Prop
 
 chart.series.append(real_series)
 
 chart_sheet.add_chart(chart, "A1")
 
+
+# Finally, save it:
 transformed_ampl.save("{}/Трансформированные амплитуды.xlsx".format(dir_name))
 transformed_ampl.close()
+
+description_file.write("Трансформированные амплитуды сохранены. Переход к отрисовке разрезов функционала невязки: "
+                       "{} секунд\n\n".format((time.time() - start_time)))
+print("\x1b[1;31mTransformed amplitudes have been saved. Now plotting cross-sections of the residual functional:"
+      " {} seconds\n".format((time.time() - start_time)))
 
 # Let's form up 2D sections of the residual functional.
 
@@ -1314,15 +1375,19 @@ for i in range(100):
     for j in range(100):
 
         section[i, j] = AVO_residual(np.array([sect_vp[i], sect_vs[j], sect_rho]),
-                               current_mod.layers[refl_i],
-                               transformed_ampl_curv,
-                               cosines[:, refl_i])
+                                     np.array([current_mod.layers[refl_i].get_velocity(0)["vp"],
+                                               current_mod.layers[refl_i].get_velocity(0)["vs"],
+                                               current_mod.layers[refl_i].get_density()]),
+                                     transformed_ampl_curv,
+                                     cosines[:, refl_i])
         print(i, j)
 
 section[1, 2] = 1
 plt.imshow(section, extent = [sect_vs[0], sect_vs[- 1], sect_vp[0], sect_vp[- 1]])
 plt.show()
 
+
+description_file.close()
 # the_horizons = opxl.Workbook()
 # the_horizons_sheet = the_horizons.active
 # the_horizons_sheet.title = "Horizon №1"
