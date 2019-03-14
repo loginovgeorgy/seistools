@@ -1,6 +1,7 @@
 import pylab as plt
 from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
+import cmath as cm
 from src.tprt import Receiver, Layer, Source, DilatCenter, RotatCenter, Ray, FlatHorizon, GridHorizon, ISOVelocity, Velocity_model
 from src.tprt.ray import SnelliusError
 from src.tprt.rt_coefficients import rt_coefficients
@@ -120,29 +121,29 @@ raycode_model_2 = [[1, 0, 0],
 # Models:
 
 # For IPGG computer:
-models_dir_name = "C:/" \
-                  "Users/" \
-                  "ShilovNN/" \
-                  "Documents/" \
-                  "Лучевой метод/" \
-                  "AVO/" \
-                  "Результаты вычислений/" \
-                  "Модель №{}/" \
-                  "Кривизна {}/"\
-                  "Горизонты".format(number_string[model_number], 0.0004 * curv_scale)
-
-
-# For your laptop:
 # models_dir_name = "C:/" \
 #                   "Users/" \
-#                   "USER/" \
+#                   "ShilovNN/" \
 #                   "Documents/" \
 #                   "Лучевой метод/" \
-#                   "AVO, коэффициенты отражения-преломления/" \
+#                   "AVO/" \
 #                   "Результаты вычислений/" \
 #                   "Модель №{}/" \
 #                   "Кривизна {}/"\
 #                   "Горизонты".format(number_string[model_number], 0.0004 * curv_scale)
+
+
+# For your laptop:
+models_dir_name = "C:/" \
+                  "Users/" \
+                  "USER/" \
+                  "Documents/" \
+                  "Лучевой метод/" \
+                  "AVO, коэффициенты отражения-преломления/" \
+                  "Результаты вычислений/" \
+                  "Модель №{}/" \
+                  "Кривизна {}/"\
+                  "Горизонты".format(number_string[model_number], 0.0004 * curv_scale)
 
 if model_number == 1:
 
@@ -286,20 +287,20 @@ gathers_z = np.zeros((rec_line.shape[0], record_time.shape[0]))
 # Create a description file. We shall create a folder for this file and others. So, the name of the directory is:
 
 # For IPGG computer:
-dir_name = "C:/Users/ShilovNN/Documents/Лучевой метод/AVO/Результаты вычислений/" \
-           "Модель №{}/Кривизна {}/Вычисления {} {}-{}".format(number_string[model_number],
-                                                               0.0004 * curv_scale,
-                                                               datetime.datetime.now().date(),
-                                                               datetime.datetime.now().hour,
-                                                               datetime.datetime.now().minute)
-
-# For your laptop:
-# dir_name = "C:/Users/USER/Documents/Лучевой метод/AVO, коэффициенты отражения-преломления/Результаты вычислений/" \
+# dir_name = "C:/Users/ShilovNN/Documents/Лучевой метод/AVO/Результаты вычислений/" \
 #            "Модель №{}/Кривизна {}/Вычисления {} {}-{}".format(number_string[model_number],
 #                                                                0.0004 * curv_scale,
 #                                                                datetime.datetime.now().date(),
 #                                                                datetime.datetime.now().hour,
 #                                                                datetime.datetime.now().minute)
+
+# For your laptop:
+dir_name = "C:/Users/USER/Documents/Лучевой метод/AVO, коэффициенты отражения-преломления/Результаты вычислений/" \
+           "Модель №{}/Кривизна {}/Вычисления {} {}-{}".format(number_string[model_number],
+                                                               0.0004 * curv_scale,
+                                                               datetime.datetime.now().date(),
+                                                               datetime.datetime.now().hour,
+                                                               datetime.datetime.now().minute)
 
 createFolder(dir_name)
 
@@ -815,6 +816,57 @@ inversion = opxl.Workbook()
 number_of_iterations = 1
 
 
+# Let's introduce a simple function which will return PP-reflection coefficient based on elastic properties of the
+# medium and angle of incidence. It will just execute exact formula from "Quantitative Seismology" by Aki, Richards.
+
+def simple_pp_refl_coeff(vp1, vs1, rho1, vp2, vs2, rho2, cos_inc):
+
+    sin_inc = np.sqrt(1 - cos_inc**2)
+
+    sin_refl_p = sin_inc * vp1 / vp1
+    sin_refl_s = sin_inc * vs1 / vp1
+
+    cos_refl_p = cm.sqrt(1 - sin_refl_p ** 2)
+    cos_refl_s = cm.sqrt(1 - sin_refl_s ** 2)
+
+    sin_tr_p = sin_inc * vp2 / vp1
+    sin_tr_s = sin_inc * vs2 / vp1
+
+    cos_tr_p = cm.sqrt(1 - sin_tr_p ** 2)
+    cos_tr_s = cm.sqrt(1 - sin_tr_s ** 2)
+
+    #     в данном источнике используются следующие коэффициенты:
+
+    p = sin_inc / vp1 #это параметр луча
+
+    a = rho2 / 1000 * (1 - 2 * (vs2**2) * (p**2)) - rho1 / 1000 * (1 - 2 * (vs1**2) * (p**2))
+    b = rho2 / 1000 * (1 - 2 * (vs2**2) * (p**2)) + 2 * rho1 / 1000 * (vs1**2) * (p**2)
+    c = rho1 / 1000 * (1 - 2 * (vs1**2) * (p**2)) + 2 * rho2 / 1000 * (vs2**2) * (p**2)
+    d = 2 * (rho2 / 1000 * (vs2**2) - rho1 / 1000 * (vs1**2))
+
+    E = b * cos_refl_p / vp1 + c * cos_tr_p / vp2
+    F = b * cos_refl_s / vs1 + c * cos_tr_s / vs2
+    G = a - d * (cos_refl_p / vp1) * (cos_tr_s / vs2)
+    H = a - d * (cos_tr_p / vp2) * (cos_refl_s / vs1)
+
+    D = E * F + G * H * (p**2)
+
+    Rp = ((b * cos_refl_p / vp1 - c * cos_tr_p / vp2) * F -
+          (a + d * (cos_refl_p / vp1) * (cos_tr_s / vs2)) * H * (p**2)) / D
+
+    return Rp
+
+# cff = np.zeros(50)
+# coss = np.linspace(1,0.4,50)
+#
+# for i in range(50):
+#
+#     cff[i] = simple_pp_refl_coeff(2800, 1400, 2500, 4000, 2000, 2500, coss[i])
+#
+# plt.plot(np.degrees(np.arccos(coss)), cff)
+# plt.show()
+
+
 # Let's define the target functional:
 def AVO_residual(layer_2_params, layer_1_params, real_coeff, real_cosines):
 
@@ -830,13 +882,9 @@ def AVO_residual(layer_2_params, layer_1_params, real_coeff, real_cosines):
 
     for i in range(synt_coeff.shape[0]):
 
-        synt_coeff[i] = rt_coefficients(layer_1_params[0], layer_1_params[1], layer_1_params[2],
-                                        layer_2_params[0], layer_2_params[1], layer_2_params[2],
-                                        real_cosines[i],
-                                        np.array([np.sqrt(1 - real_cosines[i]**2), 0, real_cosines[i]]),
-                                        layer_1_params[0],
-                                        - 1)[0]
-
+        synt_coeff[i] = simple_pp_refl_coeff(layer_1_params[0], layer_1_params[1], layer_1_params[2],
+                                             layer_2_params[0], layer_2_params[1], layer_2_params[2],
+                                             real_cosines[i])
 
     return np.linalg.norm(synt_coeff - real_coeff)
 
@@ -1106,7 +1154,6 @@ for n in range(number_of_iterations):
 # Now all inversions are finished, but we'd like to automatically take average from all of them.
 inversion_sheet = inversion.create_sheet("Инверсия. Среднее")
 
-
 inversion_sheet.cell(row = 1, column = 1).value = "Усреднение данных AVO-инверсии"
 inversion_sheet.cell(row = 3, column = 1).value = "Восстанавливаются характеристики слоя №{}".format(refl_i + 2)
 inversion_sheet.cell(row = 4, column = 1).value = "В сейсмограммы независимо внесены погрешности 10% от cреднего" \
@@ -1324,7 +1371,7 @@ for i in range(number_of_iterations):
     homogen_series = Series(homogen_values, x_values, title="Сферическое расхождение. Итерация №{}".format(i + 1))
 
     curv_Prop = LineProperties(solidFill = ColorChoice(prstClr='red'), w = 1)
-    plane_Prop = LineProperties(solidFill = ColorChoice(prstClr='limeGreen'), w = 1)
+    plane_Prop = LineProperties(solidFill = ColorChoice(prstClr='green'), w = 1)
     homogen_Prop = LineProperties(solidFill = ColorChoice(prstClr='blue'), w = 1)
 
     curv_series.graphicalProperties.line = curv_Prop
@@ -1374,16 +1421,27 @@ section = np.zeros((100, 100))
 for i in range(100):
     for j in range(100):
 
-        section[i, j] = AVO_residual(np.array([sect_vp[i], sect_vs[j], sect_rho]),
-                                     np.array([current_mod.layers[refl_i].get_velocity(0)["vp"],
-                                               current_mod.layers[refl_i].get_velocity(0)["vs"],
-                                               current_mod.layers[refl_i].get_density()]),
-                                     transformed_ampl_curv,
-                                     cosines[:, refl_i])
-        print(i, j)
+        if sect_vp[i] / sect_vs[j] >= np.sqrt(2):
 
-section[1, 2] = 1
-plt.imshow(section, extent = [sect_vs[0], sect_vs[- 1], sect_vp[0], sect_vp[- 1]])
+            section[i, j] = AVO_residual(np.array([sect_vp[i], sect_vs[j], sect_rho]),
+                                         np.array([current_mod.layers[refl_i].get_velocity(0)["vp"],
+                                                   current_mod.layers[refl_i].get_velocity(0)["vs"],
+                                                   current_mod.layers[refl_i].get_density()]),
+                                         transformed_ampl_curv,
+                                         cosines[:, refl_i])
+
+        else:
+
+            section[i, j] = np.nan
+
+plt.imshow(section,
+           extent = [sect_vs[0], sect_vs[- 1], sect_vp[0], sect_vp[- 1]],
+           origin = "lower",
+           cmap = "seismic")
+plt.colorbar()
+plt.xlabel("Vs, м/с")
+plt.ylabel("Vp, м/с")
+
 plt.show()
 
 
