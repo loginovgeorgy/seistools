@@ -121,29 +121,29 @@ raycode_model_2 = [[1, 0, 0],
 # Models:
 
 # For IPGG computer:
-# models_dir_name = "C:/" \
-#                   "Users/" \
-#                   "ShilovNN/" \
-#                   "Documents/" \
-#                   "Лучевой метод/" \
-#                   "AVO/" \
-#                   "Результаты вычислений/" \
-#                   "Модель №{}/" \
-#                   "Кривизна {}/"\
-#                   "Горизонты".format(number_string[model_number], 0.0004 * curv_scale)
-
-
-# For your laptop:
 models_dir_name = "C:/" \
                   "Users/" \
-                  "USER/" \
+                  "ShilovNN/" \
                   "Documents/" \
                   "Лучевой метод/" \
-                  "AVO, коэффициенты отражения-преломления/" \
+                  "AVO/" \
                   "Результаты вычислений/" \
                   "Модель №{}/" \
                   "Кривизна {}/"\
                   "Горизонты".format(number_string[model_number], 0.0004 * curv_scale)
+
+
+# For your laptop:
+# models_dir_name = "C:/" \
+#                   "Users/" \
+#                   "USER/" \
+#                   "Documents/" \
+#                   "Лучевой метод/" \
+#                   "AVO, коэффициенты отражения-преломления/" \
+#                   "Результаты вычислений/" \
+#                   "Модель №{}/" \
+#                   "Кривизна {}/"\
+#                   "Горизонты".format(number_string[model_number], 0.0004 * curv_scale)
 
 if model_number == 1:
 
@@ -287,20 +287,20 @@ gathers_z = np.zeros((rec_line.shape[0], record_time.shape[0]))
 # Create a description file. We shall create a folder for this file and others. So, the name of the directory is:
 
 # For IPGG computer:
-# dir_name = "C:/Users/ShilovNN/Documents/Лучевой метод/AVO/Результаты вычислений/" \
-#            "Модель №{}/Кривизна {}/Вычисления {} {}-{}".format(number_string[model_number],
-#                                                                0.0004 * curv_scale,
-#                                                                datetime.datetime.now().date(),
-#                                                                datetime.datetime.now().hour,
-#                                                                datetime.datetime.now().minute)
-
-# For your laptop:
-dir_name = "C:/Users/USER/Documents/Лучевой метод/AVO, коэффициенты отражения-преломления/Результаты вычислений/" \
+dir_name = "C:/Users/ShilovNN/Documents/Лучевой метод/AVO/Результаты вычислений/" \
            "Модель №{}/Кривизна {}/Вычисления {} {}-{}".format(number_string[model_number],
                                                                0.0004 * curv_scale,
                                                                datetime.datetime.now().date(),
                                                                datetime.datetime.now().hour,
                                                                datetime.datetime.now().minute)
+
+# For your laptop:
+# dir_name = "C:/Users/USER/Documents/Лучевой метод/AVO, коэффициенты отражения-преломления/Результаты вычислений/" \
+#            "Модель №{}/Кривизна {}/Вычисления {} {}-{}".format(number_string[model_number],
+#                                                                0.0004 * curv_scale,
+#                                                                datetime.datetime.now().date(),
+#                                                                datetime.datetime.now().hour,
+#                                                                datetime.datetime.now().minute)
 
 createFolder(dir_name)
 
@@ -940,6 +940,8 @@ for n in range(number_of_iterations):
                                        3 * 1.5 * 1 / frequency_dom,
                                        travel_time[i]) # we assume that there is only noise at the Y component.
 
+        # transformed_ampl_curv[i] = np.linalg.norm(rays[i].amplitude_fun)
+
         # transformed_ampl_curv[i] = RMS(np.sqrt(gathers_x_inv[i] ** 2 + gathers_y_inv[i] ** 2 + gathers_z_inv[i] ** 2),
         #                                record_time,
         #                                3 * 1.5 * 1 / frequency_dom,
@@ -1294,10 +1296,8 @@ curved_sheet.title = "С учётом кривизны"
 
 # Create a sheet for incorrect transformation (curvatures are not taken into account):
 plane_sheet = transformed_ampl.create_sheet("Без учёта кривизны")
-
 # Create a sheet for incorrect transformation (spherical divergence):
 homogen_sheet = transformed_ampl.create_sheet("Сферическое расхождение")
-
 # Create a sheet for actual reflection coefficients:
 real_sheet = transformed_ampl.create_sheet("Коэффициенты отражения")
 
@@ -1370,13 +1370,17 @@ for i in range(number_of_iterations):
     plane_series = Series(plane_values, x_values, title="Без учёта кривизны. Итерация №{}".format(i + 1))
     homogen_series = Series(homogen_values, x_values, title="Сферическое расхождение. Итерация №{}".format(i + 1))
 
-    curv_Prop = LineProperties(solidFill = ColorChoice(prstClr='red'), w = 1)
-    plane_Prop = LineProperties(solidFill = ColorChoice(prstClr='green'), w = 1)
-    homogen_Prop = LineProperties(solidFill = ColorChoice(prstClr='blue'), w = 1)
+    curv_Prop = LineProperties(solidFill = ColorChoice(prstClr='lightCoral'))
+    plane_Prop = LineProperties(solidFill = ColorChoice(prstClr='ltGreen'))
+    homogen_Prop = LineProperties(solidFill = ColorChoice(prstClr='skyBlue'))
 
     curv_series.graphicalProperties.line = curv_Prop
     plane_series.graphicalProperties.line = plane_Prop
     homogen_series.graphicalProperties.line = homogen_Prop
+
+    curv_series.graphicalProperties.line.width = 18000  # it's 0.5 mm in EMUs
+    plane_series.graphicalProperties.line.width = 18000  # it's 0.5 mm in EMUs
+    homogen_series.graphicalProperties.line.width = 18000  # it's 0.5 mm in EMUs
 
     chart.series.append(curv_series)
     chart.series.append(plane_series)
@@ -1387,8 +1391,9 @@ for i in range(number_of_iterations):
 real_values = Reference(real_sheet, min_col = 2, max_col = rays.shape[0] + 1, min_row = 4)
 real_series = Series(real_values, x_values, title = "Истинные коэффициенты")
 
-real_Prop = LineProperties(solidFill = ColorChoice(prstClr='black'), w = 3.5)
+real_Prop = LineProperties(solidFill = ColorChoice(prstClr='black'))
 real_series.graphicalProperties.line = real_Prop
+real_series.graphicalProperties.line.width = 36000  # it's 1 mm in EMUs
 
 chart.series.append(real_series)
 
@@ -1404,46 +1409,119 @@ description_file.write("Трансформированные амплитуды 
 print("\x1b[1;31mTransformed amplitudes have been saved. Now plotting cross-sections of the residual functional:"
       " {} seconds\n".format((time.time() - start_time)))
 
-# Let's form up 2D sections of the residual functional.
 
-# 1. Vp-Vs sections.
-# Let's set rho parameter and arrays for other parameters:
-sect_rho = current_mod.layers[refl_i + 1].get_density() * 0.8
-sect_vp = np.linspace(current_mod.layers[refl_i + 1].get_velocity(0)["vp"] * 0.8,
-                      current_mod.layers[refl_i + 1].get_velocity(0)["vp"] * 1.2,
-                      100)
-sect_vs = np.linspace(current_mod.layers[refl_i + 1].get_velocity(0)["vs"] * 0.8,
-                      current_mod.layers[refl_i + 1].get_velocity(0)["vs"] * 1.2,
-                      100)
-# Let's construct the secrion:
-section = np.zeros((100, 100))
+# Let's form up 2D sections of the residual functional. For this purpose we shall create special forlder:
+createFolder("{}/Срезы функционала невязки".format(dir_name))
 
-for i in range(100):
-    for j in range(100):
+# In addition, we would like to create special folders for inversions with correct and incorrect geometrical spreading:
+createFolder("{}/Срезы функционала невязки/Геометрическое расхождение с учётом кривизн".format(dir_name))
+createFolder("{}/Срезы функционала невязки/Геометрическое расхождение без учёта кривизн".format(dir_name))
+createFolder("{}/Срезы функционала невязки/Сферическое расхождение".format(dir_name))
 
-        if sect_vp[i] / sect_vs[j] >= np.sqrt(2):
+# We want to construct 3 + 3 + 3 cross-sections. Then, we need to set up three values of Vp, three values of Vs and
+# three values of rho defining corresponding planes. Central values will be actual ones. Two others will add or subtract
+# 20% of it.
 
-            section[i, j] = AVO_residual(np.array([sect_vp[i], sect_vs[j], sect_rho]),
-                                         np.array([current_mod.layers[refl_i].get_velocity(0)["vp"],
-                                                   current_mod.layers[refl_i].get_velocity(0)["vs"],
-                                                   current_mod.layers[refl_i].get_density()]),
-                                         transformed_ampl_curv,
-                                         cosines[:, refl_i])
+vp_planes = np.array([current_mod.layers[refl_i + 1].get_velocity(0)["vp"] * 0.8,
+                      current_mod.layers[refl_i + 1].get_velocity(0)["vp"],
+                      current_mod.layers[refl_i + 1].get_velocity(0)["vp"] * 1.2])
 
-        else:
+vs_planes = np.array([current_mod.layers[refl_i + 1].get_velocity(0)["vs"] * 0.8,
+                      current_mod.layers[refl_i + 1].get_velocity(0)["vs"],
+                      current_mod.layers[refl_i + 1].get_velocity(0)["vs"] * 1.2])
 
-            section[i, j] = np.nan
+rho_planes = np.array([current_mod.layers[refl_i + 1].get_density() * 0.8,
+                      current_mod.layers[refl_i + 1].get_density(),
+                      current_mod.layers[refl_i + 1].get_density() * 1.2])
 
-plt.imshow(section,
-           extent = [sect_vs[0], sect_vs[- 1], sect_vp[0], sect_vp[- 1]],
-           origin = "lower",
-           cmap = "seismic")
-plt.colorbar()
-plt.xlabel("Vs, м/с")
-plt.ylabel("Vp, м/с")
+param_planes = np.array([vp_planes, vs_planes, rho_planes])
 
-plt.show()
+# In order to perform all calculations and plotting procedures automatically, let's set up dictionaries:
+spread_type = {0 : "Геометрическое расхождение с учётом кривизн",
+               1 : "Геометрическое расхождение без учёта кривизн",
+               2 : "Сферическое расхождение"}
+const_param = {0 : "Vp", 1 : "Vs", 2 : "Rho"}
+param_units = {0: "м/с", 1 : "м/с", 2 : "кг/м^3"}
 
+# Now let's go forward to cross-section construction and plotting.
+cross_section = np.zeros((100, 100))
+
+for n in range(3):  # n defines constant parameter
+
+    # We need to come up with two remaining parameters which can vary
+    param_indices = np.delete(np.array([0, 1, 2]), n)
+
+    # Now we have to understand in which order we should pass our parameters to the functional.
+    pass_ind = np.argsort(np.array([param_indices[0], param_indices[1], n]))
+
+    # Let's define the grid:
+
+    first_param = np.linspace(param_planes[param_indices[0], 0], param_planes[param_indices[0], 2], 100)
+    sec_param = np.linspace(param_planes[param_indices[1], 0], param_planes[param_indices[1], 2], 100)
+
+    for k in range(3): # k defines current value of the constant parameter
+
+        for m in range(3):  # m defines type of the geometrical spreading in data
+
+            curr_spread = np.array([transformed_ampl_curv, transformed_ampl_plane, transformed_ampl_homogen])[m]
+
+            # Finally, we can construct our cross-section:
+
+            for i in range(first_param.shape[0]):
+                for j in range(sec_param.shape[0]):
+                    # Let's construct an array of arguments in correct order for the functional:
+
+                    arg_param = np.array([first_param[i], sec_param[j], param_planes[n, k]])[pass_ind]
+
+                    if arg_param[0] / arg_param[1] >= np.sqrt(2):
+
+                        cross_section[i, j] = AVO_residual(arg_param,
+                                                           np.array([current_mod.layers[refl_i].get_velocity(0)["vp"],
+                                                                     current_mod.layers[refl_i].get_velocity(0)["vs"],
+                                                                     current_mod.layers[refl_i].get_density()]),
+                                                           curr_spread,
+                                                           cosines[:, refl_i])
+
+                    else:
+
+                        cross_section[i, j] = np.nan
+
+
+            # And plot it:
+
+            fig8 = plt.figure()
+
+            plt.title("Cрез функционала невязки в плоскости {} = {} {}\n"
+                      "{}".format(const_param[n], param_planes[n, k], param_units[n], spread_type[m]))
+
+            plt.contourf(first_param, sec_param, cross_section.T,
+                         levels=10,
+                         cmap="magma")
+            plt.colorbar()
+
+            plt.contour(first_param, sec_param, cross_section.T,
+                        levels=10,
+                        colors="gray")
+
+            plt.xlabel("{},{}".format(const_param[param_indices[0]], param_units[param_indices[0]]))
+            plt.ylabel("{},{}".format(const_param[param_indices[1]], param_units[param_indices[1]]))
+
+            plt.savefig("{}/"
+                        "Срезы функционала невязки/"
+                        "{}/"
+                        "Cрез функционала невязки в плоскости {} = {}.png".format(dir_name,
+                                                                                  spread_type[m],
+                                                                                  const_param[n],
+                                                                                  param_planes[n, k]),
+                        dpi=400, bbox_inches = 'tight')
+
+            plt.close(fig8)
+
+
+description_file.write("Срезы функционала невязки нарисованы и сохранены: "
+                       "{} секунд\n\n".format((time.time() - start_time)))
+print("\x1b[1;31mCross-sections of the residual functional are plotted and saved:"
+      " {} seconds\n".format((time.time() - start_time)))
 
 description_file.close()
 # the_horizons = opxl.Workbook()
