@@ -121,29 +121,29 @@ raycode_model_2 = [[1, 0, 0],
 # Models:
 
 # For IPGG computer:
-# models_dir_name = "C:/" \
-#                   "Users/" \
-#                   "ShilovNN/" \
-#                   "Documents/" \
-#                   "Лучевой метод/" \
-#                   "AVO/" \
-#                   "Результаты вычислений/" \
-#                   "Модель №{}/" \
-#                   "Кривизна {}/"\
-#                   "Горизонты".format(number_string[model_number], 0.0004 * curv_scale)
-
-
-# For your laptop:
 models_dir_name = "C:/" \
                   "Users/" \
-                  "USER/" \
+                  "ShilovNN/" \
                   "Documents/" \
                   "Лучевой метод/" \
-                  "AVO, коэффициенты отражения-преломления/" \
+                  "AVO/" \
                   "Результаты вычислений/" \
                   "Модель №{}/" \
                   "Кривизна {}/"\
                   "Горизонты".format(number_string[model_number], 0.0004 * curv_scale)
+
+
+# For your laptop:
+# models_dir_name = "C:/" \
+#                   "Users/" \
+#                   "USER/" \
+#                   "Documents/" \
+#                   "Лучевой метод/" \
+#                   "AVO, коэффициенты отражения-преломления/" \
+#                   "Результаты вычислений/" \
+#                   "Модель №{}/" \
+#                   "Кривизна {}/"\
+#                   "Горизонты".format(number_string[model_number], 0.0004 * curv_scale)
 
 if model_number == 1:
 
@@ -287,20 +287,20 @@ gathers_z = np.zeros((rec_line.shape[0], record_time.shape[0]))
 # Create a description file. We shall create a folder for this file and others. So, the name of the directory is:
 
 # For IPGG computer:
-# dir_name = "C:/Users/ShilovNN/Documents/Лучевой метод/AVO/Результаты вычислений/" \
-#            "Модель №{}/Кривизна {}/Вычисления {} {}-{}".format(number_string[model_number],
-#                                                                0.0004 * curv_scale,
-#                                                                datetime.datetime.now().date(),
-#                                                                datetime.datetime.now().hour,
-#                                                                datetime.datetime.now().minute)
-
-# For your laptop:
-dir_name = "C:/Users/USER/Documents/Лучевой метод/AVO, коэффициенты отражения-преломления/Результаты вычислений/" \
+dir_name = "C:/Users/ShilovNN/Documents/Лучевой метод/AVO/Результаты вычислений/" \
            "Модель №{}/Кривизна {}/Вычисления {} {}-{}".format(number_string[model_number],
                                                                0.0004 * curv_scale,
                                                                datetime.datetime.now().date(),
                                                                datetime.datetime.now().hour,
                                                                datetime.datetime.now().minute)
+
+# For your laptop:
+# dir_name = "C:/Users/USER/Documents/Лучевой метод/AVO, коэффициенты отражения-преломления/Результаты вычислений/" \
+#            "Модель №{}/Кривизна {}/Вычисления {} {}-{}".format(number_string[model_number],
+#                                                                0.0004 * curv_scale,
+#                                                                datetime.datetime.now().date(),
+#                                                                datetime.datetime.now().hour,
+#                                                                datetime.datetime.now().minute)
 
 createFolder(dir_name)
 
@@ -553,8 +553,6 @@ for i in range(rays.shape[0]):
                                                record_time,
                                                3 * 1.5 * 1 / frequency_dom,
                                                travel_time[i]))
-
-
 
 noise_dispersion = 0.1 * np.max(average_signal)
 
@@ -813,7 +811,7 @@ inversion = opxl.Workbook()
 # We shall work with noisy data. Since the noise is random, results of the inversion will also be random. In order to
 # obtain more stable results we shall perform several iterations of the inversion algorithms, at each step creating new
 # noisy gathers. Let's set up total number of iterations:
-number_of_iterations = 1
+number_of_iterations = 50
 
 
 # Let's introduce a simple function which will return PP-reflection coefficient based on elastic properties of the
@@ -886,6 +884,10 @@ def AVO_residual(layer_2_params, layer_1_params, real_coeff, real_cosines):
                                              layer_2_params[0], layer_2_params[1], layer_2_params[2],
                                              real_cosines[i])
 
+    # Normalize everything:
+    synt_coeff = synt_coeff / synt_coeff[0]
+    real_coeff = real_coeff / real_coeff[0]
+
     return np.linalg.norm(synt_coeff - real_coeff)
 
 
@@ -921,6 +923,40 @@ transformed_ampl_curv_array = np.zeros((number_of_iterations, rays.shape[0]))
 transformed_ampl_plane_array = np.zeros((number_of_iterations, rays.shape[0]))
 transformed_ampl_homogen_array = np.zeros((number_of_iterations, rays.shape[0]))
 
+pure_ampl = np.zeros(rays.shape[0])
+noised_ampl = np.zeros(rays.shape[0])
+
+av_noise = np.zeros(rays.shape[0])
+
+for i in range(rays.shape[0]):
+
+    av_noise[i] = RMS(np.sqrt(gathers_x_inv[i] ** 2 + gathers_z_inv[i] ** 2),
+                      record_time,
+                      3 * 1.5 * 1 / frequency_dom,
+                      3 * 1.5 * 1 / frequency_dom) # we assume that there is only noise at the Y component.
+
+    pure_ampl[i] = RMS(np.sqrt(gathers_x[i] ** 2 + gathers_z[i] ** 2),
+                       record_time,
+                       3 * 1.5 * 1 / frequency_dom,
+                       travel_time[i])
+    noised_ampl[i] = RMS(np.sqrt(gathers_x_inv[i] ** 2 + gathers_z_inv[i] ** 2),
+                      record_time,
+                      3 * 1.5 * 1 / frequency_dom,
+                      travel_time[i])
+
+av_noise = np.average(av_noise)
+
+# plt.figure()
+
+#
+# plt.plot(rec_line[0 : pure_ampl.shape[0]], pure_ampl, "k-", label = "Незашумлённые данные")
+# plt.plot(rec_line[0 : noised_ampl.shape[0]], noised_ampl, "r-", label = "Зашумлённые данные")
+# plt.plot(rec_line[0 : noised_ampl.shape[0]], np.sqrt(noised_ampl**2 - av_noise**2), "r--", label = "Зашумлённые данные с поправкой")
+#
+# plt.legend()
+#
+# plt.show()
+
 # Let's get started!
 for n in range(number_of_iterations):
 
@@ -935,10 +971,20 @@ for n in range(number_of_iterations):
         # Let's find RMS of the amplitude. We'll sum squared amplitudes in a window with width of 3 * 1.5 * T where
         # T = 1 / frequency_dom.
 
-        transformed_ampl_curv[i] = RMS(np.sqrt(gathers_x_inv[i] ** 2 + gathers_z_inv[i] ** 2),
-                                       record_time,
-                                       3 * 1.5 * 1 / frequency_dom,
-                                       travel_time[i]) # we assume that there is only noise at the Y component.
+        # transformed_ampl_curv[i] = RMS(np.sqrt(gathers_x_inv[i] ** 2 + gathers_z_inv[i] ** 2),
+        #                                record_time,
+        #                                3 * 1.5 * 1 / frequency_dom,
+        #                                travel_time[i]) # we assume that there is only noise at the Y component.
+
+        transformed_ampl_curv[i] = np.sqrt(RMS(np.sqrt(gathers_x_inv[i] ** 2 + gathers_z_inv[i] ** 2),
+                                               record_time,
+                                               3 * 1.5 * 1 / frequency_dom,
+                                               travel_time[i])**2 - av_noise**2) # we assume that there is only noise at the Y component.
+
+        # print(av_noise, RMS(np.sqrt(gathers_x_inv[i] ** 2 + gathers_z_inv[i] ** 2),
+        #                                record_time,
+        #                                3 * 1.5 * 1 / frequency_dom,
+        #                                travel_time[i]))
 
         # transformed_ampl_curv[i] = np.linalg.norm(rays[i].amplitude_fun)
 
@@ -970,44 +1016,44 @@ for n in range(number_of_iterations):
     # We are interested in variation of the amplitude along the profile. So, at zero offset all amplitudes should be
     # equal to the zero-angle reflection amplitude (we assume that zero-angle reflection coefficient is known):
 
-    transformed_ampl_curv = transformed_ampl_curv /\
-                            transformed_ampl_curv[0] *\
-                            rt_coefficients(current_mod.layers[refl_i].get_velocity(0)["vp"],
-                                            current_mod.layers[refl_i].get_velocity(0)["vs"],
-                                            current_mod.layers[refl_i].get_density(),
-                                            current_mod.layers[refl_i + 1].get_velocity(0)["vp"],
-                                            current_mod.layers[refl_i + 1].get_velocity(0)["vs"],
-                                            current_mod.layers[refl_i + 1].get_density(),
-                                            1,
-                                            np.array([0, 0, 1]),
-                                            current_mod.layers[refl_i].get_velocity(0)['vp'],
-                                            - 1)[0]
-
-    transformed_ampl_plane = transformed_ampl_plane  /\
-                             transformed_ampl_plane[0] *\
-                             rt_coefficients(current_mod.layers[refl_i].get_velocity(0)["vp"],
-                                             current_mod.layers[refl_i].get_velocity(0)["vs"],
-                                             current_mod.layers[refl_i].get_density(),
-                                             current_mod.layers[refl_i + 1].get_velocity(0)["vp"],
-                                             current_mod.layers[refl_i + 1].get_velocity(0)["vs"],
-                                             current_mod.layers[refl_i + 1].get_density(),
-                                             1,
-                                             np.array([0, 0, 1]),
-                                             current_mod.layers[refl_i].get_velocity(0)['vp'],
-                                             - 1)[0]
-
-    transformed_ampl_homogen = transformed_ampl_homogen /\
-                               transformed_ampl_homogen[0] *\
-                               rt_coefficients(current_mod.layers[refl_i].get_velocity(0)["vp"],
-                                               current_mod.layers[refl_i].get_velocity(0)["vs"],
-                                               current_mod.layers[refl_i].get_density(),
-                                               current_mod.layers[refl_i + 1].get_velocity(0)["vp"],
-                                               current_mod.layers[refl_i + 1].get_velocity(0)["vs"],
-                                               current_mod.layers[refl_i + 1].get_density(),
-                                               1,
-                                               np.array([0, 0, 1]),
-                                               current_mod.layers[refl_i].get_velocity(0)['vp'],
-                                               - 1)[0]
+    # transformed_ampl_curv = transformed_ampl_curv /\
+    #                         transformed_ampl_curv[0] *\
+    #                         rt_coefficients(current_mod.layers[refl_i].get_velocity(0)["vp"],
+    #                                         current_mod.layers[refl_i].get_velocity(0)["vs"],
+    #                                         current_mod.layers[refl_i].get_density(),
+    #                                         current_mod.layers[refl_i + 1].get_velocity(0)["vp"],
+    #                                         current_mod.layers[refl_i + 1].get_velocity(0)["vs"],
+    #                                         current_mod.layers[refl_i + 1].get_density(),
+    #                                         1,
+    #                                         np.array([0, 0, 1]),
+    #                                         current_mod.layers[refl_i].get_velocity(0)['vp'],
+    #                                         - 1)[0]
+    #
+    # transformed_ampl_plane = transformed_ampl_plane  /\
+    #                          transformed_ampl_plane[0] *\
+    #                          rt_coefficients(current_mod.layers[refl_i].get_velocity(0)["vp"],
+    #                                          current_mod.layers[refl_i].get_velocity(0)["vs"],
+    #                                          current_mod.layers[refl_i].get_density(),
+    #                                          current_mod.layers[refl_i + 1].get_velocity(0)["vp"],
+    #                                          current_mod.layers[refl_i + 1].get_velocity(0)["vs"],
+    #                                          current_mod.layers[refl_i + 1].get_density(),
+    #                                          1,
+    #                                          np.array([0, 0, 1]),
+    #                                          current_mod.layers[refl_i].get_velocity(0)['vp'],
+    #                                          - 1)[0]
+    #
+    # transformed_ampl_homogen = transformed_ampl_homogen /\
+    #                            transformed_ampl_homogen[0] *\
+    #                            rt_coefficients(current_mod.layers[refl_i].get_velocity(0)["vp"],
+    #                                            current_mod.layers[refl_i].get_velocity(0)["vs"],
+    #                                            current_mod.layers[refl_i].get_density(),
+    #                                            current_mod.layers[refl_i + 1].get_velocity(0)["vp"],
+    #                                            current_mod.layers[refl_i + 1].get_velocity(0)["vs"],
+    #                                            current_mod.layers[refl_i + 1].get_density(),
+    #                                            1,
+    #                                            np.array([0, 0, 1]),
+    #                                            current_mod.layers[refl_i].get_velocity(0)['vp'],
+    #                                            - 1)[0]
 
 
     # Fill arrays for .xlsx files. Note that we are working in the pre-critical area, so np.real cancels zero
@@ -1018,7 +1064,7 @@ for n in range(number_of_iterations):
 
     # Let's minimize our functionals:
     # BEFORE 17.03.19 the initial guess was following: vp = 3000, vs = 1500, rho = 2100.
-    minim_result_curv = minimize(AVO_residual,
+    minim_result_curv_all = minimize(AVO_residual,
                                  np.array([vp_init, vs_init, rho_init]),
                                  args = (np.array([current_mod.layers[refl_i].get_velocity(0)["vp"],
                                                    current_mod.layers[refl_i].get_velocity(0)["vs"],
@@ -1026,28 +1072,34 @@ for n in range(number_of_iterations):
                                          transformed_ampl_curv,
                                          cosines[:, refl_i]),
                                  tol = 0.0001,
-                                 options = {"maxiter":30000}).x
+                                 options = {"maxiter":30000})
 
-    minim_result_plane = minimize(AVO_residual,
+    minim_result_plane_all = minimize(AVO_residual,
                                   np.array([vp_init, vs_init, rho_init]),
-                                  args = (np.array([current_mod.layers[refl_i].get_velocity(0)["vp"],
+                                  args=(np.array([current_mod.layers[refl_i].get_velocity(0)["vp"],
+                                                  current_mod.layers[refl_i].get_velocity(0)["vs"],
+                                                  current_mod.layers[refl_i].get_density()]),
+                                        transformed_ampl_plane,
+                                        cosines[:, refl_i]),
+                                  tol=0.0001,
+                                  options={"maxiter": 30000})
+
+    minim_result_homogen_all = minimize(AVO_residual,
+                                    np.array([vp_init, vs_init, rho_init]),
+                                    args=(np.array([current_mod.layers[refl_i].get_velocity(0)["vp"],
                                                     current_mod.layers[refl_i].get_velocity(0)["vs"],
                                                     current_mod.layers[refl_i].get_density()]),
-                                          transformed_ampl_plane,
-                                          cosines[:, refl_i]),
-                                  tol = 0.0001,
-                                  options = {"maxiter":30000}).x
+                                          transformed_ampl_homogen,
+                                          cosines_homogen),
+                                    tol=0.0001,
+                                    options={"maxiter": 30000})
 
-    minim_result_homogen = minimize(AVO_residual,
-                                    np.array([vp_init, vs_init, rho_init]),
-                                    args = (np.array([current_mod.layers[refl_i].get_velocity(0)["vp"],
-                                                      current_mod.layers[refl_i].get_velocity(0)["vs"],
-                                                      current_mod.layers[refl_i].get_density()]),
-                                            transformed_ampl_homogen,
-                                            cosines_homogen),
-                                    tol = 0.0001,
-                                    options = {"maxiter":30000}).x
+    minim_result_curv = minim_result_curv_all.x
+    minim_result_plane = minim_result_plane_all.x
+    minim_result_homogen = minim_result_homogen_all.x
 
+    # print("Результат минимизации с корректной поправкой: {}".format(minim_result_curv_all.fun))
+    # print("Результат минимизации с некорректной поправкой: {}".format(minim_result_plane_all.fun))
 
     # Now, let's write the results in .xlsx file:
     if n == 0:
@@ -1307,33 +1359,50 @@ plane_sheet = transformed_ampl.create_sheet("Без учёта кривизны"
 homogen_sheet = transformed_ampl.create_sheet("Сферическое расхождение")
 # Create a sheet for actual reflection coefficients:
 real_sheet = transformed_ampl.create_sheet("Коэффициенты отражения")
+# Create sheets for differences:
+diff_curved_sheet = transformed_ampl.create_sheet("Разности 1")
+diff_plane_sheet = transformed_ampl.create_sheet("Разности 2")
+diff_homogen_sheet = transformed_ampl.create_sheet("Разности 3")
 
 
 # Fill the .xlsx file:
-curved_sheet["A1"].value = "Значения трансформированных среднеквадратичных амплитуд"
+curved_sheet["A1"].value = "Значения нормированных трансформированных среднеквадратичных амплитуд"
 curved_sheet["A3"].value = "В геометрическом расхождении учитывалась кривизна всех границ"
 curved_sheet["A5"].value = "№ итерации \ X, м"
+diff_curved_sheet["A1"].value = "Разность нормированных трансформированных среднеквадратичных амплитуд и истинных коэффициентов"
+diff_curved_sheet["A3"].value = "В геометрическом расхождении учитывалась кривизна всех границ"
+diff_curved_sheet["A5"].value = "№ итерации \ X, м"
 
-plane_sheet["A1"].value = "Значения трансформированных среднеквадратичных амплитуд"
+plane_sheet["A1"].value = "Значения нормированных трансформированных среднеквадратичных амплитуд"
+diff_plane_sheet["A1"].value = "Разность нормированных трансформированных среднеквадратичных амплитуд и истинных коэффициентов"
 if 1 < model_number < 5:
     if transmission_curv == False:
         if reflection_curv == False:
             plane_sheet["A3"].value = "В геометрическом расхождении не учитывалась кривизна всех границ"
+            diff_plane_sheet["A3"].value = "В геометрическом расхождении не учитывалась кривизна всех границ"
         else:
             plane_sheet["A3"].value = "В геометрическом расхождении не учитывалась кривизна преломляющих границ"
+            diff_plane_sheet["A3"].value = "В геометрическом расхождении не учитывалась кривизна преломляющих границ"
     else:
         plane_sheet["A3"].value = "В геометрическом расхождении не учитывалась кривизна отражающей границы"
+        diff_plane_sheet["A3"].value = "В геометрическом расхождении не учитывалась кривизна отражающей границы"
 else:
     if reflection_curv == False:
         plane_sheet["A3"].value = "В геометрическом расхождении не учитывалась кривизна отражающей границы"
+        diff_plane_sheet["A3"].value = "В геометрическом расхождении не учитывалась кривизна отражающей границы"
 plane_sheet["A5"].value = "№ итерации \ X, м"
+diff_plane_sheet["A5"].value = "№ итерации \ X, м"
 
-homogen_sheet["A1"].value = "Значения трансформированных среднеквадратичных амплитуд"
+homogen_sheet["A1"].value = "Значения нормированных трансформированных среднеквадратичных амплитуд"
 homogen_sheet["A3"].value = "В геометрическом расхождении не учитывались преломляющие слои и кривизна отражающей" \
                             " границы"
 homogen_sheet["A5"].value = "№ итерации \ X, м"
+diff_homogen_sheet["A1"].value = "Разность нормированных трансформированных среднеквадратичных амплитуд"
+diff_homogen_sheet["A3"].value = "В геометрическом расхождении не учитывались преломляющие слои и кривизна отражающей" \
+                            " границы"
+diff_homogen_sheet["A5"].value = "№ итерации \ X, м"
 
-real_sheet["A1"].value = "Значения коэффициентов отражения"
+real_sheet["A1"].value = "Значения нормированных коэффициентов отражения"
 real_sheet["A3"].value = "X, м"
 real_sheet["A4"].value = "Коэффициент"
 
@@ -1343,9 +1412,13 @@ for i in range(number_of_iterations):
     homogen_sheet.cell(row = 6 + i, column = 1).value = i + 1
     for j in range(rays.shape[0]):
 
-        curved_sheet.cell(row = 6 + i, column = j + 2).value = transformed_ampl_curv_array[i, j]
-        plane_sheet.cell(row = 6 + i, column = j + 2).value = transformed_ampl_plane_array[i, j]
-        homogen_sheet.cell(row = 6 + i, column = j + 2).value = transformed_ampl_homogen_array[i, j]
+        curved_sheet.cell(row = 6 + i, column = j + 2).value = transformed_ampl_curv_array[i, j] / transformed_ampl_curv_array[i, 0]
+        plane_sheet.cell(row = 6 + i, column = j + 2).value = transformed_ampl_plane_array[i, j] / transformed_ampl_plane_array[i, 0]
+        homogen_sheet.cell(row = 6 + i, column = j + 2).value = transformed_ampl_homogen_array[i, j] / transformed_ampl_homogen_array[i, 0]
+
+        diff_curved_sheet.cell(row=6 + i, column=j + 2).value = transformed_ampl_curv_array[i, j] / transformed_ampl_curv_array[i, 0] - np.real(coefficients[j, refl_i]) / np.real(coefficients[0, refl_i])
+        diff_plane_sheet.cell(row=6 + i, column=j + 2).value = transformed_ampl_plane_array[i, j] / transformed_ampl_plane_array[i, 0] - np.real(coefficients[j, refl_i]) / np.real(coefficients[0, refl_i])
+        diff_homogen_sheet.cell(row=6 + i, column=j + 2).value = transformed_ampl_homogen_array[i, j] / transformed_ampl_homogen_array[i, 0] - np.real(coefficients[j, refl_i]) / np.real(coefficients[0, refl_i])
 
 for i in range(rays.shape[0]):
 
@@ -1354,16 +1427,18 @@ for i in range(rays.shape[0]):
     homogen_sheet.cell(row = 5, column = i + 2).value = rec_line[i]
 
     real_sheet.cell(row = 3, column = i + 2).value = rec_line[i]
-    real_sheet.cell(row = 4, column = i + 2).value = np.real(coefficients[i, refl_i])
+    real_sheet.cell(row = 4, column = i + 2).value = np.real(coefficients[i, refl_i]) / np.real(coefficients[0, refl_i])
 
 # Let's create a chart representing all curves of transformated amplitudes:
-chart_sheet = transformed_ampl.create_sheet("График")
+chart_sheet = transformed_ampl.create_sheet("График 1")
+# And a chart representing all curves of differences between transformated amplitudes and actual coefficients:
+diff_chart_sheet = transformed_ampl.create_sheet("График 2")
 
 chart = ScatterChart()
-chart.title = "Коэффициенты отражения"
+chart.title = "Трансформированные амплитуды"
 chart.style = 9
 chart.x_axis.title = "X, м"
-chart.y_axis.title = "Коэффициент"
+chart.y_axis.title = "Амплитуда"
 
 x_values = Reference(real_sheet, min_col = 2, max_col = rays.shape[0] + 1, min_row = 3)
 
@@ -1406,14 +1481,61 @@ chart.series.append(real_series)
 
 chart_sheet.add_chart(chart, "A1")
 
+diff_chart = ScatterChart()
+diff_chart.title = "Разности графиков"
+diff_chart.style = 9
+diff_chart.x_axis.title = "X, м"
+diff_chart.y_axis.title = "Разность амплитуд"
+
+x_values = Reference(real_sheet, min_col = 2, max_col = rays.shape[0] + 1, min_row = 3)
+
+for i in range(number_of_iterations):
+
+    curv_values = Reference(diff_curved_sheet, min_col = 2, max_col = rays.shape[0] + 1, min_row = 6 + i)
+    plane_values = Reference(diff_plane_sheet, min_col=2, max_col=rays.shape[0] + 1, min_row=6 + i)
+    homogen_values = Reference(diff_homogen_sheet, min_col=2, max_col=rays.shape[0] + 1, min_row=6 + i)
+
+    curv_series = Series(curv_values, x_values, title = "С учётом кривизны. Итерация №{}".format(i + 1))
+    plane_series = Series(plane_values, x_values, title="Без учёта кривизны. Итерация №{}".format(i + 1))
+    homogen_series = Series(homogen_values, x_values, title="Сферическое расхождение. Итерация №{}".format(i + 1))
+
+    curv_Prop = LineProperties(solidFill = ColorChoice(prstClr='lightCoral'))
+    plane_Prop = LineProperties(solidFill = ColorChoice(prstClr='ltGreen'))
+    homogen_Prop = LineProperties(solidFill = ColorChoice(prstClr='skyBlue'))
+
+    curv_series.graphicalProperties.line = curv_Prop
+    plane_series.graphicalProperties.line = plane_Prop
+    homogen_series.graphicalProperties.line = homogen_Prop
+
+    curv_series.graphicalProperties.line.width = 18000  # it's 0.5 mm in EMUs
+    plane_series.graphicalProperties.line.width = 18000  # it's 0.5 mm in EMUs
+    homogen_series.graphicalProperties.line.width = 18000  # it's 0.5 mm in EMUs
+
+    diff_chart.series.append(curv_series)
+    diff_chart.series.append(plane_series)
+    diff_chart.series.append(homogen_series)
+
+
+# # Add there a curve of the actual coefficients:
+# real_values = Reference(real_sheet, min_col = 2, max_col = rays.shape[0] + 1, min_row = 4)
+# real_series = Series(real_values, x_values, title = "Истинные коэффициенты")
+#
+# real_Prop = LineProperties(solidFill = ColorChoice(prstClr='black'))
+# real_series.graphicalProperties.line = real_Prop
+# real_series.graphicalProperties.line.width = 36000  # it's 1 mm in EMUs
+#
+# chart.series.append(real_series)
+
+diff_chart_sheet.add_chart(diff_chart, "A1")
+
 
 # Finally, save it:
 transformed_ampl.save("{}/Трансформированные амплитуды.xlsx".format(dir_name))
 transformed_ampl.close()
 
-description_file.write("Трансформированные амплитуды сохранены. Переход к отрисовке разрезов функционала невязки: "
+description_file.write("Нормированные трансформированные амплитуды сохранены. Переход к отрисовке разрезов функционала невязки: "
                        "{} секунд\n\n".format((time.time() - start_time)))
-print("\x1b[1;31mTransformed amplitudes have been saved. Now plotting cross-sections of the residual functional:"
+print("\x1b[1;31mNormalized transformed amplitudes have been saved. Now plotting cross-sections of the residual functional:"
       " {} seconds\n".format((time.time() - start_time)))
 
 
@@ -1424,6 +1546,27 @@ createFolder("{}/Срезы функционала невязки".format(dir_na
 createFolder("{}/Срезы функционала невязки/Геометрическое расхождение с учётом кривизн".format(dir_name))
 createFolder("{}/Срезы функционала невязки/Геометрическое расхождение без учёта кривизн".format(dir_name))
 createFolder("{}/Срезы функционала невязки/Сферическое расхождение".format(dir_name))
+
+# OK then. Let's plot three curves of PP-reflection coefficient. First, a curve of actual coefficients. Second, curves
+# of coefficients corresponding to the average results of AVO-invesrion.
+
+# Let's construct latter ones:
+# coefficients_curv = np.zeros(rays.shape[0])
+# coefficients_plane = np.zeros(rays.shape[0])
+# coefficients_homogen = np.zeros(rays.shape[0])
+#
+# for i in range(rays.shape[0]):
+#
+#     coefficients_curv[i] = simple_pp_refl_coeff(current_mod.layers[refl_i].get_velocity(0)["vp"],
+#                                                 current_mod.layers[refl_i].get_velocity(0)["vs"],
+#                                                 current_mod.layers[refl_i].get_density(),
+#                                                 )
+#
+#     simple_pp_refl_coeff()
+#
+# fig9 = plt.figure()
+#
+# plt.plot(rec_line[0 : rays.shape[0]], coefficients[:, refl_i])
 
 # We want to construct 3 + 3 + 3 cross-sections. Then, we need to set up three values of Vp, three values of Vs and
 # three values of rho defining corresponding planes. Central values will be actual ones. Two others will add or subtract
