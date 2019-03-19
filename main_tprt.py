@@ -121,29 +121,29 @@ raycode_model_2 = [[1, 0, 0],
 # Models:
 
 # For IPGG computer:
-models_dir_name = "C:/" \
-                  "Users/" \
-                  "ShilovNN/" \
-                  "Documents/" \
-                  "Лучевой метод/" \
-                  "AVO/" \
-                  "Результаты вычислений/" \
-                  "Модель №{}/" \
-                  "Кривизна {}/"\
-                  "Горизонты".format(number_string[model_number], 0.0004 * curv_scale)
-
-
-# For your laptop:
 # models_dir_name = "C:/" \
 #                   "Users/" \
-#                   "USER/" \
+#                   "ShilovNN/" \
 #                   "Documents/" \
 #                   "Лучевой метод/" \
-#                   "AVO, коэффициенты отражения-преломления/" \
+#                   "AVO/" \
 #                   "Результаты вычислений/" \
 #                   "Модель №{}/" \
 #                   "Кривизна {}/"\
 #                   "Горизонты".format(number_string[model_number], 0.0004 * curv_scale)
+
+
+# For your laptop:
+models_dir_name = "C:/" \
+                  "Users/" \
+                  "USER/" \
+                  "Documents/" \
+                  "Лучевой метод/" \
+                  "AVO, коэффициенты отражения-преломления/" \
+                  "Результаты вычислений/" \
+                  "Модель №{}/" \
+                  "Кривизна {}/"\
+                  "Горизонты".format(number_string[model_number], 0.0004 * curv_scale)
 
 if model_number == 1:
 
@@ -287,20 +287,20 @@ gathers_z = np.zeros((rec_line.shape[0], record_time.shape[0]))
 # Create a description file. We shall create a folder for this file and others. So, the name of the directory is:
 
 # For IPGG computer:
-dir_name = "C:/Users/ShilovNN/Documents/Лучевой метод/AVO/Результаты вычислений/" \
-           "Модель №{}/Кривизна {}/Вычисления {} {}-{}".format(number_string[model_number],
-                                                               0.0004 * curv_scale,
-                                                               datetime.datetime.now().date(),
-                                                               datetime.datetime.now().hour,
-                                                               datetime.datetime.now().minute)
-
-# For your laptop:
-# dir_name = "C:/Users/USER/Documents/Лучевой метод/AVO, коэффициенты отражения-преломления/Результаты вычислений/" \
+# dir_name = "C:/Users/ShilovNN/Documents/Лучевой метод/AVO/Результаты вычислений/" \
 #            "Модель №{}/Кривизна {}/Вычисления {} {}-{}".format(number_string[model_number],
 #                                                                0.0004 * curv_scale,
 #                                                                datetime.datetime.now().date(),
 #                                                                datetime.datetime.now().hour,
 #                                                                datetime.datetime.now().minute)
+
+# For your laptop:
+dir_name = "C:/Users/USER/Documents/Лучевой метод/AVO, коэффициенты отражения-преломления/Результаты вычислений/" \
+           "Модель №{}/Кривизна {}/Вычисления {} {}-{}".format(number_string[model_number],
+                                                               0.0004 * curv_scale,
+                                                               datetime.datetime.now().date(),
+                                                               datetime.datetime.now().hour,
+                                                               datetime.datetime.now().minute)
 
 createFolder(dir_name)
 
@@ -1017,29 +1017,36 @@ for n in range(number_of_iterations):
     transformed_ampl_homogen_array[n] = np.real(transformed_ampl_homogen)
 
     # Let's minimize our functionals:
+    # BEFORE 17.03.19 the initial guess was following: vp = 3000, vs = 1500, rho = 2100.
     minim_result_curv = minimize(AVO_residual,
-                                 np.array([3000, 1500, 2100]),
+                                 np.array([vp_init, vs_init, rho_init]),
                                  args = (np.array([current_mod.layers[refl_i].get_velocity(0)["vp"],
                                                    current_mod.layers[refl_i].get_velocity(0)["vs"],
                                                    current_mod.layers[refl_i].get_density()]),
                                          transformed_ampl_curv,
-                                         cosines[:, refl_i])).x
+                                         cosines[:, refl_i]),
+                                 tol = 0.0001,
+                                 options = {"maxiter":30000}).x
 
     minim_result_plane = minimize(AVO_residual,
-                                  np.array([3000, 1500, 2100]),
+                                  np.array([vp_init, vs_init, rho_init]),
                                   args = (np.array([current_mod.layers[refl_i].get_velocity(0)["vp"],
                                                     current_mod.layers[refl_i].get_velocity(0)["vs"],
                                                     current_mod.layers[refl_i].get_density()]),
                                           transformed_ampl_plane,
-                                          cosines[:, refl_i])).x
+                                          cosines[:, refl_i]),
+                                  tol = 0.0001,
+                                  options = {"maxiter":30000}).x
 
     minim_result_homogen = minimize(AVO_residual,
-                                    np.array([3000, 1500, 2100]),
+                                    np.array([vp_init, vs_init, rho_init]),
                                     args = (np.array([current_mod.layers[refl_i].get_velocity(0)["vp"],
                                                       current_mod.layers[refl_i].get_velocity(0)["vs"],
                                                       current_mod.layers[refl_i].get_density()]),
                                             transformed_ampl_homogen,
-                                            cosines_homogen)).x
+                                            cosines_homogen),
+                                    tol = 0.0001,
+                                    options = {"maxiter":30000}).x
 
 
     # Now, let's write the results in .xlsx file:
@@ -1431,8 +1438,20 @@ vs_planes = np.array([current_mod.layers[refl_i + 1].get_velocity(0)["vs"] * 0.8
                       current_mod.layers[refl_i + 1].get_velocity(0)["vs"] * 1.2])
 
 rho_planes = np.array([current_mod.layers[refl_i + 1].get_density() * 0.8,
-                      current_mod.layers[refl_i + 1].get_density(),
-                      current_mod.layers[refl_i + 1].get_density() * 1.2])
+                       current_mod.layers[refl_i + 1].get_density(),
+                       current_mod.layers[refl_i + 1].get_density() * 1.2])
+
+# vp_planes = np.array([current_mod.layers[refl_i + 1].get_velocity(0)["vp"] * 0.8,
+#                       minim_result_plane[0],
+#                       current_mod.layers[refl_i + 1].get_velocity(0)["vp"] * 1.2])
+#
+# vs_planes = np.array([current_mod.layers[refl_i + 1].get_velocity(0)["vs"] * 0.8,
+#                       minim_result_plane[1],
+#                       current_mod.layers[refl_i + 1].get_velocity(0)["vs"] * 1.2])
+#
+# rho_planes = np.array([current_mod.layers[refl_i + 1].get_density() * 0.8,
+#                        minim_result_plane[2],
+#                        current_mod.layers[refl_i + 1].get_density() * 1.2])
 
 param_planes = np.array([vp_planes, vs_planes, rho_planes])
 
@@ -1459,63 +1478,87 @@ for n in range(3):  # n defines constant parameter
     first_param = np.linspace(param_planes[param_indices[0], 0], param_planes[param_indices[0], 2], 100)
     sec_param = np.linspace(param_planes[param_indices[1], 0], param_planes[param_indices[1], 2], 100)
 
-    for k in range(3): # k defines current value of the constant parameter
+    # for k in range(3): # k defines current value of the constant parameter
+    k = 1
 
-        for m in range(3):  # m defines type of the geometrical spreading in data
+    for m in range(3):  # m defines type of the geometrical spreading in data
 
-            curr_spread = np.array([transformed_ampl_curv, transformed_ampl_plane, transformed_ampl_homogen])[m]
+        curr_spread = np.array([transformed_ampl_curv, transformed_ampl_plane, transformed_ampl_homogen])[m]
 
-            # Finally, we can construct our cross-section:
+        # Finally, we can construct our cross-section:
 
-            for i in range(first_param.shape[0]):
-                for j in range(sec_param.shape[0]):
-                    # Let's construct an array of arguments in correct order for the functional:
+        for i in range(first_param.shape[0]):
+            for j in range(sec_param.shape[0]):
+                # Let's construct an array of arguments in correct order for the functional:
 
-                    arg_param = np.array([first_param[i], sec_param[j], param_planes[n, k]])[pass_ind]
+                arg_param = np.array([first_param[i], sec_param[j], param_planes[n, k]])[pass_ind]
 
-                    if arg_param[0] / arg_param[1] >= np.sqrt(2):
+                if arg_param[0] / arg_param[1] >= np.sqrt(2):
 
-                        cross_section[i, j] = AVO_residual(arg_param,
-                                                           np.array([current_mod.layers[refl_i].get_velocity(0)["vp"],
-                                                                     current_mod.layers[refl_i].get_velocity(0)["vs"],
-                                                                     current_mod.layers[refl_i].get_density()]),
-                                                           curr_spread,
-                                                           cosines[:, refl_i])
+                    cross_section[i, j] = AVO_residual(arg_param,
+                                                       np.array([current_mod.layers[refl_i].get_velocity(0)["vp"],
+                                                                 current_mod.layers[refl_i].get_velocity(0)["vs"],
+                                                                 current_mod.layers[refl_i].get_density()]),
+                                                       curr_spread,
+                                                       cosines[:, refl_i])
 
-                    else:
+                else:
 
-                        cross_section[i, j] = np.nan
+                    cross_section[i, j] = np.nan
 
 
-            # And plot it:
+        # And plot it:
 
-            fig8 = plt.figure()
+        fig8 = plt.figure()
 
-            plt.title("Cрез функционала невязки в плоскости {} = {} {}\n"
-                      "{}".format(const_param[n], param_planes[n, k], param_units[n], spread_type[m]))
+        plt.title("Срез функционала невязки в плоскости {} = {} {}\n"
+                  "{}".format(const_param[n], param_planes[n, k], param_units[n], spread_type[m]))
 
-            plt.contourf(first_param, sec_param, cross_section.T,
-                         levels=10,
-                         cmap="magma")
-            plt.colorbar()
+        # print(first_param.shape, sec_param.shape, cross_section.shape)
 
-            plt.contour(first_param, sec_param, cross_section.T,
-                        levels=10,
-                        colors="gray")
+        plt.contourf(first_param, sec_param, cross_section.T,
+                     levels = np.linspace(0, np.nanmax(cross_section), 20),
+                     cmap = "magma")
+        plt.colorbar()
 
-            plt.xlabel("{},{}".format(const_param[param_indices[0]], param_units[param_indices[0]]))
-            plt.ylabel("{},{}".format(const_param[param_indices[1]], param_units[param_indices[1]]))
+        plt.contour(first_param, sec_param, cross_section.T,
+                    levels = np.linspace(0, np.nanmax(cross_section), 20),
+                    colors = "gray",
+                    linewidths = 0.5)
 
-            plt.savefig("{}/"
-                        "Срезы функционала невязки/"
-                        "{}/"
-                        "Cрез функционала невязки в плоскости {} = {}.png".format(dir_name,
-                                                                                  spread_type[m],
-                                                                                  const_param[n],
-                                                                                  param_planes[n, k]),
-                        dpi=400, bbox_inches = 'tight')
+        plt.plot(np.array([minim_result_curv,
+                           minim_result_plane,
+                           minim_result_homogen])[m][param_indices[0]],
+                 np.array([minim_result_curv,
+                           minim_result_plane,
+                           minim_result_homogen])[m][param_indices[1]],
+                 "ro",
+                 label = "Результат минимизации")
 
-            plt.close(fig8)
+        plt.plot(np.array([current_mod.layers[refl_i + 1].get_velocity(0)["vp"],
+                           current_mod.layers[refl_i + 1].get_velocity(0)["vs"],
+                           current_mod.layers[refl_i + 1].get_density()])[param_indices[0]],
+                 np.array([current_mod.layers[refl_i + 1].get_velocity(0)["vp"],
+                           current_mod.layers[refl_i + 1].get_velocity(0)["vs"],
+                           current_mod.layers[refl_i + 1].get_density()])[param_indices[1]],
+                 "y*",
+                 label = "Истинное значение")
+
+        plt.xlabel("{},{}".format(const_param[param_indices[0]], param_units[param_indices[0]]))
+        plt.ylabel("{},{}".format(const_param[param_indices[1]], param_units[param_indices[1]]))
+
+        plt.legend()
+
+        plt.savefig("{}/"
+                    "Срезы функционала невязки/"
+                    "{}/"
+                    "{} = {}.png".format(dir_name,
+                                         spread_type[m],
+                                         const_param[n],
+                                         param_planes[n, k]),
+                    dpi=400, bbox_inches = 'tight')
+
+        plt.close(fig8)
 
 
 description_file.write("Срезы функционала невязки нарисованы и сохранены: "
