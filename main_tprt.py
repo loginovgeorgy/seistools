@@ -48,7 +48,7 @@ start_time = time.time()
 # TODO: make class for vel_mod, for now init at least one horizon upper the top receiver
 # TODO: check procedure of "is_ray_intersect_boundary"
 
-model_number = 1
+model_number = 3
 curv_scale = 1
 
 # Later it will be needed to insert the current model's name into titles of plots. In order to do this, let's
@@ -888,7 +888,7 @@ def AVO_residual(layer_2_params, layer_1_params, real_coeff, real_cosines):
     synt_coeff = synt_coeff / synt_coeff[0]
     real_coeff = real_coeff / real_coeff[0]
 
-    return np.linalg.norm(synt_coeff - real_coeff)
+    return np.linalg.norm(synt_coeff - real_coeff)**2
 
 
 # And an auxiliary function:
@@ -907,9 +907,9 @@ def RMS(gather, rec_time, t_window, t_central):
 
 
 # Initial guess for the minimizer:
-vp_init = current_mod.layers[- 1].get_velocity(0)["vp"] * 1.15
-vs_init = current_mod.layers[- 1].get_velocity(0)["vs"] * 0.85
-rho_init = current_mod.layers[- 1].get_density() * 1.1
+vp_init = current_mod.layers[- 1].get_velocity(0)["vp"] * 0.85#1.15
+vs_init = current_mod.layers[- 1].get_velocity(0)["vs"] * 1.15#0.85
+rho_init = current_mod.layers[- 1].get_density() * 0.85#1.1
 
 
 # We shall need to write and save some data during these procedures. Consequently, it would be convenient to create all
@@ -978,10 +978,10 @@ for n in range(number_of_iterations):
         #                                travel_time[i]) # we assume that there is only noise at the Y component.
 
         # With noise correction:
-        transformed_ampl_curv[i] = np.sqrt(RMS(np.sqrt(gathers_x_inv[i] ** 2 + gathers_z_inv[i] ** 2),
-                                               record_time,
-                                               3 * 1.5 * 1 / frequency_dom,
-                                               travel_time[i])**2 - av_noise**2) # we assume that there is only noise at the Y component.
+        # transformed_ampl_curv[i] = np.sqrt(RMS(np.sqrt(gathers_x_inv[i] ** 2 + gathers_z_inv[i] ** 2),
+        #                                        record_time,
+        #                                        3 * 1.5 * 1 / frequency_dom,
+        #                                        travel_time[i])**2 - av_noise**2) # we assume that there is only noise at the Y component.
 
         # print(av_noise, RMS(np.sqrt(gathers_x_inv[i] ** 2 + gathers_z_inv[i] ** 2),
         #                                record_time,
@@ -989,7 +989,7 @@ for n in range(number_of_iterations):
         #                                travel_time[i]))
 
         # Pure amplitudes:
-        # transformed_ampl_curv[i] = np.linalg.norm(rays[i].amplitude_fun)
+        transformed_ampl_curv[i] = np.linalg.norm(rays[i].amplitude_fun)
 
         # transformed_ampl_curv[i] = RMS(np.sqrt(gathers_x_inv[i] ** 2 + gathers_y_inv[i] ** 2 + gathers_z_inv[i] ** 2),
         #                                record_time,
@@ -1074,8 +1074,8 @@ for n in range(number_of_iterations):
                                                    current_mod.layers[refl_i].get_density()]),
                                          transformed_ampl_curv,
                                          cosines[:, refl_i]),
-                                 tol = 0.0001,
-                                 options = {"maxiter":30000})
+                                 tol = 0.000001,
+                                 options = {"maxiter":3000000000000})
 
     minim_result_plane_all = minimize(AVO_residual,
                                   np.array([vp_init, vs_init, rho_init]),
@@ -1084,8 +1084,8 @@ for n in range(number_of_iterations):
                                                   current_mod.layers[refl_i].get_density()]),
                                         transformed_ampl_plane,
                                         cosines[:, refl_i]),
-                                  tol=0.0001,
-                                  options={"maxiter": 30000})
+                                  tol=0.000001,
+                                  options={"maxiter": 3000000000000})
 
     minim_result_homogen_all = minimize(AVO_residual,
                                     np.array([vp_init, vs_init, rho_init]),
@@ -1094,19 +1094,19 @@ for n in range(number_of_iterations):
                                                     current_mod.layers[refl_i].get_density()]),
                                           transformed_ampl_homogen,
                                           cosines_homogen),
-                                    tol=0.0001,
-                                    options={"maxiter": 30000})
+                                    tol=0.000001,
+                                    options={"maxiter": 3000000000000})
 
     minim_result_curv = minim_result_curv_all.x
     minim_result_plane = minim_result_plane_all.x
     minim_result_homogen = minim_result_homogen_all.x
 
-    print(AVO_residual(np.array([current_mod.layers[refl_i + 1].get_velocity(0)["vp"],
-                                 current_mod.layers[refl_i + 1].get_velocity(0)["vs"],
-                                 current_mod.layers[refl_i + 1].get_density()]), np.array([current_mod.layers[refl_i].get_velocity(0)["vp"],
-                                                              current_mod.layers[refl_i].get_velocity(0)["vs"],
-                                                              current_mod.layers[refl_i].get_density()]), transformed_ampl_curv, cosines[:, refl_i]))
-    print(minim_result_curv_all.fun)
+    # print(AVO_residual(np.array([current_mod.layers[refl_i + 1].get_velocity(0)["vp"],
+    #                              current_mod.layers[refl_i + 1].get_velocity(0)["vs"],
+    #                              current_mod.layers[refl_i + 1].get_density()]), np.array([current_mod.layers[refl_i].get_velocity(0)["vp"],
+    #                                                           current_mod.layers[refl_i].get_velocity(0)["vs"],
+    #                                                           current_mod.layers[refl_i].get_density()]), transformed_ampl_curv, cosines[:, refl_i]))
+    # print(minim_result_curv_all.fun)
 
     # print("Результат минимизации с корректной поправкой: {}".format(minim_result_curv_all.fun))
     # print("Результат минимизации с некорректной поправкой: {}".format(minim_result_plane_all.fun))
@@ -1549,62 +1549,90 @@ print("\x1b[1;31mNormalized transformed amplitudes have been saved. Now plotting
       " {} seconds\n".format((time.time() - start_time)))
 
 
-# Let's form up 2D sections of the residual functional. For this purpose we shall create special forlder:
-createFolder("{}/Срезы функционала невязки".format(dir_name))
+resid_func_3d = np.zeros((100, 100, 100))
 
-# In addition, we would like to create special folders for inversions with correct and incorrect geometrical spreading:
+trial_vp = np.linspace(current_mod.layers[refl_i + 1].get_velocity(0)["vp"] * 0.5,
+                       current_mod.layers[refl_i + 1].get_velocity(0)["vp"] * 1.5,
+                       resid_func_3d.shape[0])
+trial_vs = np.linspace(current_mod.layers[refl_i + 1].get_velocity(0)["vs"] * 0.5,
+                       current_mod.layers[refl_i + 1].get_velocity(0)["vs"] * 1.5,
+                       resid_func_3d.shape[1])
+trial_rho = np.linspace(current_mod.layers[refl_i + 1].get_density() * 0.5,
+                       current_mod.layers[refl_i + 1].get_density() * 1.5,
+                       resid_func_3d.shape[2])
+
+for i in range(trial_vp.shape[0]):
+    for j in range(trial_vs.shape[0]):
+        for k in range(trial_rho.shape[0]):
+
+            resid_func_3d[i, j, k] = AVO_residual(np.array([trial_vp[i],
+                                                            trial_vs[j],
+                                                            trial_rho[k]]),
+                                                  np.array([current_mod.layers[refl_i].get_velocity(0)["vp"],
+                                                            current_mod.layers[refl_i].get_velocity(0)["vs"],
+                                                            current_mod.layers[refl_i].get_density()]),
+                                                  transformed_ampl_curv,
+                                                  cosines[:, refl_i])
+
+np.save("{}/Функционал невязки".format(dir_name), resid_func_3d)
+
+
+# # Let's form up 2D sections of the residual functional. For this purpose we shall create special forlder:
+# createFolder("{}/Срезы функционала невязки".format(dir_name))
+#
+# # In addition, we would like to create special folders for inversions with correct and incorrect geometrical spreading:
 # createFolder("{}/Срезы функционала невязки/Геометрическое расхождение с учётом кривизн".format(dir_name))
 # createFolder("{}/Срезы функционала невязки/Геометрическое расхождение без учёта кривизн".format(dir_name))
 # createFolder("{}/Срезы функционала невязки/Сферическое расхождение".format(dir_name))
-
-# OK then. Let's plot three curves of PP-reflection coefficient. First, a curve of actual coefficients. Second, curves
-# of coefficients corresponding to the average results of AVO-invesrion.
-
-# Let's construct latter ones:
-# coefficients_curv = np.zeros(rays.shape[0])
-# coefficients_plane = np.zeros(rays.shape[0])
-# coefficients_homogen = np.zeros(rays.shape[0])
 #
-# for i in range(rays.shape[0]):
+# # OK then. Let's plot three curves of PP-reflection coefficient. First, a curve of actual coefficients. Second, curves
+# # of coefficients corresponding to the average results of AVO-invesrion.
 #
-#     coefficients_curv[i] = simple_pp_refl_coeff(current_mod.layers[refl_i].get_velocity(0)["vp"],
-#                                                 current_mod.layers[refl_i].get_velocity(0)["vs"],
-#                                                 current_mod.layers[refl_i].get_density(),
-#                                                 )
+# # Let's construct latter ones:
+# # coefficients_curv = np.zeros(rays.shape[0])
+# # coefficients_plane = np.zeros(rays.shape[0])
+# # coefficients_homogen = np.zeros(rays.shape[0])
+# #
+# # for i in range(rays.shape[0]):
+# #
+# #     coefficients_curv[i] = simple_pp_refl_coeff(current_mod.layers[refl_i].get_velocity(0)["vp"],
+# #                                                 current_mod.layers[refl_i].get_velocity(0)["vs"],
+# #                                                 current_mod.layers[refl_i].get_density(),
+# #                                                 )
+# #
+# #     simple_pp_refl_coeff()
+# #
+# # fig9 = plt.figure()
+# #
+# # plt.plot(rec_line[0 : rays.shape[0]], coefficients[:, refl_i])
 #
-#     simple_pp_refl_coeff()
-#
-# fig9 = plt.figure()
-#
-# plt.plot(rec_line[0 : rays.shape[0]], coefficients[:, refl_i])
-
-# We want to construct 3 + 3 + 3 cross-sections. Then, we need to set up three values of Vp, three values of Vs and
-# three values of rho defining corresponding planes. Central values will be actual ones. Two others will add or subtract
-# 20% of it.
-
-# vp_planes = np.array([current_mod.layers[refl_i + 1].get_velocity(0)["vp"] * 0.8,
-#                       current_mod.layers[refl_i + 1].get_velocity(0)["vp"],
-#                       current_mod.layers[refl_i + 1].get_velocity(0)["vp"] * 1.2])
-#
-# vs_planes = np.array([current_mod.layers[refl_i + 1].get_velocity(0)["vs"] * 0.8,
-#                       current_mod.layers[refl_i + 1].get_velocity(0)["vs"],
-#                       current_mod.layers[refl_i + 1].get_velocity(0)["vs"] * 1.2])
-#
-# rho_planes = np.array([current_mod.layers[refl_i + 1].get_density() * 0.8,
-#                        current_mod.layers[refl_i + 1].get_density(),
-#                        current_mod.layers[refl_i + 1].get_density() * 1.2])
+# # We want to construct 3 + 3 + 3 cross-sections. Then, we need to set up three values of Vp, three values of Vs and
+# # three values of rho defining corresponding planes. Central values will be actual ones. Two others will add or subtract
+# # 20% of it.
 #
 # # vp_planes = np.array([current_mod.layers[refl_i + 1].get_velocity(0)["vp"] * 0.8,
-# #                       minim_result_plane[0],
+# #                       current_mod.layers[refl_i + 1].get_velocity(0)["vp"],
 # #                       current_mod.layers[refl_i + 1].get_velocity(0)["vp"] * 1.2])
 # #
 # # vs_planes = np.array([current_mod.layers[refl_i + 1].get_velocity(0)["vs"] * 0.8,
-# #                       minim_result_plane[1],
+# #                       current_mod.layers[refl_i + 1].get_velocity(0)["vs"],
 # #                       current_mod.layers[refl_i + 1].get_velocity(0)["vs"] * 1.2])
 # #
 # # rho_planes = np.array([current_mod.layers[refl_i + 1].get_density() * 0.8,
-# #                        minim_result_plane[2],
+# #                        current_mod.layers[refl_i + 1].get_density(),
 # #                        current_mod.layers[refl_i + 1].get_density() * 1.2])
+#
+# vp_planes = np.array([current_mod.layers[refl_i + 1].get_velocity(0)["vp"] * 0.8,
+#                       minim_result_curv[0],
+#                       current_mod.layers[refl_i + 1].get_velocity(0)["vp"] * 1.2])
+#
+# vs_planes = np.array([current_mod.layers[refl_i + 1].get_velocity(0)["vs"] * 0.8,
+#                       minim_result_curv[1],
+#                       current_mod.layers[refl_i + 1].get_velocity(0)["vs"] * 1.2])
+#
+# rho_planes = np.array([current_mod.layers[refl_i + 1].get_density() * 0.8,
+#                        minim_result_curv[2],
+#                        current_mod.layers[refl_i + 1].get_density() * 1.2])
 #
 # param_planes = np.array([vp_planes, vs_planes, rho_planes])
 #
@@ -1646,18 +1674,25 @@ createFolder("{}/Срезы функционала невязки".format(dir_na
 #
 #                 arg_param = np.array([first_param[i], sec_param[j], param_planes[n, k]])[pass_ind]
 #
-#                 if arg_param[0] / arg_param[1] >= np.sqrt(2):
+#                 cross_section[i, j] = AVO_residual(arg_param,
+#                                                    np.array([current_mod.layers[refl_i].get_velocity(0)["vp"],
+#                                                              current_mod.layers[refl_i].get_velocity(0)["vs"],
+#                                                              current_mod.layers[refl_i].get_density()]),
+#                                                    curr_spread,
+#                                                    cosines[:, refl_i])
 #
-#                     cross_section[i, j] = AVO_residual(arg_param,
-#                                                        np.array([current_mod.layers[refl_i].get_velocity(0)["vp"],
-#                                                                  current_mod.layers[refl_i].get_velocity(0)["vs"],
-#                                                                  current_mod.layers[refl_i].get_density()]),
-#                                                        curr_spread,
-#                                                        cosines[:, refl_i])
-#
-#                 else:
-#
-#                     cross_section[i, j] = np.nan
+#                 # if arg_param[0] / arg_param[1] >= np.sqrt(2):
+#                 #
+#                 #     cross_section[i, j] = AVO_residual(arg_param,
+#                 #                                        np.array([current_mod.layers[refl_i].get_velocity(0)["vp"],
+#                 #                                                  current_mod.layers[refl_i].get_velocity(0)["vs"],
+#                 #                                                  current_mod.layers[refl_i].get_density()]),
+#                 #                                        curr_spread,
+#                 #                                        cosines[:, refl_i])
+#                 #
+#                 # else:
+#                 #
+#                 #     cross_section[i, j] = np.nan
 #
 #
 #         # And plot it:
