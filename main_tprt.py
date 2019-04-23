@@ -907,9 +907,9 @@ def RMS(gather, rec_time, t_window, t_central):
 
 
 # Initial guess for the minimizer:
-vp_init = current_mod.layers[- 1].get_velocity(0)["vp"] * 0.85#1.15
-vs_init = current_mod.layers[- 1].get_velocity(0)["vs"] * 1.15#0.85
-rho_init = current_mod.layers[- 1].get_density() * 0.85#1.1
+vp_init = current_mod.layers[- 1].get_velocity(0)["vp"] * 1.15
+vs_init = current_mod.layers[- 1].get_velocity(0)["vs"] * 0.85
+rho_init = current_mod.layers[- 1].get_density() * 1.1
 
 
 # We shall need to write and save some data during these procedures. Consequently, it would be convenient to create all
@@ -940,9 +940,9 @@ for i in range(rays.shape[0]):
                        3 * 1.5 * 1 / frequency_dom,
                        travel_time[i])
     noised_ampl[i] = RMS(np.sqrt(gathers_x_inv[i] ** 2 + gathers_z_inv[i] ** 2),
-                      record_time,
-                      3 * 1.5 * 1 / frequency_dom,
-                      travel_time[i])
+                         record_time,
+                         3 * 1.5 * 1 / frequency_dom,
+                         travel_time[i])
 
 av_noise = np.average(av_noise)
 
@@ -1066,40 +1066,68 @@ for n in range(number_of_iterations):
     transformed_ampl_homogen_array[n] = np.real(transformed_ampl_homogen)
 
     # Let's minimize our functionals:
+    # Constraints are:
+
+    def vp_vs_constr(layer_params):
+        # It affirms that vp / vs >= sqrt(2)
+
+        vp = layer_params[0]
+        vs = layer_params[1]
+
+        return vp / vs - np.sqrt(2)
+
+    def positive_vp_constr(layer_params):
+        return layer_params[0]
+    def positive_vs_constr(layer_params):
+        return layer_params[1]
+    def positive_rho_constr(layer_params):
+        return layer_params[2]
+
+    constr1 = {"type" : "ineq", "fun" : vp_vs_constr}
+    constr2 = {"type" : "ineq", "fun" : positive_vp_constr}
+    constr3 = {"type" : "ineq", "fun" : positive_vs_constr}
+    constr4 = {"type" : "ineq", "fun" : positive_rho_constr}
+
+
     # BEFORE 17.03.19 the initial guess was following: vp = 3000, vs = 1500, rho = 2100.
     minim_result_curv_all = minimize(AVO_residual,
-                                 np.array([vp_init, vs_init, rho_init]),
-                                 args = (np.array([current_mod.layers[refl_i].get_velocity(0)["vp"],
-                                                   current_mod.layers[refl_i].get_velocity(0)["vs"],
-                                                   current_mod.layers[refl_i].get_density()]),
-                                         transformed_ampl_curv,
-                                         cosines[:, refl_i]),
-                                 tol = 0.000001,
-                                 options = {"maxiter":3000000000000})
+                                     np.array([vp_init, vs_init, rho_init]),
+                                     args = (np.array([current_mod.layers[refl_i].get_velocity(0)["vp"],
+                                                       current_mod.layers[refl_i].get_velocity(0)["vs"],
+                                                       current_mod.layers[refl_i].get_density()]),
+                                             transformed_ampl_curv,
+                                             cosines[:, refl_i]),
+                                     method="SLSQP",
+                                     constraints = [constr1, constr2, constr3, constr4],
+                                     tol = 0.00000000001)
 
     minim_result_plane_all = minimize(AVO_residual,
-                                  np.array([vp_init, vs_init, rho_init]),
-                                  args=(np.array([current_mod.layers[refl_i].get_velocity(0)["vp"],
-                                                  current_mod.layers[refl_i].get_velocity(0)["vs"],
-                                                  current_mod.layers[refl_i].get_density()]),
-                                        transformed_ampl_plane,
-                                        cosines[:, refl_i]),
-                                  tol=0.000001,
-                                  options={"maxiter": 3000000000000})
+                                      np.array([vp_init, vs_init, rho_init]),
+                                      args=(np.array([current_mod.layers[refl_i].get_velocity(0)["vp"],
+                                                      current_mod.layers[refl_i].get_velocity(0)["vs"],
+                                                      current_mod.layers[refl_i].get_density()]),
+                                            transformed_ampl_plane,
+                                            cosines[:, refl_i]),
+                                      method="SLSQP",
+                                      constraints = [constr1, constr2, constr3, constr4],
+                                      tol = 0.00000000001)
 
     minim_result_homogen_all = minimize(AVO_residual,
-                                    np.array([vp_init, vs_init, rho_init]),
-                                    args=(np.array([current_mod.layers[refl_i].get_velocity(0)["vp"],
-                                                    current_mod.layers[refl_i].get_velocity(0)["vs"],
-                                                    current_mod.layers[refl_i].get_density()]),
-                                          transformed_ampl_homogen,
-                                          cosines_homogen),
-                                    tol=0.000001,
-                                    options={"maxiter": 3000000000000})
+                                        np.array([vp_init, vs_init, rho_init]),
+                                        args=(np.array([current_mod.layers[refl_i].get_velocity(0)["vp"],
+                                                        current_mod.layers[refl_i].get_velocity(0)["vs"],
+                                                        current_mod.layers[refl_i].get_density()]),
+                                              transformed_ampl_homogen,
+                                              cosines_homogen),
+                                        method="SLSQP",
+                                        constraints = [constr1, constr2, constr3, constr4],
+                                        tol = 0.00000000001)
 
     minim_result_curv = minim_result_curv_all.x
     minim_result_plane = minim_result_plane_all.x
     minim_result_homogen = minim_result_homogen_all.x
+
+    print(minim_result_curv_all)
 
     # print(AVO_residual(np.array([current_mod.layers[refl_i + 1].get_velocity(0)["vp"],
     #                              current_mod.layers[refl_i + 1].get_velocity(0)["vs"],
@@ -1548,33 +1576,52 @@ description_file.write("Нормированные трансформирова�
 print("\x1b[1;31mNormalized transformed amplitudes have been saved. Now plotting cross-sections of the residual functional:"
       " {} seconds\n".format((time.time() - start_time)))
 
+coeffff = np.zeros(rays.shape[0])
 
-resid_func_3d = np.zeros((100, 100, 100))
+for i in range(coeffff.shape[0]):
+    coeffff[i] = abs(simple_pp_refl_coeff(current_mod.layers[refl_i].get_velocity(0)["vp"],
+                                      current_mod.layers[refl_i].get_velocity(0)["vs"],
+                                      current_mod.layers[refl_i].get_density(),
+                                      minim_result_curv[0],
+                                      minim_result_curv[1],
+                                      minim_result_curv[2],
+                                      cosines[i, refl_i]))
 
-trial_vp = np.linspace(current_mod.layers[refl_i + 1].get_velocity(0)["vp"] * 0.5,
-                       current_mod.layers[refl_i + 1].get_velocity(0)["vp"] * 1.5,
-                       resid_func_3d.shape[0])
-trial_vs = np.linspace(current_mod.layers[refl_i + 1].get_velocity(0)["vs"] * 0.5,
-                       current_mod.layers[refl_i + 1].get_velocity(0)["vs"] * 1.5,
-                       resid_func_3d.shape[1])
-trial_rho = np.linspace(current_mod.layers[refl_i + 1].get_density() * 0.5,
-                       current_mod.layers[refl_i + 1].get_density() * 1.5,
-                       resid_func_3d.shape[2])
 
-for i in range(trial_vp.shape[0]):
-    for j in range(trial_vs.shape[0]):
-        for k in range(trial_rho.shape[0]):
+plt.figure()
+plt.plot(cosines[:, refl_i], transformed_ampl_curv/transformed_ampl_curv[0], label = "Трансформированные амплитуды")
+plt.plot(cosines[:, refl_i], coeffff/coeffff[0], label = "По результатам инверсии")
+plt.plot(cosines[:, refl_i], coefficients[:, refl_i]/coefficients[0, refl_i], label = "Настоящие")
 
-            resid_func_3d[i, j, k] = AVO_residual(np.array([trial_vp[i],
-                                                            trial_vs[j],
-                                                            trial_rho[k]]),
-                                                  np.array([current_mod.layers[refl_i].get_velocity(0)["vp"],
-                                                            current_mod.layers[refl_i].get_velocity(0)["vs"],
-                                                            current_mod.layers[refl_i].get_density()]),
-                                                  transformed_ampl_curv,
-                                                  cosines[:, refl_i])
+plt.legend()
+plt.show()
 
-np.save("{}/Функционал невязки".format(dir_name), resid_func_3d)
+# resid_func_3d = np.zeros((100, 100, 100))
+#
+# trial_vp = np.linspace(current_mod.layers[refl_i + 1].get_velocity(0)["vp"] * 0.5,
+#                        current_mod.layers[refl_i + 1].get_velocity(0)["vp"] * 1.5,
+#                        resid_func_3d.shape[0])
+# trial_vs = np.linspace(current_mod.layers[refl_i + 1].get_velocity(0)["vs"] * 0.5,
+#                        current_mod.layers[refl_i + 1].get_velocity(0)["vs"] * 1.5,
+#                        resid_func_3d.shape[1])
+# trial_rho = np.linspace(current_mod.layers[refl_i + 1].get_density() * 0.5,
+#                        current_mod.layers[refl_i + 1].get_density() * 1.5,
+#                        resid_func_3d.shape[2])
+#
+# for i in range(trial_vp.shape[0]):
+#     for j in range(trial_vs.shape[0]):
+#         for k in range(trial_rho.shape[0]):
+#
+#             resid_func_3d[i, j, k] = AVO_residual(np.array([trial_vp[i],
+#                                                             trial_vs[j],
+#                                                             trial_rho[k]]),
+#                                                   np.array([current_mod.layers[refl_i].get_velocity(0)["vp"],
+#                                                             current_mod.layers[refl_i].get_velocity(0)["vs"],
+#                                                             current_mod.layers[refl_i].get_density()]),
+#                                                   transformed_ampl_curv,
+#                                                   cosines[:, refl_i])
+#
+# np.save("{}/Функционал невязки".format(dir_name), resid_func_3d)
 
 
 # # Let's form up 2D sections of the residual functional. For this purpose we shall create special forlder:
