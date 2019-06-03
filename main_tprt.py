@@ -43,12 +43,46 @@ def time_window(gather, rec_time, t_window, t_central):
 
         return np.array([])
 
+def BandpassFiltration(time, signal, f1, f2):
+
+    # Let's construct frequency array corresponfing to this time sampling:
+
+    time_spacing = time[1] - time[0]
+
+    frequencies = np.fft.fftfreq(time.shape[0], time_spacing)
+
+    # Let's construct the filter itself in frequency domain:
+
+    bandpass_filter = np.zeros(frequencies.shape[0])
+
+    for i in range(frequencies.shape[0]):
+
+        if f1 <= frequencies[i] <= f2:
+
+            bandpass_filter[i] = 1
+
+        if - f1 >= frequencies[i] >= - f2:
+
+            bandpass_filter[i] = 1
+
+    # Finaly, let's take Fourier transform of the signal and use our filter on it:
+
+    spectrum = np.fft.fft(signal)
+
+    filtered_spectrum = spectrum * bandpass_filter
+
+    # We'd like to return real part of the filtered signal:
+
+    filtered_signal = np.real(np.fft.ifft(filtered_spectrum))
+
+    return(filtered_signal)
+
 start_time = time.time()
 
 # TODO: make class for vel_mod, for now init at least one horizon upper the top receiver
 # TODO: check procedure of "is_ray_intersect_boundary"
 
-model_number = 3
+model_number = 1
 curv_scale = 1
 
 # Later it will be needed to insert the current model's name into titles of plots. In order to do this, let's
@@ -235,7 +269,7 @@ receivers = np.empty(rec_line.shape[0], dtype = Receiver)
 
 # So, let's set Sources and Receivers.
 
-frequency_dom = 39 # dominant frequency of the source
+frequency_dom = 2 * np.pi * 39 # dominant frequency of the source (circular!!!)
 
 for i in range(sou_line.shape[0]):
 
@@ -554,13 +588,38 @@ for i in range(rays.shape[0]):
                                                3 * 1.5 * 1 / frequency_dom,
                                                travel_time[i]))
 
-noise_dispersion = 0.1 * np.max(average_signal)
+noise_dispersion = 0*0.1 * np.max(average_signal)
 
-gathers_x_inv = gathers_x + np.random.randn(gathers_x.shape[0], gathers_x.shape[1]) * noise_dispersion
-gathers_y_inv = gathers_y + np.random.randn(gathers_y.shape[0], gathers_y.shape[1]) * noise_dispersion
-gathers_z_inv = gathers_z + np.random.randn(gathers_z.shape[0], gathers_z.shape[1]) * noise_dispersion
+window_width = 3 * 1.5 * 1 / frequency_dom
 
-# There will be no nedd in saving these arrays. So, we move on!
+# noise_x = BandpassFiltration(record_time,
+#                              np.random.randn(gathers_x.shape[0], gathers_x.shape[1]),
+#                              0,
+#                              20)
+# noise_y = BandpassFiltration(record_time,
+#                              np.random.randn(gathers_y.shape[0], gathers_y.shape[1]),
+#                              0,
+#                              20)
+# noise_z = BandpassFiltration(record_time,
+#                              np.random.randn(gathers_z.shape[0], gathers_z.shape[1]),
+#                              0,
+#                              20)
+
+noise_x = np.random.randn(gathers_x.shape[0], gathers_x.shape[1])
+noise_y = np.random.randn(gathers_y.shape[0], gathers_y.shape[1])
+noise_z = np.random.randn(gathers_z.shape[0], gathers_z.shape[1])
+
+noise_x = noise_x * noise_dispersion
+noise_y = noise_y * noise_dispersion
+noise_z = noise_z * noise_dispersion
+
+gathers_x_inv = BandpassFiltration(record_time, gathers_x + noise_x, 0, 500) # it was 0,... 20
+gathers_y_inv = BandpassFiltration(record_time, gathers_y + noise_y, 0, 500)
+gathers_z_inv = BandpassFiltration(record_time, gathers_z + noise_z, 0, 500) # The best filter for 39 Hz signal is 0,... 95
+
+# print(np.max(abs(coefficients[0:12])))
+
+# There will be no need in saving these arrays. So, we move on!
 
 description_file.write("============================================================ \n\n")
 description_file.write("Файлы с численными данными сохранены."
@@ -708,15 +767,15 @@ for i in range(rays.shape[0]):
 
     plt.fill_between(time_window(record_time,
                                  record_time,
-                                 3 * 1.5 * 1 / frequency_dom,
+                                 window_width,
                                  travel_time[i]),
                      time_window(gathers_x_inv[i, :] / np.max(abs(gathers_z)) / 1.5 + i,
                                  record_time,
-                                 3 * 1.5 * 1 / frequency_dom,
+                                 window_width,
                                  travel_time[i]),
                      np.ones(time_window(record_time,
                                          record_time,
-                                         3 * 1.5 * 1 / frequency_dom,
+                                         window_width,
                                          travel_time[i]).shape) * i,
                      linewidth = 0.3, color = 'g', alpha = 0.5)
 
@@ -744,15 +803,15 @@ for i in range(rays.shape[0]):
 
     plt.fill_between(time_window(record_time,
                                  record_time,
-                                 3 * 1.5 * 1 / frequency_dom,
+                                 window_width,
                                  travel_time[i]),
                      time_window(gathers_y_inv[i, :] / np.max(abs(gathers_z)) / 1.5 + i,
                                  record_time,
-                                 3 * 1.5 * 1 / frequency_dom,
+                                 window_width,
                                  travel_time[i]),
                      np.ones(time_window(record_time,
                                          record_time,
-                                         3 * 1.5 * 1 / frequency_dom,
+                                         window_width,
                                          travel_time[i]).shape) * i,
                      linewidth = 0.3, color = 'r', alpha = 0.5)
 
@@ -781,15 +840,15 @@ for i in range(rays.shape[0]):
 
     plt.fill_between(time_window(record_time,
                                  record_time,
-                                 3 * 1.5 * 1 / frequency_dom,
+                                 window_width,
                                  travel_time[i]),
                      time_window(gathers_z_inv[i, :] / np.max(abs(gathers_z)) / 1.5 + i,
                                  record_time,
-                                 3 * 1.5 * 1 / frequency_dom,
+                                 window_width,
                                  travel_time[i]),
                      np.ones(time_window(record_time,
                                          record_time,
-                                         3 * 1.5 * 1 / frequency_dom,
+                                         window_width,
                                          travel_time[i]).shape) * i,
                      linewidth = 0.3, color = 'g', alpha = 0.5)
 
@@ -807,11 +866,18 @@ print("\x1b[1;31mPlots have been saved. Inversion procedure has been started: {}
 
 # Let's go ahead to the inversion.
 inversion = opxl.Workbook()
+linear_inversion = opxl.Workbook()
 
 # We shall work with noisy data. Since the noise is random, results of the inversion will also be random. In order to
 # obtain more stable results we shall perform several iterations of the inversion algorithms, at each step creating new
 # noisy gathers. Let's set up total number of iterations:
 number_of_iterations = 1
+deg_lin_inv = 15
+
+# Initial guess for the minimizer:
+vp_init = current_mod.layers[- 1].get_velocity(0)["vp"] * 0.85#1.15
+vs_init = current_mod.layers[- 1].get_velocity(0)["vs"] * 0.85
+rho_init = current_mod.layers[- 1].get_density() * 1.1
 
 
 # Let's introduce a simple function which will return PP-reflection coefficient based on elastic properties of the
@@ -854,19 +920,71 @@ def simple_pp_refl_coeff(vp1, vs1, rho1, vp2, vs2, rho2, cos_inc):
 
     return Rp
 
-# cff = np.zeros(50)
-# coss = np.linspace(1,0.4,50)
-#
-# for i in range(50):
-#
-#     cff[i] = simple_pp_refl_coeff(2800, 1400, 2500, 4000, 2000, 2500, coss[i])
-#
-# plt.plot(np.degrees(np.arccos(coss)), cff)
-# plt.show()
+def linear_pp_refl_coeff(vp1, vs1, rho1, vp2, vs2, rho2, cos_inc):
+
+    delta_vp = vp2 - vp1
+    delta_vs = vs2 - vs1
+    delta_rho = rho2 - rho1
+
+    aver_vp = (vp1 + vp2) / 2
+    aver_vs = (vs1 + vs2) / 2
+    aver_rho = (rho1 + rho2) / 2
+
+    return (delta_rho / aver_rho + delta_vp / aver_vp) / 2 +\
+           (1 / 2 * delta_vp / aver_vp -
+            4 * aver_vs**2 / aver_vp**2 * (1 / 2 * delta_rho / aver_rho + delta_vs / aver_vs)) * (1 - cos_inc**2)
 
 
 # Let's define the target functional:
 def AVO_residual(layer_2_params, layer_1_params, real_coeff, real_cosines):
+
+    synt_coeff = np.zeros(real_coeff.shape, dtype = complex)
+
+    for i in range(synt_coeff.shape[0]):
+
+        synt_coeff[i] = simple_pp_refl_coeff(layer_1_params[0], layer_1_params[1], layer_1_params[2],
+                                             layer_2_params[0], layer_2_params[1], layer_2_params[2],
+                                             real_cosines[i])
+
+    # Normalize everything:
+    synt_coeff = synt_coeff / synt_coeff[0]
+
+    return np.linalg.norm(synt_coeff - real_coeff / real_coeff[0])**2
+
+
+def linear_AVO_invesrion(vp1, vs1, rho1, real_coeff, real_cosines):
+
+    A = np.zeros((real_coeff.shape[0], 3))
+
+    for i in range(A.shape[0]):
+
+        A[i, 0] = np.real(1 / 2 + 1/ 2 * (1 - real_cosines[i] ** 2))
+        A[i, 1] = np.real(- 4 * (vs1 / vp1) ** 2 * (1 - real_cosines[i] ** 2))
+        A[i, 2] = np.real(1 / 2 - 2 * (vs1 / vp1) ** 2 * (1 - real_cosines[i] ** 2))
+
+    def routine(k):
+
+        vp2, vs2, rho2 = np.linalg.lstsq(A, real_coeff / k)[0] # actually (vp2 - vp1) / vp1 etc.
+
+        vp2 = vp2 * vp1 + vp1
+        vs2 = vs2 * vs1 + vs1
+        rho2 = rho2 * rho1 + rho1
+
+        return(linear_AVO_residual(np.array([vp2, vs2, rho2]), np.array([vp1, vs1, rho1]), real_coeff, real_cosines))
+
+    k_we_need = minimize(routine,
+                         np.array([0.001]),
+                         tol = 0.0000001).x
+
+    vp2, vs2, rho2 = np.linalg.lstsq(A, real_coeff / k_we_need)[0] # actually (vp2 - vp1) / ((vp1 + vp2) / 2) etc.
+
+    vp2 = (1 + vp2 / 2) / (1 - vp2 / 2) * vp1
+    vs2 = (1 + vs2 / 2) / (1 - vs2 / 2) * vs1
+    rho2 = (1 + rho2 / 2) / (1 - rho2 / 2) * rho1
+    print("new_min = ", linear_AVO_residual(np.array([vp2, vs2, rho2]), np.array([vp1, vs1, rho1]), real_coeff, real_cosines))
+    return vp2, vs2, rho2
+
+def linear_AVO_residual(layer_2_params, layer_1_params, real_coeff, real_cosines):
 
     # vp1 = layer_1_params[0]
     # vs1 = layer_1_params[1]
@@ -880,15 +998,15 @@ def AVO_residual(layer_2_params, layer_1_params, real_coeff, real_cosines):
 
     for i in range(synt_coeff.shape[0]):
 
-        synt_coeff[i] = simple_pp_refl_coeff(layer_1_params[0], layer_1_params[1], layer_1_params[2],
+        synt_coeff[i] = linear_pp_refl_coeff(layer_1_params[0], layer_1_params[1], layer_1_params[2],
                                              layer_2_params[0], layer_2_params[1], layer_2_params[2],
                                              real_cosines[i])
 
     # Normalize everything:
     synt_coeff = synt_coeff / synt_coeff[0]
-    real_coeff = real_coeff / real_coeff[0]
+    # real_coeff = real_coeff / real_coeff[0]
 
-    return np.linalg.norm(synt_coeff - real_coeff)**2
+    return np.linalg.norm(synt_coeff - real_coeff / real_coeff[0])**2
 
 
 # And an auxiliary function:
@@ -904,12 +1022,6 @@ def RMS(gather, rec_time, t_window, t_central):
     else:
 
         return 0
-
-
-# Initial guess for the minimizer:
-vp_init = current_mod.layers[- 1].get_velocity(0)["vp"] * 1.15
-vs_init = current_mod.layers[- 1].get_velocity(0)["vs"] * 0.85
-rho_init = current_mod.layers[- 1].get_density() * 1.1
 
 
 # We shall need to write and save some data during these procedures. Consequently, it would be convenient to create all
@@ -932,17 +1044,17 @@ for i in range(rays.shape[0]):
 
     av_noise[i] = RMS(np.sqrt(gathers_x_inv[i] ** 2 + gathers_z_inv[i] ** 2),
                       record_time,
-                      3 * 1.5 * 1 / frequency_dom,
-                      3 * 1.5 * 1 / frequency_dom) # we assume that there is only noise at the Y component.
-
-    pure_ampl[i] = RMS(np.sqrt(gathers_x[i] ** 2 + gathers_z[i] ** 2),
-                       record_time,
-                       3 * 1.5 * 1 / frequency_dom,
-                       travel_time[i])
-    noised_ampl[i] = RMS(np.sqrt(gathers_x_inv[i] ** 2 + gathers_z_inv[i] ** 2),
-                         record_time,
-                         3 * 1.5 * 1 / frequency_dom,
-                         travel_time[i])
+                      window_width,
+                      window_width) # we assume that there is only noise at the Y component.
+    #
+    # pure_ampl[i] = RMS(np.sqrt(gathers_x[i] ** 2 + gathers_z[i] ** 2),
+    #                    record_time,
+    #                    window_width,
+    #                    travel_time[i])
+    # noised_ampl[i] = RMS(np.sqrt(gathers_x_inv[i] ** 2 + gathers_z_inv[i] ** 2),
+    #                      record_time,
+    #                      window_width,
+    #                      travel_time[i])
 
 av_noise = np.average(av_noise)
 
@@ -962,9 +1074,36 @@ for n in range(number_of_iterations):
 
     # Let's add some random noise to our seismograms:
 
-    gathers_x_inv = gathers_x + np.random.randn(gathers_x.shape[0], gathers_x.shape[1]) * noise_dispersion
-    gathers_y_inv = gathers_y + np.random.randn(gathers_y.shape[0], gathers_y.shape[1]) * noise_dispersion
-    gathers_z_inv = gathers_z + np.random.randn(gathers_z.shape[0], gathers_z.shape[1]) * noise_dispersion
+    # noise_x = BandpassFiltration(record_time,
+    #                              np.random.randn(gathers_x.shape[0], gathers_x.shape[1]),
+    #                              0,
+    #                              20)
+    # noise_y = BandpassFiltration(record_time,
+    #                              np.random.randn(gathers_y.shape[0], gathers_y.shape[1]),
+    #                              0,
+    #                              20)
+    # noise_z = BandpassFiltration(record_time,
+    #                              np.random.randn(gathers_z.shape[0], gathers_z.shape[1]),
+    #                              0,
+    #                              20)
+
+    noise_x = np.random.randn(gathers_x.shape[0], gathers_x.shape[1])
+    noise_y = np.random.randn(gathers_y.shape[0], gathers_y.shape[1])
+    noise_z = np.random.randn(gathers_z.shape[0], gathers_z.shape[1])
+
+    noise_x = noise_x * noise_dispersion
+    noise_y = noise_y * noise_dispersion
+    noise_z = noise_z * noise_dispersion
+
+    gathers_x_inv = BandpassFiltration(record_time, gathers_x + noise_x, 0, 500)
+    gathers_y_inv = BandpassFiltration(record_time, gathers_y + noise_y, 0, 500)
+    gathers_z_inv = BandpassFiltration(record_time, gathers_z + noise_z, 0, 500)
+
+    linear_cosines_number = 0
+    for w in range(cosines_homogen.shape[0]):
+        if cosines[w, refl_i] < np.cos(deg_lin_inv * np.pi / 180):
+            linear_cosines_number = w
+            break
 
     for i in range(rays.shape[0]):
 
@@ -974,18 +1113,18 @@ for n in range(number_of_iterations):
         # Without noise correction:
         # transformed_ampl_curv[i] = RMS(np.sqrt(gathers_x_inv[i] ** 2 + gathers_z_inv[i] ** 2),
         #                                record_time,
-        #                                3 * 1.5 * 1 / frequency_dom,
+        #                                window_width,
         #                                travel_time[i]) # we assume that there is only noise at the Y component.
 
         # With noise correction:
         # transformed_ampl_curv[i] = np.sqrt(RMS(np.sqrt(gathers_x_inv[i] ** 2 + gathers_z_inv[i] ** 2),
         #                                        record_time,
-        #                                        3 * 1.5 * 1 / frequency_dom,
+        #                                        window_width,
         #                                        travel_time[i])**2 - av_noise**2) # we assume that there is only noise at the Y component.
 
         # print(av_noise, RMS(np.sqrt(gathers_x_inv[i] ** 2 + gathers_z_inv[i] ** 2),
         #                                record_time,
-        #                                3 * 1.5 * 1 / frequency_dom,
+        #                                window_width,
         #                                travel_time[i]))
 
         # Pure amplitudes:
@@ -993,7 +1132,7 @@ for n in range(number_of_iterations):
 
         # transformed_ampl_curv[i] = RMS(np.sqrt(gathers_x_inv[i] ** 2 + gathers_y_inv[i] ** 2 + gathers_z_inv[i] ** 2),
         #                                record_time,
-        #                                3 * 1.5 * 1 / frequency_dom,
+        #                                window_width,
         #                                travel_time[i])
 
         transformed_ampl_plane[i] = transformed_ampl_curv[i]
@@ -1068,25 +1207,25 @@ for n in range(number_of_iterations):
     # Let's minimize our functionals:
     # Constraints are:
 
-    def vp_vs_constr(layer_params):
-        # It affirms that vp / vs >= sqrt(2)
-
-        vp = layer_params[0]
-        vs = layer_params[1]
-
-        return vp / vs - np.sqrt(2)
-
-    def positive_vp_constr(layer_params):
-        return layer_params[0]
-    def positive_vs_constr(layer_params):
-        return layer_params[1]
-    def positive_rho_constr(layer_params):
-        return layer_params[2]
-
-    constr1 = {"type" : "ineq", "fun" : vp_vs_constr}
-    constr2 = {"type" : "ineq", "fun" : positive_vp_constr}
-    constr3 = {"type" : "ineq", "fun" : positive_vs_constr}
-    constr4 = {"type" : "ineq", "fun" : positive_rho_constr}
+    # def vp_vs_constr(layer_params):
+    #     # It affirms that vp / vs >= sqrt(2)
+    #
+    #     vp = layer_params[0]
+    #     vs = layer_params[1]
+    #
+    #     return vp / vs - np.sqrt(2)
+    #
+    # def positive_vp_constr(layer_params):
+    #     return layer_params[0]
+    # def positive_vs_constr(layer_params):
+    #     return layer_params[1]
+    # def positive_rho_constr(layer_params):
+    #     return layer_params[2]
+    #
+    # constr1 = {"type" : "ineq", "fun" : vp_vs_constr}
+    # constr2 = {"type" : "ineq", "fun" : positive_vp_constr}
+    # constr3 = {"type" : "ineq", "fun" : positive_vs_constr}
+    # constr4 = {"type" : "ineq", "fun" : positive_rho_constr}
 
 
     # BEFORE 17.03.19 the initial guess was following: vp = 3000, vs = 1500, rho = 2100.
@@ -1097,9 +1236,7 @@ for n in range(number_of_iterations):
                                                        current_mod.layers[refl_i].get_density()]),
                                              transformed_ampl_curv,
                                              cosines[:, refl_i]),
-                                     method="SLSQP",
-                                     constraints = [constr1, constr2, constr3, constr4],
-                                     tol = 0.00000000001)
+                                     tol = 0.0000001)
 
     minim_result_plane_all = minimize(AVO_residual,
                                       np.array([vp_init, vs_init, rho_init]),
@@ -1108,9 +1245,7 @@ for n in range(number_of_iterations):
                                                       current_mod.layers[refl_i].get_density()]),
                                             transformed_ampl_plane,
                                             cosines[:, refl_i]),
-                                      method="SLSQP",
-                                      constraints = [constr1, constr2, constr3, constr4],
-                                      tol = 0.00000000001)
+                                      tol = 0.0000001)
 
     minim_result_homogen_all = minimize(AVO_residual,
                                         np.array([vp_init, vs_init, rho_init]),
@@ -1119,15 +1254,70 @@ for n in range(number_of_iterations):
                                                         current_mod.layers[refl_i].get_density()]),
                                               transformed_ampl_homogen,
                                               cosines_homogen),
-                                        method="SLSQP",
-                                        constraints = [constr1, constr2, constr3, constr4],
-                                        tol = 0.00000000001)
+                                        tol = 0.0000001)
 
     minim_result_curv = minim_result_curv_all.x
     minim_result_plane = minim_result_plane_all.x
     minim_result_homogen = minim_result_homogen_all.x
 
-    print(minim_result_curv_all)
+    linear_minim_result_curv_all = minimize(linear_AVO_residual,
+                                            np.array([vp_init, vs_init, rho_init]),
+                                            args = (np.array([current_mod.layers[refl_i].get_velocity(0)["vp"],
+                                                              current_mod.layers[refl_i].get_velocity(0)["vs"],
+                                                              current_mod.layers[refl_i].get_density()]),
+                                                    transformed_ampl_curv[0:linear_cosines_number],
+                                                    cosines[0:linear_cosines_number, refl_i]),
+                                            tol = 0.0000001)
+
+    linear_minim_result_plane_all = minimize(linear_AVO_residual,
+                                             np.array([vp_init, vs_init, rho_init]),
+                                             args=(np.array([current_mod.layers[refl_i].get_velocity(0)["vp"],
+                                                             current_mod.layers[refl_i].get_velocity(0)["vs"],
+                                                             current_mod.layers[refl_i].get_density()]),
+                                                   transformed_ampl_plane[0:linear_cosines_number],
+                                                   cosines[0:linear_cosines_number, refl_i]),
+                                             tol = 0.0000001)
+
+    linear_minim_result_homogen_all = minimize(linear_AVO_residual,
+                                               np.array([vp_init, vs_init, rho_init]),
+                                               args=(np.array([current_mod.layers[refl_i].get_velocity(0)["vp"],
+                                                               current_mod.layers[refl_i].get_velocity(0)["vs"],
+                                                               current_mod.layers[refl_i].get_density()]),
+                                                     transformed_ampl_homogen[0:len(cosines_homogen[cosines_homogen > np.cos(deg_lin_inv * np.pi / 180)])],
+                                                     cosines_homogen[cosines_homogen > np.cos(deg_lin_inv * np.pi / 180)]),
+                                               tol = 0.0000001)
+
+    # print(len(cosines_homogen[cosines_homogen > np.cos(deg_lin_inv * np.pi / 180)]), linear_cosines_number)
+
+    linear_minim_result_curv = linear_minim_result_curv_all.x
+    linear_minim_result_plane = linear_minim_result_plane_all.x
+    linear_minim_result_homogen = linear_minim_result_homogen_all.x
+
+    # print(linear_AVO_invesrion(current_mod.layers[refl_i].get_velocity(0)["vp"],
+    #                            current_mod.layers[refl_i].get_velocity(0)["vs"],
+    #                            current_mod.layers[refl_i].get_density(),
+    #                            transformed_ampl_curv[0:linear_cosines_number],
+    #                            cosines[0:linear_cosines_number, refl_i]))
+    # print("old min = ", linear_minim_result_curv_all.fun)
+
+    # linear_minim_result_curv = linear_AVO_invesrion(current_mod.layers[refl_i].get_velocity(0)["vp"],
+    #                                                 current_mod.layers[refl_i].get_velocity(0)["vs"],
+    #                                                 current_mod.layers[refl_i].get_density(),
+    #                                                 transformed_ampl_curv[0:linear_cosines_number],
+    #                                                 cosines[0:linear_cosines_number, refl_i])
+    #
+    # linear_minim_result_plane = linear_AVO_invesrion(current_mod.layers[refl_i].get_velocity(0)["vp"],
+    #                                                  current_mod.layers[refl_i].get_velocity(0)["vs"],
+    #                                                  current_mod.layers[refl_i].get_density(),
+    #                                                  transformed_ampl_plane[0:linear_cosines_number],
+    #                                                  cosines[0:linear_cosines_number, refl_i])
+    #
+    # linear_minim_result_homogen = linear_AVO_invesrion(current_mod.layers[refl_i].get_velocity(0)["vp"],
+    #                                                    current_mod.layers[refl_i].get_velocity(0)["vs"],
+    #                                                    current_mod.layers[refl_i].get_density(),
+    #                                                    transformed_ampl_homogen[0:len(cosines_homogen[cosines_homogen > np.cos(20 * np.pi / 180)])],
+    #                                                    cosines_homogen[cosines_homogen > np.cos(20 * np.pi / 180)])
+    # print(minim_result_curv_all)
 
     # print(AVO_residual(np.array([current_mod.layers[refl_i + 1].get_velocity(0)["vp"],
     #                              current_mod.layers[refl_i + 1].get_velocity(0)["vs"],
@@ -1143,8 +1333,13 @@ for n in range(number_of_iterations):
     if n == 0:
         inversion_sheet = inversion.active
         inversion_sheet.title = "Инверсия. Итерация №1"
+
+        linear_inversion_sheet = linear_inversion.active
+        linear_inversion_sheet.title = "Инверсия. Итерация №1"
     else:
         inversion_sheet = inversion.create_sheet("Инверсия. Итерация №{}".format(n + 1))
+
+        linear_inversion_sheet = linear_inversion.create_sheet("Инверсия. Итерация №{}".format(n + 1))
 
 
     inversion_sheet.cell(row = 1, column = 1).value = "Данные AVO-инверсии"
@@ -1246,6 +1441,111 @@ for n in range(number_of_iterations):
                                                                  current_mod.layers[refl_i + 1].get_density()) /
                                                              current_mod.layers[refl_i + 1].get_density() * 100)
     inversion_sheet.cell(row = 15, column = 4).value = float(abs(minim_result_homogen[2] -
+                                                                 current_mod.layers[refl_i + 1].get_density()) /
+                                                             current_mod.layers[refl_i + 1].get_density() * 100)
+
+
+
+
+    linear_inversion_sheet.cell(row = 1, column = 1).value = "Данные линейной AVO-инверсии"
+    linear_inversion_sheet.cell(row = 3, column = 1).value = "Восстанавливаются характеристики слоя №{}".format(refl_i + 2)
+    linear_inversion_sheet.cell(row = 4, column = 1).value = "В сейсмограммы независимо внесены погрешности 10% от cреднего" \
+                                                      " значения амплитуд в импульсе"
+    linear_inversion_sheet.cell(row = 5, column = 1).value = "Значения параметров"
+    linear_inversion_sheet.cell(row = 6, column = 2).value = "Модель"
+    linear_inversion_sheet.cell(row = 6, column = 3).value = "Начальное приближение"
+    linear_inversion_sheet.cell(row = 6, column = 4).value = "Инверсия c корректно учтённым геометрическим расхождением"
+    if 1 < model_number < 5:
+        if transmission_curv == False:
+            if reflection_curv == False:
+                linear_inversion_sheet.cell(row = 6, column = 5).value = "Инверсия c геометрическим расхождением без учёта " \
+                                                                  "кривизны границ"
+            else:
+                linear_inversion_sheet.cell(row = 6, column = 5).value = "Инверсия c геометрическим расхождением без учёта " \
+                                                                  "кривизны преломляющих границ"
+        else:
+            linear_inversion_sheet.cell(row = 6, column = 5).value = "Инверсия c геометрическим расхождением без учёта " \
+                                                              "кривизны отражающей границы"
+    else:
+        if reflection_curv == False:
+            linear_inversion_sheet.cell(row = 6, column = 5).value = "Инверсия c геометрическим расхождением без учёта " \
+                                                              "кривизны отражающей границы"
+    linear_inversion_sheet.cell(row = 6, column = 6).value = "Инверсия c геометрическим расхождением без учёта преломляющих " \
+                                                      "границ и кривизны в точке отражения"
+
+    linear_inversion_sheet.cell(row = 7, column = 1).value = "Vp, м/с"
+    linear_inversion_sheet.cell(row = 8, column = 1).value = "Vs, м/с"
+    linear_inversion_sheet.cell(row = 9, column = 1).value = "Dens, кг/м^3"
+
+    linear_inversion_sheet.cell(row = 7, column = 2).value = float(current_mod.layers[refl_i + 1].get_velocity(0)['vp'])
+    linear_inversion_sheet.cell(row = 7, column = 3).value = float(vp_init)
+    linear_inversion_sheet.cell(row = 7, column = 4).value = float(linear_minim_result_curv[0])
+    linear_inversion_sheet.cell(row = 7, column = 5).value = float(linear_minim_result_plane[0])
+    linear_inversion_sheet.cell(row = 7, column = 6).value = float(linear_minim_result_homogen[0])
+
+    linear_inversion_sheet.cell(row = 8, column = 2).value = float(current_mod.layers[refl_i + 1].get_velocity(0)['vs'])
+    linear_inversion_sheet.cell(row = 8, column = 3).value = float(vs_init)
+    linear_inversion_sheet.cell(row = 8, column = 4).value = float(linear_minim_result_curv[1])
+    linear_inversion_sheet.cell(row = 8, column = 5).value = float(linear_minim_result_plane[1])
+    linear_inversion_sheet.cell(row = 8, column = 6).value = float(linear_minim_result_homogen[1])
+
+    linear_inversion_sheet.cell(row = 9, column = 2).value = float(current_mod.layers[refl_i + 1].get_density())
+    linear_inversion_sheet.cell(row = 9, column = 3).value = float(rho_init)
+    linear_inversion_sheet.cell(row = 9, column = 4).value = float(linear_minim_result_curv[2])
+    linear_inversion_sheet.cell(row = 9, column = 5).value = float(linear_minim_result_plane[2])
+    linear_inversion_sheet.cell(row = 9, column = 6).value = float(linear_minim_result_homogen[2])
+
+    linear_inversion_sheet.cell(row = 11, column = 1).value = "Относительная погрешность в процентах"
+    linear_inversion_sheet.cell(row = 12, column = 2).value = "Инверсия c корректно учтённым геометрическим расхождением"
+    if 1 < model_number < 5:
+        if transmission_curv == False:
+            if reflection_curv == False:
+                linear_inversion_sheet.cell(row = 12, column = 3).value = "Инверсия c геометрическим расхождением без учёта " \
+                                                                   "кривизны границ"
+            else:
+                linear_inversion_sheet.cell(row = 12, column = 3).value = "Инверсия c геометрическим расхождением без учёта " \
+                                                                   "кривизны преломляющих границ"
+        else:
+            linear_inversion_sheet.cell(row = 12, column = 3).value = "Инверсия c геометрическим расхождением без учёта " \
+                                                               "кривизны отражающей границы"
+    else:
+        if reflection_curv == False:
+            linear_inversion_sheet.cell(row = 12, column = 3).value = "Инверсия c геометрическим расхождением без учёта " \
+                                                               "кривизны отражающей границы"
+    linear_inversion_sheet.cell(row = 12, column = 4).value = "Инверсия c геометрическим расхождением без учёта преломляющих " \
+                                                       "границ и кривизны в точке отражения"
+
+    linear_inversion_sheet.cell(row = 13, column = 1).value = "delta Vp, %"
+    linear_inversion_sheet.cell(row = 14, column = 1).value = "delta Vs, %"
+    linear_inversion_sheet.cell(row = 15, column = 1).value = "delta Dens, %"
+
+    linear_inversion_sheet.cell(row = 13, column = 2).value = float(abs(linear_minim_result_curv[0] -
+                                                                 current_mod.layers[refl_i + 1].get_velocity(0)['vp']) /
+                                                             current_mod.layers[refl_i + 1].get_velocity(0)['vp'] * 100)
+    linear_inversion_sheet.cell(row = 13, column = 3).value = float(abs(linear_minim_result_plane[0] -
+                                                                 current_mod.layers[refl_i + 1].get_velocity(0)['vp']) /
+                                                             current_mod.layers[refl_i + 1].get_velocity(0)['vp'] * 100)
+    linear_inversion_sheet.cell(row = 13, column = 4).value = float(abs(linear_minim_result_homogen[0] -
+                                                                 current_mod.layers[refl_i + 1].get_velocity(0)['vp']) /
+                                                             current_mod.layers[refl_i + 1].get_velocity(0)['vp'] * 100)
+
+    linear_inversion_sheet.cell(row = 14, column = 2).value = float(abs(linear_minim_result_curv[1] -
+                                                                 current_mod.layers[refl_i + 1].get_velocity(0)['vs']) /
+                                                             current_mod.layers[refl_i + 1].get_velocity(0)['vs'] * 100)
+    linear_inversion_sheet.cell(row = 14, column = 3).value = float(abs(linear_minim_result_plane[1] -
+                                                                 current_mod.layers[refl_i + 1].get_velocity(0)['vs']) /
+                                                             current_mod.layers[refl_i + 1].get_velocity(0)['vs'] * 100)
+    linear_inversion_sheet.cell(row = 14, column = 4).value = float(abs(linear_minim_result_homogen[1] -
+                                                                 current_mod.layers[refl_i + 1].get_velocity(0)['vs']) /
+                                                             current_mod.layers[refl_i + 1].get_velocity(0)['vs'] * 100)
+
+    linear_inversion_sheet.cell(row = 15, column = 2).value = float(abs(linear_minim_result_curv[2] -
+                                                                 current_mod.layers[refl_i + 1].get_density()) /
+                                                             current_mod.layers[refl_i + 1].get_density() * 100)
+    linear_inversion_sheet.cell(row = 15, column = 3).value = float(abs(linear_minim_result_plane[2] -
+                                                                 current_mod.layers[refl_i + 1].get_density()) /
+                                                             current_mod.layers[refl_i + 1].get_density() * 100)
+    linear_inversion_sheet.cell(row = 15, column = 4).value = float(abs(linear_minim_result_homogen[2] -
                                                                  current_mod.layers[refl_i + 1].get_density()) /
                                                              current_mod.layers[refl_i + 1].get_density() * 100)
 
@@ -1374,6 +1674,133 @@ inversion_sheet.cell(row = 15, column = 4).value = float(abs(averageDens[2] -
                                                              current_mod.layers[refl_i + 1].get_density()) /
                                                          current_mod.layers[refl_i + 1].get_density() * 100)
 
+
+
+
+linear_inversion_sheet = linear_inversion.create_sheet("Инверсия. Среднее")
+
+linear_inversion_sheet.cell(row = 1, column = 1).value = "Усреднение данных линейной AVO-инверсии"
+linear_inversion_sheet.cell(row = 3, column = 1).value = "Восстанавливаются характеристики слоя №{}".format(refl_i + 2)
+linear_inversion_sheet.cell(row = 4, column = 1).value = "В сейсмограммы независимо внесены погрешности 10% от cреднего" \
+                                                  " значения амплитуд в импульсе"
+linear_inversion_sheet.cell(row = 5, column = 1).value = "Значения параметров"
+linear_inversion_sheet.cell(row = 6, column = 2).value = "Модель"
+linear_inversion_sheet.cell(row = 6, column = 3).value = "Начальное приближение"
+linear_inversion_sheet.cell(row = 6, column = 4).value = "Инверсия c корректно учтённым геометрическим расхождением"
+if 1 < model_number < 5:
+    if transmission_curv == False:
+        if reflection_curv == False:
+            linear_inversion_sheet.cell(row = 6, column = 5).value = "Инверсия c геометрическим расхождением без учёта " \
+                                                              "кривизны границ"
+        else:
+            linear_inversion_sheet.cell(row = 6, column = 5).value = "Инверсия c геометрическим расхождением без учёта " \
+                                                              "кривизны преломляющих границ"
+    else:
+        linear_inversion_sheet.cell(row = 6, column = 5).value = "Инверсия c геометрическим расхождением без учёта " \
+                                                          "кривизны отражающей границы"
+else:
+    if reflection_curv == False:
+        linear_inversion_sheet.cell(row = 6, column = 5).value = "Инверсия c геометрическим расхождением без учёта " \
+                                                          "кривизны отражающей границы"
+linear_inversion_sheet.cell(row = 6, column = 6).value = "Инверсия c геометрическим расхождением без учёта преломляющих " \
+                                                  "границ и кривизны в точке отражения"
+
+linear_inversion_sheet.cell(row = 7, column = 1).value = "Vp, м/с"
+linear_inversion_sheet.cell(row = 8, column = 1).value = "Vs, м/с"
+linear_inversion_sheet.cell(row = 9, column = 1).value = "Dens, кг/м^3"
+
+linear_inversion_sheet.cell(row = 7, column = 2).value = float(current_mod.layers[refl_i + 1].get_velocity(0)['vp'])
+linear_inversion_sheet.cell(row = 7, column = 3).value = float(vp_init)
+linear_inversion_sheet.cell(row = 8, column = 2).value = float(current_mod.layers[refl_i + 1].get_velocity(0)['vs'])
+linear_inversion_sheet.cell(row = 8, column = 3).value = float(vs_init)
+linear_inversion_sheet.cell(row = 9, column = 2).value = float(current_mod.layers[refl_i + 1].get_density())
+linear_inversion_sheet.cell(row = 9, column = 3).value = float(rho_init)
+
+averageVp = np.zeros(3)
+averageVs = np.zeros(3)
+averageDens = np.zeros(3)
+
+for i in range(number_of_iterations):
+
+    # sheet = linear_inversion["Инверсия. Итерация №1".format(i + 1)]
+    # sheet = linear_inversion[linear_inversion_sheet.title]
+
+    averageVp = averageVp + np.array([sheet["D7"].value, sheet["E7"].value, sheet["F7"].value])
+    averageVs = averageVs + np.array([sheet["D8"].value, sheet["E8"].value, sheet["F8"].value])
+    averageDens = averageDens + np.array([sheet["D9"].value, sheet["E9"].value, sheet["F9"].value])
+
+averageVp = averageVp / number_of_iterations
+averageVs = averageVs / number_of_iterations
+averageDens = averageDens / number_of_iterations
+
+linear_inversion_sheet.cell(row = 7, column = 4).value = averageVp[0]
+linear_inversion_sheet.cell(row = 8, column = 4).value = averageVs[0]
+linear_inversion_sheet.cell(row = 9, column = 4).value = averageDens[0]
+
+
+linear_inversion_sheet.cell(row = 7, column = 5).value = averageVp[1]
+linear_inversion_sheet.cell(row = 8, column = 5).value = averageVs[1]
+linear_inversion_sheet.cell(row = 9, column = 5).value = averageDens[1]
+
+
+linear_inversion_sheet.cell(row = 7, column = 6).value = averageVp[2]
+linear_inversion_sheet.cell(row = 8, column = 6).value = averageVs[2]
+linear_inversion_sheet.cell(row = 9, column = 6).value = averageDens[2]
+
+linear_inversion_sheet.cell(row = 11, column = 1).value = "Относительная погрешность в процентах"
+linear_inversion_sheet.cell(row = 12, column = 2).value = "Инверсия c корректно учтённым геометрическим расхождением"
+if 1 < model_number < 5:
+    if transmission_curv == False:
+        if reflection_curv == False:
+            linear_inversion_sheet.cell(row = 12, column = 3).value = "Инверсия c геометрическим расхождением без учёта " \
+                                                               "кривизны границ"
+        else:
+            linear_inversion_sheet.cell(row = 12, column = 3).value = "Инверсия c геометрическим расхождением без учёта " \
+                                                               "кривизны преломляющих границ"
+    else:
+        linear_inversion_sheet.cell(row = 12, column = 3).value = "Инверсия c геометрическим расхождением без учёта " \
+                                                           "кривизны отражающей границы"
+else:
+    if reflection_curv == False:
+        linear_inversion_sheet.cell(row = 12, column = 3).value = "Инверсия c геометрическим расхождением без учёта " \
+                                                           "кривизны отражающей границы"
+linear_inversion_sheet.cell(row = 12, column = 4).value = "Инверсия c геометрическим расхождением без учёта преломляющих " \
+                                                   "границ и кривизны в точке отражения"
+
+linear_inversion_sheet.cell(row = 13, column = 1).value = "delta Vp, %"
+linear_inversion_sheet.cell(row = 14, column = 1).value = "delta Vs, %"
+linear_inversion_sheet.cell(row = 15, column = 1).value = "delta Dens, %"
+
+linear_inversion_sheet.cell(row = 13, column = 2).value = float(abs(averageVp[0] -
+                                                             current_mod.layers[refl_i + 1].get_velocity(0)['vp']) /
+                                                         current_mod.layers[refl_i + 1].get_velocity(0)['vp'] * 100)
+linear_inversion_sheet.cell(row = 13, column = 3).value = float(abs(averageVp[1] -
+                                                             current_mod.layers[refl_i + 1].get_velocity(0)['vp']) /
+                                                         current_mod.layers[refl_i + 1].get_velocity(0)['vp'] * 100)
+linear_inversion_sheet.cell(row = 13, column = 4).value = float(abs(averageVp[2] -
+                                                             current_mod.layers[refl_i + 1].get_velocity(0)['vp']) /
+                                                         current_mod.layers[refl_i + 1].get_velocity(0)['vp'] * 100)
+
+linear_inversion_sheet.cell(row = 14, column = 2).value = float(abs(averageVs[0] -
+                                                             current_mod.layers[refl_i + 1].get_velocity(0)['vs']) /
+                                                         current_mod.layers[refl_i + 1].get_velocity(0)['vs'] * 100)
+linear_inversion_sheet.cell(row = 14, column = 3).value = float(abs(averageVs[1] -
+                                                             current_mod.layers[refl_i + 1].get_velocity(0)['vs']) /
+                                                         current_mod.layers[refl_i + 1].get_velocity(0)['vs'] * 100)
+linear_inversion_sheet.cell(row = 14, column = 4).value = float(abs(averageVs[2] -
+                                                             current_mod.layers[refl_i + 1].get_velocity(0)['vs']) /
+                                                         current_mod.layers[refl_i + 1].get_velocity(0)['vs'] * 100)
+
+linear_inversion_sheet.cell(row = 15, column = 2).value = float(abs(averageDens[0] -
+                                                             current_mod.layers[refl_i + 1].get_density()) /
+                                                         current_mod.layers[refl_i + 1].get_density() * 100)
+linear_inversion_sheet.cell(row = 15, column = 3).value = float(abs(averageDens[1] -
+                                                             current_mod.layers[refl_i + 1].get_density()) /
+                                                         current_mod.layers[refl_i + 1].get_density() * 100)
+linear_inversion_sheet.cell(row = 15, column = 4).value = float(abs(averageDens[2] -
+                                                             current_mod.layers[refl_i + 1].get_density()) /
+                                                         current_mod.layers[refl_i + 1].get_density() * 100)
+
 description_file.write("Инверсия завершена. Переход к сохранению "
                        "трансформированных амплитуд: {} секунд\n\n".format((time.time() - start_time)))
 print("\x1b[1;31mThe inversion has been finished. Now saving"
@@ -1382,6 +1809,9 @@ print("\x1b[1;31mThe inversion has been finished. Now saving"
 # And finally, let's close the inversion file:
 inversion.save("{}/Данные инверсии.xlsx".format(dir_name))
 inversion.close()
+
+linear_inversion.save("{}/Данные линейной инверсии.xlsx".format(dir_name))
+linear_inversion.close()
 
 
 # Time has come to write into .xlsx files all transformed amplitudes.
@@ -1576,22 +2006,44 @@ description_file.write("Нормированные трансформирова�
 print("\x1b[1;31mNormalized transformed amplitudes have been saved. Now plotting cross-sections of the residual functional:"
       " {} seconds\n".format((time.time() - start_time)))
 
-coeffff = np.zeros(rays.shape[0])
+coeffff = np.zeros(linear_cosines_number)
+coeffff_homogen = np.zeros(len(cosines_homogen[cosines_homogen > np.cos(deg_lin_inv * np.pi / 180)]))
 
 for i in range(coeffff.shape[0]):
-    coeffff[i] = abs(simple_pp_refl_coeff(current_mod.layers[refl_i].get_velocity(0)["vp"],
-                                      current_mod.layers[refl_i].get_velocity(0)["vs"],
-                                      current_mod.layers[refl_i].get_density(),
-                                      minim_result_curv[0],
-                                      minim_result_curv[1],
-                                      minim_result_curv[2],
-                                      cosines[i, refl_i]))
+    coeffff[i] = abs(linear_pp_refl_coeff(current_mod.layers[refl_i].get_velocity(0)["vp"],
+                                          current_mod.layers[refl_i].get_velocity(0)["vs"],
+                                          current_mod.layers[refl_i].get_density(),
+                                          linear_minim_result_curv[0],
+                                          linear_minim_result_curv[1],
+                                          linear_minim_result_curv[2],
+                                          cosines[i, refl_i]))
+    # coeffff[i] = abs(linear_pp_refl_coeff(current_mod.layers[refl_i].get_velocity(0)["vp"],
+    #                                       current_mod.layers[refl_i].get_velocity(0)["vs"],
+    #                                       current_mod.layers[refl_i].get_density(),
+    #                                       2800,
+    #                                       1600,
+    #                                       2100,
+    #                                       cosines[i, refl_i]))
+for i in range(coeffff_homogen.shape[0]):
+    coeffff_homogen[i] = abs(linear_pp_refl_coeff(current_mod.layers[refl_i].get_velocity(0)["vp"],
+                                          current_mod.layers[refl_i].get_velocity(0)["vs"],
+                                          current_mod.layers[refl_i].get_density(),
+                                          linear_minim_result_homogen[0],
+                                          linear_minim_result_homogen[1],
+                                          linear_minim_result_homogen[2],
+                                          cosines[i, refl_i]))
+coss = cosines[0:linear_cosines_number, refl_i]
+coss_homogen = cosines[0:coeffff_homogen.shape[0], refl_i]
 
+angles = np.degrees(np.arccos(np.real(coss)))
+angles_homogen = np.degrees(np.arccos(np.real(coss_homogen)))
 
 plt.figure()
-plt.plot(cosines[:, refl_i], transformed_ampl_curv/transformed_ampl_curv[0], label = "Трансформированные амплитуды")
-plt.plot(cosines[:, refl_i], coeffff/coeffff[0], label = "По результатам инверсии")
-plt.plot(cosines[:, refl_i], coefficients[:, refl_i]/coefficients[0, refl_i], label = "Настоящие")
+# plt.plot(angles, transformed_ampl_curv[0:linear_cosines_number]/transformed_ampl_curv[0], label = "Трансформированные амплитуды")
+# plt.plot(angles_homogen, transformed_ampl_homogen[0:coeffff_homogen.shape[0]]/transformed_ampl_homogen[0], label = "Трансформированные амплитуды (сферич. р-е)")
+plt.plot(angles, coeffff/coeffff[0], label = "По результатам инверсии")
+# plt.plot(angles_homogen, coeffff_homogen/coeffff_homogen[0], label = "По результатам инверсии (сферич. р-е)")
+plt.plot(angles, coefficients[0:linear_cosines_number, refl_i]/coefficients[0, refl_i], label = "Настоящие")
 
 plt.legend()
 plt.show()
