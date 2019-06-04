@@ -88,7 +88,7 @@ curv_scale = 1
 # Later it will be needed to insert the current model's name into titles of plots. In order to do this, let's
 # define a dictionary:
 
-number_string = {1:'1', 2:'2a', 3:'2b', 4:'2c', 5:'3'}
+number_string = {1: '1', 2: '2a', 3: '2b', 4: '2c', 5: '3'}
 
 # We'll calculate the geometrical spreading in several assumptions. For example, we can not consider curvature at
 # reflection point, or vice versa, consider the curvature only at this point. So:
@@ -98,6 +98,10 @@ reflection_curv = False
 
 if transmission_curv == True and reflection_curv == True:
     reflection_curv == False
+
+
+# !!!   FORWARD PROBLEM   !!!
+
 
 # Let's define the interfaces.
 
@@ -258,8 +262,8 @@ else:
     num_segments = 2 # number of segments
 
 # Let's construct the observation system:
-sou_line = np.arange(- 1300, 25, 25) # source line starting from - 1300 and ending at 0 with step 100
-rec_line = np.linspace(0, 1300, sou_line.shape[0]) # source line starting from 0 and ending at 1300 with step 100
+sou_line = np.arange(- 1300, 25, 25)  # source line starting from - 1300 and ending at 0 with step 100
+rec_line = np.linspace(0, 1300, sou_line.shape[0])  # source line starting from 0 and ending at 1300 with step 100
 
 # Let's initiate all arrays:
 
@@ -269,7 +273,7 @@ receivers = np.empty(rec_line.shape[0], dtype = Receiver)
 
 # So, let's set Sources and Receivers.
 
-frequency_dom = 2 * np.pi * 39 # dominant frequency of the source (circular!!!)
+frequency_dom = 39  # dominant frequency of the source (in Hz)
 
 for i in range(sou_line.shape[0]):
 
@@ -279,7 +283,7 @@ for i in range(sou_line.shape[0]):
                                                                               [0, 0, - 1]]))
 
 # And initiate rays themselves:
-rays = np.empty(sou_line.shape[0], dtype = Ray)
+rays = np.empty(sou_line.shape[0], dtype=Ray)
 
 # Geometrical spreading along all rays:
 geom_spread_curv = np.zeros(rays.shape)
@@ -290,17 +294,17 @@ geom_spread_plane_inv = np.zeros(rays.shape)
 
 geom_spread_homogen = np.zeros(rays.shape)
 
-# Arrays for reflection / transmission coefficents and for cosines of incidence:
+# Arrays for reflection / transmission coefficients and for cosines of incidence:
 
-coefficients = np.zeros((rec_line.shape[0], num_segments - 1), dtype = complex)
-cosines = np.zeros((rec_line.shape[0], num_segments - 1), dtype = complex)
+coefficients = np.zeros((rec_line.shape[0], num_segments - 1), dtype=complex)
+cosines = np.zeros((rec_line.shape[0], num_segments - 1), dtype=complex)
 
 # Arrays for transformed amplidudes:
 
-transformed_ampl_curv = np.zeros(rec_line.shape[0], dtype = complex)
-transformed_ampl_plane = np.zeros(rec_line.shape[0], dtype = complex)
+transformed_ampl_curv = np.zeros(rec_line.shape[0], dtype=complex)
+transformed_ampl_plane = np.zeros(rec_line.shape[0], dtype=complex)
 
-transformed_ampl_homogen = np.zeros(rec_line.shape[0], dtype = complex)
+transformed_ampl_homogen = np.zeros(rec_line.shape[0], dtype=complex)
 
 # Travel time of waves from sources to the surface receivers
 travel_time = np.zeros(rays.shape)
@@ -456,11 +460,6 @@ for i in range(sources.shape[0]):
 
 print("------------------------------------")
 
-# print("main curvatures =",current_mod.horizons[0].get_sec_deriv(rays[-1].segments[-2].receiver[0:2],rays[-1].segments[-2].vector)[0:3])
-# print("point of incidence =",rays[-1].segments[-2].receiver)
-# print("point of reflection =",rays[-1].segments[-2].source)
-# print("main curvatures at the refl. point =",current_mod.horizons[-1].get_sec_deriv(rays[-1].segments[-2].source[0:2],rays[-1].segments[-3].vector)[0:3])
-
 # Files filling:
 
 # It will be convenient to create .xlsx files where we shall write values of the
@@ -585,25 +584,12 @@ for i in range(rays.shape[0]):
                                                        + gathers_y[i] ** 2
                                                        + gathers_z[i] ** 2),
                                                record_time,
-                                               3 * 1.5 * 1 / frequency_dom,
+                                               3 * 1.5 * 1 / frequency_dom / 2 / np.pi,
                                                travel_time[i]))
 
-noise_dispersion = 0*0.1 * np.max(average_signal)
+noise_dispersion = 0.1 * np.max(average_signal)
 
-window_width = 3 * 1.5 * 1 / frequency_dom
-
-# noise_x = BandpassFiltration(record_time,
-#                              np.random.randn(gathers_x.shape[0], gathers_x.shape[1]),
-#                              0,
-#                              20)
-# noise_y = BandpassFiltration(record_time,
-#                              np.random.randn(gathers_y.shape[0], gathers_y.shape[1]),
-#                              0,
-#                              20)
-# noise_z = BandpassFiltration(record_time,
-#                              np.random.randn(gathers_z.shape[0], gathers_z.shape[1]),
-#                              0,
-#                              20)
+window_width = 3 * 1.5 * 1 / frequency_dom / 2 / np.pi
 
 noise_x = np.random.randn(gathers_x.shape[0], gathers_x.shape[1])
 noise_y = np.random.randn(gathers_y.shape[0], gathers_y.shape[1])
@@ -617,7 +603,6 @@ gathers_x_inv = BandpassFiltration(record_time, gathers_x + noise_x, 0, 500) # i
 gathers_y_inv = BandpassFiltration(record_time, gathers_y + noise_y, 0, 500)
 gathers_z_inv = BandpassFiltration(record_time, gathers_z + noise_z, 0, 500) # The best filter for 39 Hz signal is 0,... 95
 
-# print(np.max(abs(coefficients[0:12])))
 
 # There will be no need in saving these arrays. So, we move on!
 
@@ -871,7 +856,7 @@ linear_inversion = opxl.Workbook()
 # We shall work with noisy data. Since the noise is random, results of the inversion will also be random. In order to
 # obtain more stable results we shall perform several iterations of the inversion algorithms, at each step creating new
 # noisy gathers. Let's set up total number of iterations:
-number_of_iterations = 1
+number_of_iterations = 50
 deg_lin_inv = 15
 
 # Initial guess for the minimizer:
@@ -1035,9 +1020,6 @@ transformed_ampl_curv_array = np.zeros((number_of_iterations, rays.shape[0]))
 transformed_ampl_plane_array = np.zeros((number_of_iterations, rays.shape[0]))
 transformed_ampl_homogen_array = np.zeros((number_of_iterations, rays.shape[0]))
 
-pure_ampl = np.zeros(rays.shape[0])
-noised_ampl = np.zeros(rays.shape[0])
-
 av_noise = np.zeros(rays.shape[0])
 
 for i in range(rays.shape[0]):
@@ -1046,46 +1028,13 @@ for i in range(rays.shape[0]):
                       record_time,
                       window_width,
                       window_width) # we assume that there is only noise at the Y component.
-    #
-    # pure_ampl[i] = RMS(np.sqrt(gathers_x[i] ** 2 + gathers_z[i] ** 2),
-    #                    record_time,
-    #                    window_width,
-    #                    travel_time[i])
-    # noised_ampl[i] = RMS(np.sqrt(gathers_x_inv[i] ** 2 + gathers_z_inv[i] ** 2),
-    #                      record_time,
-    #                      window_width,
-    #                      travel_time[i])
 
 av_noise = np.average(av_noise)
-
-# plt.figure()
-
-#
-# plt.plot(rec_line[0 : pure_ampl.shape[0]], pure_ampl, "k-", label = "Незашумлённые данные")
-# plt.plot(rec_line[0 : noised_ampl.shape[0]], noised_ampl, "r-", label = "Зашумлённые данные")
-# plt.plot(rec_line[0 : noised_ampl.shape[0]], np.sqrt(noised_ampl**2 - av_noise**2), "r--", label = "Зашумлённые данные с поправкой")
-#
-# plt.legend()
-#
-# plt.show()
 
 # Let's get started!
 for n in range(number_of_iterations):
 
     # Let's add some random noise to our seismograms:
-
-    # noise_x = BandpassFiltration(record_time,
-    #                              np.random.randn(gathers_x.shape[0], gathers_x.shape[1]),
-    #                              0,
-    #                              20)
-    # noise_y = BandpassFiltration(record_time,
-    #                              np.random.randn(gathers_y.shape[0], gathers_y.shape[1]),
-    #                              0,
-    #                              20)
-    # noise_z = BandpassFiltration(record_time,
-    #                              np.random.randn(gathers_z.shape[0], gathers_z.shape[1]),
-    #                              0,
-    #                              20)
 
     noise_x = np.random.randn(gathers_x.shape[0], gathers_x.shape[1])
     noise_y = np.random.randn(gathers_y.shape[0], gathers_y.shape[1])
@@ -1117,10 +1066,10 @@ for n in range(number_of_iterations):
         #                                travel_time[i]) # we assume that there is only noise at the Y component.
 
         # With noise correction:
-        # transformed_ampl_curv[i] = np.sqrt(RMS(np.sqrt(gathers_x_inv[i] ** 2 + gathers_z_inv[i] ** 2),
-        #                                        record_time,
-        #                                        window_width,
-        #                                        travel_time[i])**2 - av_noise**2) # we assume that there is only noise at the Y component.
+        transformed_ampl_curv[i] = np.sqrt(RMS(np.sqrt(gathers_x_inv[i] ** 2 + gathers_z_inv[i] ** 2),
+                                               record_time,
+                                               window_width,
+                                               travel_time[i])**2 - av_noise**2) # we assume that there is only noise at the Y component.
 
         # print(av_noise, RMS(np.sqrt(gathers_x_inv[i] ** 2 + gathers_z_inv[i] ** 2),
         #                                record_time,
@@ -1128,7 +1077,7 @@ for n in range(number_of_iterations):
         #                                travel_time[i]))
 
         # Pure amplitudes:
-        transformed_ampl_curv[i] = np.linalg.norm(rays[i].amplitude_fun)
+        # transformed_ampl_curv[i] = np.linalg.norm(rays[i].amplitude_fun)
 
         # transformed_ampl_curv[i] = RMS(np.sqrt(gathers_x_inv[i] ** 2 + gathers_y_inv[i] ** 2 + gathers_z_inv[i] ** 2),
         #                                record_time,
@@ -1292,42 +1241,6 @@ for n in range(number_of_iterations):
     linear_minim_result_curv = linear_minim_result_curv_all.x
     linear_minim_result_plane = linear_minim_result_plane_all.x
     linear_minim_result_homogen = linear_minim_result_homogen_all.x
-
-    # print(linear_AVO_invesrion(current_mod.layers[refl_i].get_velocity(0)["vp"],
-    #                            current_mod.layers[refl_i].get_velocity(0)["vs"],
-    #                            current_mod.layers[refl_i].get_density(),
-    #                            transformed_ampl_curv[0:linear_cosines_number],
-    #                            cosines[0:linear_cosines_number, refl_i]))
-    # print("old min = ", linear_minim_result_curv_all.fun)
-
-    # linear_minim_result_curv = linear_AVO_invesrion(current_mod.layers[refl_i].get_velocity(0)["vp"],
-    #                                                 current_mod.layers[refl_i].get_velocity(0)["vs"],
-    #                                                 current_mod.layers[refl_i].get_density(),
-    #                                                 transformed_ampl_curv[0:linear_cosines_number],
-    #                                                 cosines[0:linear_cosines_number, refl_i])
-    #
-    # linear_minim_result_plane = linear_AVO_invesrion(current_mod.layers[refl_i].get_velocity(0)["vp"],
-    #                                                  current_mod.layers[refl_i].get_velocity(0)["vs"],
-    #                                                  current_mod.layers[refl_i].get_density(),
-    #                                                  transformed_ampl_plane[0:linear_cosines_number],
-    #                                                  cosines[0:linear_cosines_number, refl_i])
-    #
-    # linear_minim_result_homogen = linear_AVO_invesrion(current_mod.layers[refl_i].get_velocity(0)["vp"],
-    #                                                    current_mod.layers[refl_i].get_velocity(0)["vs"],
-    #                                                    current_mod.layers[refl_i].get_density(),
-    #                                                    transformed_ampl_homogen[0:len(cosines_homogen[cosines_homogen > np.cos(20 * np.pi / 180)])],
-    #                                                    cosines_homogen[cosines_homogen > np.cos(20 * np.pi / 180)])
-    # print(minim_result_curv_all)
-
-    # print(AVO_residual(np.array([current_mod.layers[refl_i + 1].get_velocity(0)["vp"],
-    #                              current_mod.layers[refl_i + 1].get_velocity(0)["vs"],
-    #                              current_mod.layers[refl_i + 1].get_density()]), np.array([current_mod.layers[refl_i].get_velocity(0)["vp"],
-    #                                                           current_mod.layers[refl_i].get_velocity(0)["vs"],
-    #                                                           current_mod.layers[refl_i].get_density()]), transformed_ampl_curv, cosines[:, refl_i]))
-    # print(minim_result_curv_all.fun)
-
-    # print("Результат минимизации с корректной поправкой: {}".format(minim_result_curv_all.fun))
-    # print("Результат минимизации с некорректной поправкой: {}".format(minim_result_plane_all.fun))
 
     # Now, let's write the results in .xlsx file:
     if n == 0:

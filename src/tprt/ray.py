@@ -277,38 +277,25 @@ class Ray(object):
 
     def amplitude_fr_dom(self):
 
-        # This method computes amplitude in the observation point in the frequency domain using formula
-        # U = U_0 /sqrt(s0**2 * |П( det M(s*_i-1) / det M(s*_i))|) * П( k_i )
-        # where U is the amplitude, U_0 is the some function depending on the source, П means "Product" with
-        # respect to index i, k_i is an appropriate amplitude coefficient at the i-th boundary on a ray's path, s*_i are
-        # points of incidence at the i-th boundary (if i != 0 and i != N). s*_0 equals to s0 and
-        # s*_N equals to the ray's length in the observation point.
+        # This method computes amplitude vector in frequency domain. Assuming that the ray passes through N + 1 layers
+        # amplitude of P-wave in the observation point can be found using formula:
+        #
+        # U = psi0 * 1 / v_1**3 / rho_1
+        # = t / s*_1 *
+        # * П(sqrt( |П( det M(i, s*_i) / det M(i, s*_i-1) )| ), i = 2, i = N) *
+        # * sqrt( |det M(N + 1, s) / det M(N + 1, s*_N)| ) *
+        # * П( k_i )
+        #
+        # Here s*_i denote i-th point of intersection of the ray with a boundary, k_i is either reflection of
+        # transmission coefficient and M(k, s) is matrix M (explained below) in k-th segment evaluated at point s.
+        # t is a unit vector pointed in the direction of the ray in the observation point. psi0 represents radiation
+        # function of the source. It's worth to note that all "s" variables are actually arc lengths of the ray.
+        # v_1 and rho_1 are wave velocity and density in the very first segment respectively.
+        # Amplitdue of S has similar form.
 
-        # The direction of the displacement vector is described below.
-
-        # s0 is some small distance which denotes a point on the ray in the vicinity of the source. Matrix M will be
-        # introduced further.
-
-        # The algorithm is based on the dynamic ray tracing theory presented in:
-        # The ray series method and dynamic ray tracing system for three-dimensional inhomogeneous media V. Červený
-        # F. Hron Bulletin of the Seismological Society of America (1980) 70 (1): 47-77
-
-        # In order to clarify what is "vicinity", let us find vertical distance between the source and the closest
-        # boundary and set the "vicinity" to be equal to 1/10 part of this distance.
-
-        # DEFINE S0 PROPERLY!!!
-
-        # s0 = np.min(abs(self.source.location[2] - self.source.layer.top.get_depth(self.source.location[0:2])),
-        #             abs(self.source.location[2] - self.source.layer.bottom.get_depth(self.source.location[0:2])))
-        s0 = 1 / 10
-
-        # Great. Let us introduce a matrix 2x2 that is involved in the following procedures: M. It depends on the ray
-        # and contains second-order partial derivatives of the eikonal with respect to ray coordinates q_i. Of course,
-        # it will vary along the ray, but now we are in the first segment in vicinity of the source.
-
-        M = np.zeros((2, 2)) # This is a matrix of the second derivatives of the eikonal with respect to ray coordinates
-        # q_i. The geometrical spreading depends on this matrix. General solution for corresponding system of
-        # differential equations in homogeneous isotropic medium reads:
+        # Components of symmetric matrix M are solutions of a system of nonlinear differential equations. Physically
+        # they represent second derivatives of the eikonal with respect to ray-centered coordinates q1 and q2. They take
+        # form:
 
         # M[0, 0] = (v*s + c_22) / ( (v*s + c_11)*(v*s + c_22) - c_12**2 ),
         # M[1, 1] = (v*s + c_11) / ( (v*s + c_11)*(v*s + c_22) - c_12**2 ),
@@ -316,46 +303,20 @@ class Ray(object):
         # M[1, 0] = - c_12 / ( (v*s + c_11)*(v*s + c_22) - c_12**2 ), where s is the ray's path length, v is velocity in
         # the medium, c_ij are unknown constants.
 
-        # In order to find c_ij we have to impose initial or boundary conditions on M. But it would be more
-        # convenient to solve the occurring system of equations in terms of N = M**(-1) since in that case all equations
-        # will be linear. Matrix N has the following form:
+        # So, let's get started. Initiate two entities:
 
-        # N[0, 0] = v * s + c_11
-        # N[1, 1] = v * s + c_22
-        # N[0, 1] = c_12
-        # N[1, 0] = c_12
+        dist = 0  # arc length of the ray
+        M = np.zeros((2, 2))  # matrix M
 
-        # In case of point source (which we have in the first segment of any ray) the initial condition for N reads:
-        # N(s = 0) = 0. Since that all coefficients c_ij are equal to 0. So, in the point s = s0 on the ray we have:
-
-        M[0, 0] = 1 / (self.segments[0].layer.get_velocity(1)[self.segments[0].vtype] * s0)
-        M[1, 1] = 1 / (self.segments[0].layer.get_velocity(1)[self.segments[0].vtype] * s0)
-
-        # Non-diagonal elements are already equal to 0
-
-        # We have to introduce an auxiliary item: detProd = det M(s*_i-1) / det M(s*_i). But since we don't have yet the
-        # determinant in the denominator we'd just remember the determinant in the nominator:
-
-        detRat = np.linalg.det(M)
-
-        # Let's go to the end of the zero segment. Matrix M changes:
+        # Let's evaluate them in the end of the first segment assuming that c11 = c22 = c12 = 0:
 
         dist = np.linalg.norm(self.segments[0].source - self.segments[0].receiver) # this will be distance along the ray
 
         M[0, 0] = 1 / (self.segments[0].layer.get_velocity(1)[self.segments[0].vtype] * dist)
         M[1, 1] = 1 / (self.segments[0].layer.get_velocity(1)[self.segments[0].vtype] * dist)
 
-        #  We can compute value of the detProd:
-
-        detRat = detRat / np.linalg.det(M)
-
-        # Now let's compute amplitude int the end of zero segment.
-
-        # But before doing that we should understand the polarization of our wave. For this purpose, let's introduce
-        # unit vectors e1 and e2 which together with ray's tangent vector form up ray-centered coordinates. Initially we
-        # can choose two arbitrary orthogonal unit vectors tangent to the wavefront, but we shall try to follow
-        # traditional SV- and SH- notation. In any case these two vectors will depend on the vector t tangent to the
-        # ray:
+        # Now we are ready to write down ray amplitude in the end of the first segment. It will be written in terms of
+        # ray-centered coordinates, so let's set corresponding unit vectors:
 
         t = self.segments[0].vector / np.linalg.norm(self.segments[0].vector)
 
@@ -377,19 +338,23 @@ class Ray(object):
 
         if self.segments[0].vtype == 'vp':
 
-            U = self.source.psi0(self.segments[0].receiver, t) / np.sqrt(s0**2 * abs(detRat)) * t
+            U = self.source.psi0(self.segments[0].receiver, t) * t / dist
 
-        if self.segments[0].vtype == 'vs':
+        # if self.segments[0].vtype == 'vs':
+        else:
 
             U = (self.source.psi0(self.segments[0].receiver, e1) * e1 +
-                 self.source.psi0(self.segments[0].receiver, e2) * e2 )/ np.sqrt(s0**2 * abs(detRat))
+                 self.source.psi0(self.segments[0].receiver, e2) * e2 )/ dist
 
-        # Further actions depend on number of segments in the ray.
+        # Now there are two opportunities. First, the ray can consist of just one segment. Second, it can have multiple
+        # segments.
 
         if len(self.segments) == 1 or np.linalg.norm(U) == 0:
 
-            return U / np.sqrt(self.segments[0].layer.get_velocity(0)[self.segments[0].vtype] *
-                               self.segments[0].layer.get_density())
+            # return U / np.sqrt(self.segments[0].layer.get_velocity(0)[self.segments[0].vtype] *
+            #                    self.segments[0].layer.get_density())
+            return U / self.segments[0].layer.get_velocity(0)[self.segments[0].vtype]**3 *\
+                   self.segments[0].layer.get_density() / 4 / np.pi
             # if there is only one segment (or the amplitude is already equal to 0), calculate the amplitude in
             # the receiver and return it.
 
@@ -499,10 +464,11 @@ class Ray(object):
                 c_22 = N[1, 1] - self.segments[i].layer.get_velocity(1)[self.segments[i].vtype] * dist
                 c_12 = N[0, 1]
 
-                # Now we have a new value of M. Let's calculate new value of detProd. Once again we know just the
-                # nominator:
+                # Now we have a new value of M. Let's introduce / re-evaluate ratio
+                # detRat = det M(i, s*_i) / det M(i, s*_i-1)
+                # Now we know only the denominator:
 
-                detRat = np.linalg.det(M)
+                detRat = 1 / np.linalg.det(M)
 
                 # And we have to not forget about transmission coefficient. In order to compute it we have to rewrite
                 # existing vector of polarization U in the local coordinate system. Remember that we've already
@@ -545,7 +511,7 @@ class Ray(object):
 
                 # Full value of the detRat:
 
-                detRat = detRat / np.linalg.det(M)
+                detRat = detRat * np.linalg.det(M)
 
                 # That's all for this segment. We are almost ready to rewrite the value of amlitude. But first consider
                 # the following.
@@ -567,12 +533,12 @@ class Ray(object):
 
                     refl_trans_coeff[i - 1] = ampl_coeff[0]
 
-                    U = np.linalg.norm(U) * ampl_coeff[0] / np.sqrt(abs(detRat)) * t
+                    U = np.linalg.norm(U) * ampl_coeff[0] * np.sqrt(abs(detRat)) * t
 
                 if self.segments[i].vtype == 'vs':
 
                     U = (np.linalg.norm(U) * ampl_coeff[1] * e1 +
-                         np.linalg.norm(U) * ampl_coeff[2] * e2) / np.sqrt(abs(detRat))
+                         np.linalg.norm(U) * ampl_coeff[2] * e2) * np.sqrt(abs(detRat))
 
 
                 # Let's go to the next layer!
@@ -580,9 +546,14 @@ class Ray(object):
             # We've computed the amplitude in the cycle above. Let's return it's value, but before that we have
             # to add some coefficients related to the source's layer:
 
-            return U / np.sqrt(self.segments[0].layer.get_velocity(0)[self.segments[0].vtype] *
-                               self.segments[0].layer.get_density()),\
-                   refl_trans_coeff,\
+            # return U / np.sqrt(self.segments[0].layer.get_velocity(0)[self.segments[0].vtype] *
+            #                    self.segments[0].layer.get_density()),\
+            #        refl_trans_coeff,\
+            #        inc_cosines
+
+            return U / self.segments[0].layer.get_velocity(0)[self.segments[0].vtype]**3 *\
+                   self.segments[0].layer.get_density(), \
+                   refl_trans_coeff, \
                    inc_cosines
 
     def amplitude_t_dom(self, t):
@@ -595,7 +566,7 @@ class Ray(object):
         # the Ricker wavelet with dispersion given in the Source  and U is a constant vector: self.amplitude_fun.
 
         tau = self.travel_time()
-        sigma = np.sqrt(2) / self.source.fr_dom
+        sigma = np.sqrt(2) / self.source.fr_dom / 2 / np.pi
 
         return 2 / np.sqrt(3 * sigma) / np.pi ** (1 / 4) *\
                (1 - ((t - tau )/ sigma)**2) *\
@@ -616,21 +587,13 @@ class Ray(object):
         # Note that "inv" comes from "inversion" since all these ratios vanish in the expression for amplitude. So,
         # in AVO-inversion they will not be needed.
 
-        s0 = 1 / 10
-
         M = np.zeros((2, 2))
 
-        M[0, 0] = 1 / (self.segments[0].layer.get_velocity(1)[self.segments[0].vtype] * s0)
-        M[1, 1] = 1 / (self.segments[0].layer.get_velocity(1)[self.segments[0].vtype] * s0)
-
-        detRat = np.linalg.det(M)
 
         dist = np.linalg.norm(self.segments[0].source - self.segments[0].receiver) # this will be distance along the ray
 
         M[0, 0] = 1 / (self.segments[0].layer.get_velocity(1)[self.segments[0].vtype] * dist)
         M[1, 1] = 1 / (self.segments[0].layer.get_velocity(1)[self.segments[0].vtype] * dist)
-
-        detRat = detRat / np.linalg.det(M)
 
         # Now let's compute amplitude int the end of zero segment.
 
@@ -649,11 +612,11 @@ class Ray(object):
             e2 = np.array([t[1], - t[0], 0]) / np.sqrt(t[1] ** 2 + t[0] ** 2) # SH-polarized unit vector
             e1 = np.cross(e2, t) # SV-polarized unit vector
 
-        J = s0**2 * detRat
+        J = dist**2
 
         if len(self.segments) == 1:
 
-            return J, dist
+            return J
 
         else:
 
@@ -732,7 +695,7 @@ class Ray(object):
                 c_22 = N[1, 1] - self.segments[i].layer.get_velocity(1)[self.segments[i].vtype] * dist
                 c_12 = N[0, 1]
 
-                detRat = np.linalg.det(M)
+                detRat = 1 / np.linalg.det(M)
 
                 dist = dist + np.linalg.norm(self.segments[i].source - self.segments[i].receiver)
 
@@ -750,7 +713,7 @@ class Ray(object):
 
                 M[1, 0 ] = M[0, 1]
 
-                detRat = detRat / np.linalg.det(M)
+                detRat = detRat * np.linalg.det(M)
 
                 t = self.segments[i].vector / np.linalg.norm(self.segments[i].vector)
                 e2 = transit_matr[:, 1]
@@ -760,7 +723,7 @@ class Ray(object):
 
                     J = J * cos_out / cos_inc
 
-                J = J * abs(detRat)
+                J = J / abs(detRat)
 
             return J
 
