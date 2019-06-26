@@ -2,9 +2,7 @@ import pylab as plt
 from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 import cmath as cm
-from src.tprt import Receiver, Layer, Source, DilatCenter, RotatCenter, Ray, FlatHorizon, GridHorizon, ISOVelocity, Velocity_model
-from src.tprt.ray import SnelliusError
-from src.tprt.rt_coefficients import rt_coefficients
+from src.tprt import Receiver, Layer, Source, DilatCenter, Ray, GridHorizon, ISOVelocity, Velocity_model
 from src.tprt.bicubic_interpolation import get_left_i
 
 import time # for runtime
@@ -397,11 +395,11 @@ for i in range(sources.shape[0]):
     description_file.write("--- %s луч создан и оптимизирован: %s секунд --- \n" % (i + 1, time.time() - start_time))
     print("\x1b[1;31m --- %s ray constructed: %s seconds ---" % (i + 1, time.time() - start_time))
 
-    rays[i].amplitude_fun, coefficients[i, :], cosines[i, :] = rays[i].amplitude_fr_dom() # rewrite the amplitude field.
+    rays[i].ray_amplitude, coefficients[i, :], cosines[i, :] = rays[i].compute_ray_amplitude() # rewrite the amplitude field.
 
     # Check if we are in post-critical zone:
 
-    if np.linalg.norm(np.imag(rays[i].amplitude_fun))!= 0:
+    if np.linalg.norm(np.imag(rays[i].ray_amplitude))!= 0:
 
         rays = np.delete(rays, np.arange(i, rays.shape[0], 1), axis = 0)
 
@@ -453,7 +451,7 @@ for i in range(sources.shape[0]):
 
     for j in range(record_time.shape[0]):
 
-        gathers_x[i, j], gathers_y[i, j], gathers_z[i, j] = np.real(rays[i].amplitude_t_dom(record_time[j]))
+        gathers_x[i, j], gathers_y[i, j], gathers_z[i, j] = np.real(rays[i].get_recorded_amplitude(record_time[j]))
 
     description_file.write("--- %s луч обработан: %s секунд --- \n \n" % (i + 1, time.time() - start_time))
     print("\x1b[1;31m --- %s ray processed: %s seconds ---" % (i + 1, time.time() - start_time))
@@ -549,7 +547,7 @@ for i in range(record_time.shape[0]):
 for i in range(rays.shape[0]):
 
     ray_amplitude_sheet.cell(row = 3 + 1 + i, column = 1).value = rec_line[i]
-    ray_amplitude_sheet.cell(row = 3 + 1 + i, column = 2).value = float(np.linalg.norm(rays[i].amplitude_fun))
+    ray_amplitude_sheet.cell(row = 3 + 1 + i, column = 2).value = float(np.linalg.norm(rays[i].ray_amplitude))
 
     geom_spread_sheet.cell(row = 3 + 1 + i, column = 1).value = rec_line[i]
     geom_spread_sheet.cell(row = 3 + 1 + i, column = 2).value = geom_spread_curv[i]
@@ -641,13 +639,13 @@ if 1< model_number < 5:
     ax.set_ylim3d(- 1200, 1200)
 
 # Create cubic bounding box to simulate equal aspect ratio
-max_range = np.array([horizons[-1].X.max()-horizons[-1].X.min(), horizons[-1].Y.max()-horizons[-1].Y.min(), horizons[-1].Z.max()-horizons[-1].Z.min()]).max()
-Xb = 0.5*max_range*np.mgrid[-1:2:2,-1:2:2,-1:2:2][0].flatten() + 0.5*(horizons[-1].X.max()+horizons[-1].X.min())
-Yb = 0.5*max_range*np.mgrid[-1:2:2,-1:2:2,-1:2:2][1].flatten() + 0.5*(horizons[-1].Y.max()+horizons[-1].Y.min())
-Zb = 0.5*max_range*np.mgrid[-1:2:2,-1:2:2,-1:2:2][2].flatten() + 0.5*(horizons[-1].Z.max()+horizons[-1].Z.min())
-# Comment or uncomment following both lines to test the fake bounding box:
-for xb, yb, zb in zip(Xb, Yb, Zb):
-    ax.plot([xb], [yb], [zb], 'w')
+# max_range = np.array([horizons[-1].X.max()-horizons[-1].X.min(), horizons[-1].Y.max()-horizons[-1].Y.min(), horizons[-1].Z.max()-horizons[-1].Z.min()]).max()
+# Xb = 0.5*max_range*np.mgrid[-1:2:2,-1:2:2,-1:2:2][0].flatten() + 0.5*(horizons[-1].X.max()+horizons[-1].X.min())
+# Yb = 0.5*max_range*np.mgrid[-1:2:2,-1:2:2,-1:2:2][1].flatten() + 0.5*(horizons[-1].Y.max()+horizons[-1].Y.min())
+# Zb = 0.5*max_range*np.mgrid[-1:2:2,-1:2:2,-1:2:2][2].flatten() + 0.5*(horizons[-1].Z.max()+horizons[-1].Z.min())
+# # Comment or uncomment following both lines to test the fake bounding box:
+# for xb, yb, zb in zip(Xb, Yb, Zb):
+#     ax.plot([xb], [yb], [zb], 'w')
 
 ax.set_xlabel("Расстояние по оси x, м")
 # ax.set_ylabel("Расстояние по оси y, м",)
@@ -856,7 +854,7 @@ linear_inversion = opxl.Workbook()
 # We shall work with noisy data. Since the noise is random, results of the inversion will also be random. In order to
 # obtain more stable results we shall perform several iterations of the inversion algorithms, at each step creating new
 # noisy gathers. Let's set up total number of iterations:
-number_of_iterations = 50
+number_of_iterations = 1
 deg_lin_inv = 15
 
 # Initial guess for the minimizer:
@@ -1066,10 +1064,10 @@ for n in range(number_of_iterations):
         #                                travel_time[i]) # we assume that there is only noise at the Y component.
 
         # With noise correction:
-        transformed_ampl_curv[i] = np.sqrt(RMS(np.sqrt(gathers_x_inv[i] ** 2 + gathers_z_inv[i] ** 2),
-                                               record_time,
-                                               window_width,
-                                               travel_time[i])**2 - av_noise**2) # we assume that there is only noise at the Y component.
+        # transformed_ampl_curv[i] = np.sqrt(RMS(np.sqrt(gathers_x_inv[i] ** 2 + gathers_z_inv[i] ** 2),
+        #                                        record_time,
+        #                                        window_width,
+        #                                        travel_time[i])**2 - av_noise**2) # we assume that there is only noise at the Y component.
 
         # print(av_noise, RMS(np.sqrt(gathers_x_inv[i] ** 2 + gathers_z_inv[i] ** 2),
         #                                record_time,
@@ -1077,7 +1075,7 @@ for n in range(number_of_iterations):
         #                                travel_time[i]))
 
         # Pure amplitudes:
-        # transformed_ampl_curv[i] = np.linalg.norm(rays[i].amplitude_fun)
+        transformed_ampl_curv[i] = np.linalg.norm(rays[i].ray_amplitude)
 
         # transformed_ampl_curv[i] = RMS(np.sqrt(gathers_x_inv[i] ** 2 + gathers_y_inv[i] ** 2 + gathers_z_inv[i] ** 2),
         #                                record_time,

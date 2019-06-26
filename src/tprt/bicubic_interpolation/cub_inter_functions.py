@@ -2,19 +2,24 @@
 # математической литературы, 1980
 
 import numpy as np
-
 from scipy.linalg import solve_banded
 
 
-def get_left_i(x_set, x):
+def get_left_i(x_set, x_target):
+    '''
+
+    :param x_set: strictly ascending 1D-numerical array
+    :param x_target: target value of x
+    :return: number of the nearest x_target's neighbour in x_set
+    '''
 
     # Ищет номер ближайшего слева к x элемента из x_set. Т.е. x - число, а x_set - упорядоченный по возрастанию массив
     # чисел. Взято отсюда: https://www.geeksforgeeks.org/find-closest-number-array/ (с модификациями)
 
     # Граничные случаи:
-    if x <= x_set[0]:
+    if x_target <= x_set[0]:
         return 0
-    if x >= x_set[- 1]:
+    if x_target >= x_set[- 1]:
         return x_set.shape[0] - 2
 
     # Переходим к бинарному поиску
@@ -27,17 +32,17 @@ def get_left_i(x_set, x):
         mid = round((i + j) / 2) # идём на середину
 
         # Проверяем, не попали ли мы уже на нужный нам элемент
-        if (x_set[mid] == x):
+        if (x_set[mid] == x_target):
 
             return mid
 
         # Если наш элемент меньше, чем срединный, ищем в левой половине.
 
-        if x < x_set[mid]:
+        if x_target < x_set[mid]:
 
             # Cначала проверяем, не является ли наш элемент граничным случаем для этой половины:
 
-            if mid > 0 and x_set[mid - 1] < x:
+            if mid > 0 and x_set[mid - 1] < x_target:
 
                 return mid - 1
 
@@ -51,7 +56,7 @@ def get_left_i(x_set, x):
 
             # Аналогичная проверка на "граничность":
 
-            if mid < x_set.shape[0] - 1 and x < x_set[mid + 1]:
+            if mid < x_set.shape[0] - 1 and x_target < x_set[mid + 1]:
 
                 return mid
 
@@ -66,7 +71,13 @@ def get_left_i(x_set, x):
 # 1D-interpolation functions:
 
 
-def second_der_set(x_set, z_set):
+def second_derivatives(x_set, z_set):
+    '''
+
+    :param x_set: strictly ascending 1D-numerical array
+    :param z_set: 1D-numerical array of corresponding values z = z(x)
+    :return: 1D-numerical array of second derivatives z'' = z''(x) at points from x_set
+    '''
 
     # Returns array of second derivatives of z in x = x_set[i].
 
@@ -107,6 +118,12 @@ def second_der_set(x_set, z_set):
 
 
 def one_dim_polynomial(x_set, z_set):
+    '''
+
+    :param x_set: strictly ascending 1D-numerical array
+    :param z_set: 1D-numerical array of corresponding values z = z(x)
+    :return: array of polynomial coefficients of cubic spline interpolation of z(x) function
+    '''
 
     # Returns array of coefficients of the interpolation ploynomials for function z_set defined on grid x_set with
     # second derivatives at the edges given.
@@ -114,7 +131,7 @@ def one_dim_polynomial(x_set, z_set):
     one_dim_coefficients = np.zeros((x_set.shape[0] - 1, 4)) # first index represents x_i (nearest left neighbour of
     # current x) and the second indicates the power of x in the polynomial.
 
-    m_i = second_der_set(x_set, z_set)
+    m_i = second_derivatives(x_set, z_set)
 
     for i in np.arange(1, x_set.shape[0], 1):
 
@@ -142,6 +159,13 @@ def one_dim_polynomial(x_set, z_set):
 
 
 def two_dim_polynomial(x_set, y_set, z_set):
+    '''
+
+    :param x_set: strictly ascending 1D-numerical array
+    :param y_set: strictly ascending 1D-numerical array
+    :param z_set: 2D-numerical array of corresponding values z = z(x, y)
+    :return: array of polynomial coefficients of bicubic spline interpolation of z(x, y) function
+    '''
 
     # Returns array of polynomial coefficients for bicubic interpolation.
 
@@ -164,7 +188,7 @@ def two_dim_polynomial(x_set, y_set, z_set):
 
     for j in range(y_set.shape[0]):
 
-        z_xx[:, j] = second_der_set(x_set, z_set[:, j])
+        z_xx[:, j] = second_derivatives(x_set, z_set[:, j])
 
     # And now - let's find polynomial coefficients:
 
@@ -210,109 +234,163 @@ def two_dim_polynomial(x_set, y_set, z_set):
     return two_dim_coefficients
 
 
-def two_dim_inter(two_dim_coeff, x_set, y_set, x, y):
+def two_dim_inter(two_dim_coeff, x_set, y_set, xy_target):
+    '''
+
+    :param two_dim_coeff: array of polynomial coefficients of bicubic spline interpolation of z(x, y) function
+    :param x_set: strictly ascending 1D-numerical array
+    :param y_set: strictly ascending 1D-numerical array
+    :param xy_target: target value of (x, y); xy_target = [x_target, y_target]
+    :return: value of interpolated function z(x,y) at the target point
+    '''
 
     # Returns value of z(x, y) corresponding to the pre-constructed array of polynomial coefficients and the
     # parametrization grid.
 
-    i = get_left_i(x_set, x)
-    j = get_left_i(y_set, y)
+    i = get_left_i(x_set, xy_target[0])
+    j = get_left_i(y_set, xy_target[1])
 
     z = 0 # this is the value of z(x, y). We shall compute it in a cycle below.
 
     for m in np.arange(0, 4, 1):
         for n in np.arange(0, 4, 1):
 
-            z = z + two_dim_coeff[i, j, m, n] * ( x ** m ) * ( y ** n )
+            z = z + two_dim_coeff[i, j, m, n] * (xy_target[0] ** m) * (xy_target[1] ** n)
 
     return z
 
 
-def two_dim_inter_dx(two_dim_coeff, x_set, y_set, x, y):
+def two_dim_inter_dx(two_dim_coeff, x_set, y_set, xy_target):
+    '''
+
+    :param two_dim_coeff: array of polynomial coefficients of bicubic spline interpolation of z(x, y) function
+    :param x_set: strictly ascending 1D-numerical array
+    :param y_set: strictly ascending 1D-numerical array
+    :param xy_target: target value of (x, y); xy_target = [x_target, y_target]
+    :return: value of partial derivative d / dx of interpolated function z(x,y) at the target point:
+    dz / dx |x = x_target, y = y_target
+    '''
 
     # Returns partial derivative dz(x, y) / dx corresponding to the pre-constructed array of polynomial
     # coefficients and the parametrization grid.
 
-    i = get_left_i(x_set, x)
-    j = get_left_i(y_set, y)
+    i = get_left_i(x_set, xy_target[0])
+    j = get_left_i(y_set, xy_target[1])
 
     z_x = 0 # this is the value of dz(x, y) / dx. We shall compute it in a cycle below.
 
     for m in np.arange(1, 4, 1):
         for n in np.arange(0, 4, 1):
 
-            z_x = z_x + two_dim_coeff[i, j, m, n] * ( m * x ** (m - 1) ) * ( y ** n )
+            z_x = z_x + two_dim_coeff[i, j, m, n] * (m * xy_target[0] ** (m - 1)) * (xy_target[1] ** n)
 
     return z_x
 
 
-def two_dim_inter_dy(two_dim_coeff, x_set, y_set, x, y):
+def two_dim_inter_dy(two_dim_coeff, x_set, y_set, xy_target):
+    '''
+
+    :param two_dim_coeff: array of polynomial coefficients of bicubic spline interpolation of z(x, y) function
+    :param x_set: strictly ascending 1D-numerical array
+    :param y_set: strictly ascending 1D-numerical array
+    :param xy_target: target value of (x, y); xy_target = [x_target, y_target]
+    :return: value of partial derivative d / dy of interpolated function z(x,y) at the target point:
+    dz / dy |x = x_target, y = y_target
+    '''
 
     # Returns partial derivative dz(x, y) / dy corresponding to the pre-constructed array of polynomial
     # coefficients and the parametrization grid.
 
-    i = get_left_i(x_set, x)
-    j = get_left_i(y_set, y)
+    i = get_left_i(x_set, xy_target[0])
+    j = get_left_i(y_set, xy_target[1])
 
     z_y = 0 # this is the value of dz(x, y) / dy. We shall compute it in a cycle below.
 
     for m in np.arange(0, 4, 1):
         for n in np.arange(1, 4, 1):
 
-            z_y = z_y + two_dim_coeff[i, j, m, n] * ( x ** m ) * ( n * y ** (n - 1) )
+            z_y = z_y + two_dim_coeff[i, j, m, n] * (xy_target[0] ** m) * (n * xy_target[1] ** (n - 1))
 
     return z_y
 
 
-def two_dim_inter_dx_dx(two_dim_coeff, x_set, y_set, x, y):
+def two_dim_inter_dx_dx(two_dim_coeff, x_set, y_set, xy_target):
+    '''
+
+    :param two_dim_coeff: array of polynomial coefficients of bicubic spline interpolation of z(x, y) function
+    :param x_set: strictly ascending 1D-numerical array
+    :param y_set: strictly ascending 1D-numerical array
+    :param xy_target: target value of (x, y); xy_target = [x_target, y_target]
+    :return: value of partial derivative d^2 / dx^2 of interpolated function z(x,y) at the target point:
+    d^2 z / dx^2 |x = x_target, y = y_target
+    '''
 
     # Returns partial derivative d^2z(x, y) / dx^2 corresponding to the pre-constructed array of polynomial
     # coefficients and the parametrization grid.
 
-    i = get_left_i(x_set, x)
-    j = get_left_i(y_set, y)
+    i = get_left_i(x_set, xy_target[0])
+    j = get_left_i(y_set, xy_target[1])
 
     z_xx = 0 # this is the value of dz(x, y) / dy. We shall compute it in a cycle below.
 
     for m in np.arange(2, 4, 1):
         for n in np.arange(0, 4, 1):
 
-            z_xx = z_xx + two_dim_coeff[i, j, m, n] * ( m * (m - 1) * x ** (m - 2) ) * ( y ** n )
+            z_xx = z_xx + two_dim_coeff[i, j, m, n] * (m * (m - 1) * xy_target[0] ** (m - 2)) * (xy_target[1] ** n)
 
     return z_xx
 
-def two_dim_inter_dy_dy(two_dim_coeff, x_set, y_set, x, y):
+
+def two_dim_inter_dy_dy(two_dim_coeff, x_set, y_set, xy_target):
+    '''
+
+    :param two_dim_coeff: array of polynomial coefficients of bicubic spline interpolation of z(x, y) function
+    :param x_set: strictly ascending 1D-numerical array
+    :param y_set: strictly ascending 1D-numerical array
+    :param xy_target: target value of (x, y); xy_target = [x_target, y_target]
+    :return: value of partial derivative d^2 / dy^2 of interpolated function z(x,y) at the target point:
+    d^2 z / dy^2 |x = x_target, y = y_target
+    '''
 
     # Returns partial derivative d^2z(x, y) / dy^2 corresponding to the pre-constructed array of polynomial
     # coefficients and the parametrization grid.
 
-    i = get_left_i(x_set, x)
-    j = get_left_i(y_set, y)
+    i = get_left_i(x_set, xy_target[0])
+    j = get_left_i(y_set, xy_target[1])
 
     z_yy = 0 # this is the value of dz(x, y) / dy. We shall compute it in a cycle below.
 
     for m in np.arange(0, 4, 1):
         for n in np.arange(2, 4, 1):
 
-            z_yy = z_yy + two_dim_coeff[i, j, m, n] * ( x ** m ) * ( n * (n - 1) * y ** (n - 2) )
+            z_yy = z_yy + two_dim_coeff[i, j, m, n] * (xy_target[0] ** m) * (n * (n - 1) * xy_target[1] ** (n - 2))
 
     return z_yy
 
 
-def two_dim_inter_dx_dy(two_dim_coeff, x_set, y_set, x, y):
+def two_dim_inter_dx_dy(two_dim_coeff, x_set, y_set, xy_target):
+    '''
+
+    :param two_dim_coeff: array of polynomial coefficients of bicubic spline interpolation of z(x, y) function
+    :param x_set: strictly ascending 1D-numerical array
+    :param y_set: strictly ascending 1D-numerical array
+    :param xy_target: target value of (x, y); xy_target = [x_target, y_target]
+    :return: value of partial derivative d^2 / dx dy of interpolated function z(x,y) at the target point:
+    d^2 z / dx dy |x = x_target, y = y_target
+    '''
 
     # Returns partial derivative d^2z(x, y) / dx dy corresponding to the pre-constructed array of polynomial
     # coefficients and the parametrization grid.
 
-    i = get_left_i(x_set, x)
-    j = get_left_i(y_set, y)
+    i = get_left_i(x_set, xy_target[0])
+    j = get_left_i(y_set, xy_target[1])
 
     z_y = 0 # this is the value of dz(x, y) / dy. We shall compute it in a cycle below.
 
     for m in np.arange(1, 4, 1):
         for n in np.arange(1, 4, 1):
 
-            z_y = z_y + two_dim_coeff[i, j, m, n] * ( m * x ** (m - 1) ) * ( n * y ** (n - 1) )
+            z_y = z_y + two_dim_coeff[i, j, m, n] * (m * xy_target[0] ** (m - 1)) * (n * xy_target[1] ** (n - 1))
 
     return z_y
 
@@ -321,12 +399,29 @@ def two_dim_inter_dx_dy(two_dim_coeff, x_set, y_set, x, y):
 
 
 def difference(s, x_set, y_set, two_dim_coeff, sou, vec):
+    '''
 
-    return abs(two_dim_inter(two_dim_coeff, x_set, y_set, sou[0] + s * vec[0], sou[1] + s * vec[1]) - \
+    :param s: length's value
+    :param x_set: strictly ascending 1D-numerical array
+    :param y_set: strictly ascending 1D-numerical array
+    :param two_dim_coeff: array of polynomial coefficients of bicubic spline interpolation of z(x, y) function
+    :param sou: coordinates of starting point
+    :param vec: direction vector
+    :return: distance along z axis from the point sou + s * vec and to the surface defined by the interpolation
+    polynomial
+    '''
+
+    return abs(two_dim_inter(two_dim_coeff, x_set, y_set, np.array([sou[0:2] + s * vec[0:2]])) - \
                (sou[2] + s * vec[2]))
 
 
-def parabola(points, aim_x):
+def parabola(points, x_target):
+    '''
+
+    :param points: coordinates of three points in form points = [point_1, point_2, point_3], where  point_i = [x_i, z_i]
+    :param x_target: target value of x
+    :return: value of parabola z = A * x**2 + B * x + C which fits all three points at x = x_target
+    '''
     # Строит параболу, проходящую через три точки points = [point_1, point_2, point_3], где все point_i = [x_i, z_i], и
     # возвращает значение этой параболы в точке aim_x.
     # Парабола ищется в виде z = A * x**2 + B * x + C
@@ -344,10 +439,17 @@ def parabola(points, aim_x):
 
     A, B, C = np.linalg.solve(Sys, Rpart)
 
-    return A * aim_x**2 + B * aim_x + C
+    return A * x_target**2 + B * x_target + C
 
 
-def one_dim_parab_inter(x_set, func, aim_x):
+def one_dim_parab_inter(x_set, z_set, x_target):
+    '''
+
+    :param x_set: strictly ascending 1D-numerical array
+    :param z_set: 1D-numerical array of corresponding values z = z(x)
+    :param x_target: 1D-numerical array of corresponding values z = z(x)
+    :return: average value of two neighbour parabolas at x = x_target
+    '''
     # По заданной сетке и дискретно заданной функции func = np.array([f1, f2, ..., fn]) строит одномерную
     # усреднённо-параболическую интерполяцию в точке с координатой aim_x. Усреднённо-параболическая интерполяция
     # состоит в следующем: пусть есть три точки (x1, y1), (x2, y2) и (x3, y3). Через них проводится парабола. Далее
@@ -356,7 +458,7 @@ def one_dim_parab_inter(x_set, func, aim_x):
 
     # Сначала определяем, между какими точками заданной сетки находится целевая точка:
 
-    i = get_left_i(x_set, aim_x)
+    i = get_left_i(x_set, x_target)
 
     # Теперь мы точно знаем, что aim_x лежит между  x_set[i] и  x_set[i + 1]
 
@@ -370,22 +472,31 @@ def one_dim_parab_inter(x_set, func, aim_x):
 
     if i >= 1:
 
-        results.append(parabola([[x_set[i - 1], func[i - 1]],
-                                 [x_set[i], func[i]],
-                                 [x_set[i + 1], func[i + 1]]], aim_x))
+        results.append(parabola([[x_set[i - 1], z_set[i - 1]],
+                                 [x_set[i], z_set[i]],
+                                 [x_set[i + 1], z_set[i + 1]]], x_target))
 
     if i < (x_set.shape[0] - 2):
 
-        results.append(parabola([[x_set[i], func[i]],
-                                 [x_set[i + 1], func[i + 1]],
-                                 [x_set[i + 2], func[i + 2]]], aim_x))
+        results.append(parabola([[x_set[i], z_set[i]],
+                                 [x_set[i + 1], z_set[i + 1]],
+                                 [x_set[i + 2], z_set[i + 2]]], x_target))
 
     # Возвращаем среднее:
 
     return np.average(results)
 
 
-def two_dim_parab_inter_surf(x_set, y_set, f, new_x_set, new_y_set):
+def two_dim_parab_inter_surf(x_set, y_set, z_set, new_x_set, new_y_set):
+    '''
+
+    :param x_set: strictly ascending 1D-numerical array
+    :param y_set: strictly ascending 1D-numerical array
+    :param z_set: 2D-numerical array of corresponding values z = z(x, y)
+    :param new_x_set: strictly ascending 1D-numerical array corresponding to x_set with new sample rate
+    :param new_y_set: strictly ascending 1D-numerical array corresponding to y_set with new sample rate
+    :return: 2D-numeric array of values of z(x, y) function interpolated on the new grid
+    '''
     # Строит двумерную осреднённо-параболическую интерполяцию дискретно заданной функции двух переменных на новую сетку
     # координат new_x_set, new_y_set. Двумерная - т.е. сначала с помощью одномерной интерполяции строим разрез
     # имеющиейся поверхности вдоль прямой x = new_x[i], а затем по полученному разрезу строим одномерную интерполяцию
@@ -402,7 +513,7 @@ def two_dim_parab_inter_surf(x_set, y_set, f, new_x_set, new_y_set):
 
         for q in range(y_set.shape[0]):
 
-            crosssect[q] = one_dim_parab_inter(x_set, f[:, q], new_x_set[i])  # построили разрез x = new_x[i]
+            crosssect[q] = one_dim_parab_inter(x_set, z_set[:, q], new_x_set[i])  # построили разрез x = new_x[i]
 
         for j in range(new_y_set.shape[0]):
 

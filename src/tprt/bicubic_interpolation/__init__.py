@@ -1,5 +1,5 @@
 from .cub_inter_functions import get_left_i,\
-    second_der_set, \
+    second_derivatives, \
     one_dim_polynomial, \
     two_dim_polynomial,\
     two_dim_inter, \
@@ -14,7 +14,7 @@ from .cub_inter_functions import get_left_i,\
     two_dim_parab_inter_surf
 
 __all__ = ['get_left_i',
-           'second_der_set',
+           'second_derivatives',
            'one_dim_polynomial',
            'two_dim_polynomial',
            'two_dim_inter',
