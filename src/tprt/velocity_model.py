@@ -10,13 +10,13 @@ class Velocity_model(object):
         self.layers = self.make_layers(velocity, density, name)
 
     @staticmethod
-    def make_flat_horizons(depths, anchors, dips, azimuths):        # Подразумеватся что все отсортировано по глубине от 0 до ...
+    def make_flat_horizons(depths, anchors, dips, azimuths):        # Подразумеватся, что все отсортировано по глубине от 0 до ...
         FlatHorizons = []
         for depth, anchor, dip, azimuth in zip(depths, anchors, dips, azimuths):
             FlatHorizons.append(FlatHorizon(depth, anchor, dip, azimuth))
         return FlatHorizons
 
-    def make_layers(self, velocities, densities, names):            # Подразумеавется, что все подано в нужной последовательности
+    def make_layers(self, velocities, densities, names):            # Подразумевается, что все подано в нужной последовательности
         Layers = []
         for i, (velocity, density, name) in enumerate(zip(velocities, densities, names)):
 
@@ -32,7 +32,7 @@ class Velocity_model(object):
         self.horizons.append(Horizon)
 
     def add_layer(self, Layer):
-        self.mid_layers.append(Layer)
+        self.layers.append(Layer)
 
     def __repr__(self):
         return self.layers
