@@ -5,13 +5,14 @@ from .utils import plot_points_3d
 DEFAULT_SOURCE_NAME = 'event'
 DEFAULT_MAGNITUDE = 1
 DEFAULT_LOCATION = np.array([0, 0, 0])
+DEFAULT_FREQUENCY = 40
 
 
 class Source(object):
     def __init__(
             self,
-            fr_dom, # dominant frequency in the Ricker wavelet (Hz)
             vel_model,
+            fr_dom=DEFAULT_FREQUENCY,  # dominant frequency in the Ricker wavelet (Hz)
             location=DEFAULT_LOCATION,
             name=DEFAULT_SOURCE_NAME,
     ):
