@@ -1,7 +1,7 @@
 from .units import Units
 
-
 class Layer(object):
+
     def __init__(self, velocity, density, top_horizon=None, bottom_horizon=None, kind='iso', name='flat'):
         self.kind = kind
         self.velocity = velocity
@@ -11,6 +11,8 @@ class Layer(object):
         self.units = Units()
         self.name = name
         self.predict = None
+
+        self.code_horizon = {+1: self.bottom, -1: self.top}
 
     def get_velocity(self, x):
         return self.velocity.get_velocity(x)
