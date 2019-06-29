@@ -347,10 +347,10 @@ class Ray(object):
         # Now there are two opportunities. First, the ray can consist of just one segment. Second, it can have multiple
         # segments.
 
-        if len(self.segments) == 1 or np.linalg.norm(U) == 0:
+        if len(self.segments) == 1:
 
             return U / self.segments[0].layer.get_velocity(0)[self.segments[0].vtype]**3 /\
-                   self.segments[0].layer.get_density() / 4 / np.pi
+                   self.segments[0].layer.get_density() / 4 / np.pi, [], []
             # if there is only one segment (or the amplitude is already equal to 0), calculate the amplitude in
             # the receiver and return it.
 
@@ -407,7 +407,7 @@ class Ray(object):
                                                                           self.segments[i - 1].vector)
                 D[1, 0] = D[0, 1]
 
-                print(D[0, 0], D[1, 0], D[1, 1])
+                # print(D[0, 0], D[1, 0], D[1, 1])
 
                 # Here transit_matr is a transition matrix from global Cartesian coordinates to local ones which are
                 # connected to the point of incidence ant the incident ray. Of course, columns of this matrix are

@@ -119,10 +119,10 @@ class FlatHorizon(Horizon):
         return - (self.A * xy_target[0] + self.B * xy_target[1] + self.D) / self.C
 
     def get_normal(self, xy_target):
-        # Gradient of any function f(x,y,z) is perpendicular to constant level surfaces. In case of a plane:
-        # f(x,y,z) = A * x + B * y + C * z + D = 0 everywhere on the plane => grad(f) = [A, B, C] is the
-        # sought normal vector. We just have to normalize it.
-        return np.array([self.A, self.B, self.C]) / np.linalg.norm(np.array([self.A, self.B, self.C]))
+        # Gradient of any function f(x,y,z) is perpendicular to constant level surfaces. In our case:
+        # z = - A / C * x - B / C * y - D/ C => f(x, y, z) = A / C * x + B / C * y + D / C + z = 0 everywhere on the
+        # plane => grad(f) = [A / C, B / C, 1] is the sought normal vector. We just have to normalize it.
+        return np.array([self.A / self.C, self.B / self.C, 1]) / np.linalg.norm(np.array([self.A / self.C, self.B / self.C, 1]))
 
     def get_gradient(self, xy_target):
         return - np.array([self.A, self.B]) / self.C # it is obvious from the formula of the gradient of z(x,y)
@@ -315,7 +315,7 @@ class GridHorizon(Horizon):
 
         # We shall use the following fact: z = f(x, y) => g(x, y, z) = z - f(x, y) == 0 => grad(g(x,y,z)) is orthogonal
         # to our surface.
-        # grad(g(x,y,z)) = [- df/dx, - df/dy, df/dz] = [- dz/dx, - dz/dy, 1]
+        # grad(g(x,y,z)) = [- df/dx, - df/dy, dz/dz] = [- dz/dx, - dz/dy, 1]
 
         # dz/dx and dz/dy are present in self.get_gradient() vector. So:
 
