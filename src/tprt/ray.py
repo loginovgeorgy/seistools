@@ -762,7 +762,7 @@ class Ray(object):
             return J
 
 class RaycodeError(Exception):
-    """Exception raised for errors in the input.
+    """Exception raised for errors in the input."""
 
 
     def __init__(self, msg):

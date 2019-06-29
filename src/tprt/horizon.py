@@ -72,7 +72,7 @@ class Horizon:
         yy, xx = np.meshgrid(y, x) # exactly in this order
 
         ax.plot_surface(xx, yy, z, alpha = 0.5)
-        ax.set_zlim(bottom=200, top=0)
+        # ax.set_zlim(bottom=200, top=0)
 
         return
 
