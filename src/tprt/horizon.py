@@ -38,6 +38,7 @@ class Horizon:
         yy, xx = np.meshgrid(y, x) # exactly in this order
 
         ax.plot_surface(xx, yy, z, alpha = 0.5)
+        ax.set_zlim(bottom=200, top=0)
 
         return
 
@@ -189,12 +190,12 @@ class FlatHorizon(Horizon):
 
         return 0, 0, 0, np.array([d1, d2, n]).T
 
-    def plot(self,extent=(0, 100, 0, 100), ax=None):
+    def plot(self, extent=(0, 100, 0, 100), ax=None):
 
         x = np.array([extent[0], extent[1]])
-        y = np.array([extent[2], extent[4]])
+        y = np.array([extent[2], extent[3]])
 
-        z = np.zeros(x.shape)
+        z = np.zeros(x.shape+y.shape)
 
         for i in range(x.shape[0]):
             for j in range(y.shape[0]):
