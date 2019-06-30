@@ -6,78 +6,91 @@ from scipy.linalg import solve_banded
 
 
 def get_left_i(x_set, x_target):
-    '''
+    """
 
     :param x_set: strictly ascending 1D-numerical array
     :param x_target: target value of x
     :return: number of the nearest x_target's neighbour in x_set
-    '''
+    """
 
     # Ищет номер ближайшего слева к x элемента из x_set. Т.е. x - число, а x_set - упорядоченный по возрастанию массив
-    # чисел. Взято отсюда: https://www.geeksforgeeks.org/find-closest-number-array/ (с модификациями)
+    # чисел.
+    
+    nearest_i = np.argmin(abs(x_set[: - 1] - x_target))
+    
+    if nearest_i == 0: # this condition provides that all x_target < x_set[0] will be bound to x[0], not to x[- 1]
+        
+        return nearest_i
+    
+    if x_target < x_set[nearest_i]: # this condition provides that all x_target inside x_set will be bound to their left
+        # neighbour
+        
+        return nearest_i - 1
+    
+    return nearest_i # in that case the nearest neighbour is already to the left from x_target
 
-    # Граничные случаи:
-    if x_target <= x_set[0]:
-        return 0
-    if x_target >= x_set[- 1]:
-        return x_set.shape[0] - 2
+    # # Граничные случаи:
+    # if x_target <= x_set[0]:
+    #     return 0
+    # if x_target >= x_set[- 1]:
+    #     return x_set.shape[0] - 2
 
     # Переходим к бинарному поиску
-    i = 0
-    j = x_set.shape[0]
-    mid = 0
+    # i = 0
+    # j = x_set.shape[0]
+    # mid = 0
 
-    while (i < j):
+    # while (i < j):
 
-        mid = round((i + j) / 2) # идём на середину
+    #     mid = round((i + j) / 2) # идём на середину
 
-        # Проверяем, не попали ли мы уже на нужный нам элемент
-        if (x_set[mid] == x_target):
+    #     # Проверяем, не попали ли мы уже на нужный нам элемент
+    #     if (x_set[mid] == x_target):
 
-            return mid
+    #         return mid
 
-        # Если наш элемент меньше, чем срединный, ищем в левой половине.
+    #     # Если наш элемент меньше, чем срединный, ищем в левой половине.
 
-        if x_target < x_set[mid]:
+    #     if x_target < x_set[mid]:
 
-            # Cначала проверяем, не является ли наш элемент граничным случаем для этой половины:
+    #         # Cначала проверяем, не является ли наш элемент граничным случаем для этой половины:
 
-            if mid > 0 and x_set[mid - 1] < x_target:
+    #         if mid > 0 and x_set[mid - 1] < x_target:
 
-                return mid - 1
+    #             return mid - 1
 
             # Приписываем значение mid правой границе исследуемой области и идём на следующую итерацию:
 
-            j = mid
+    #         j = mid
 
-        # Если же мы оказались справа от середины:
+    #     # Если же мы оказались справа от середины:
 
-        else:
+    #     else:
 
-            # Аналогичная проверка на "граничность":
+    #         # Аналогичная проверка на "граничность":
 
-            if mid < x_set.shape[0] - 1 and x_target < x_set[mid + 1]:
+    #         if mid < x_set.shape[0] - 1 and x_target < x_set[mid + 1]:
 
-                return mid
+    #             return mid
 
-            # Аналогично, сдвигаем левую границу к mid:
+    #         # Аналогично, сдвигаем левую границу к mid:
 
-            i = mid
+    #         i = mid
 
-    # В конце цикла останется единственный элемент:
+    # # В конце цикла останется единственный элемент:
 
-    return mid
+    # return mid
 
 # 1D-interpolation functions:
 
 
 def second_derivatives(x_set, z_set):
-    '''
+    """
 
     :param x_set: strictly ascending 1D-numerical array
     :param z_set: 1D-numerical array of corresponding values z = z(x)
     :return: 1D-numerical array of second derivatives z'' = z''(x) at points from x_set
-    '''
+    """
 
     # Returns array of second derivatives of z in x = x_set[i].
 
@@ -87,26 +100,34 @@ def second_derivatives(x_set, z_set):
 
     A = np.zeros((3, z_set.shape[0] - 2)) # here we shall write all three non-zero diagonals of the system's matrix
     B = np.zeros(A.shape[1]) # right part of the system
+    
+    steps = np.diff(x_set)
+    
+    A[0, 1:] = steps[1: - 1] / 6
+    A[1, :] = (steps[0: - 1] + steps[1:]) / 3
+    A[2, 0: - 1] = steps[1: - 1] / 6
+    
+    B = z_set[: - 2] / steps[: - 1] - z_set[1: - 1] * (1 / steps[: - 1] + 1 / steps[1:]) + z_set[2 :] / steps[1:]
 
-    A[1, 0] = (x_set[2] - x_set[0]) / 3
-    A[2, 0] = (x_set[2] - x_set[1]) / 6
+    # A[1, 0] = (x_set[2] - x_set[0]) / 3
+    # A[2, 0] = (x_set[2] - x_set[1]) / 6
 
-    A[0, -1] = (x_set[-2] - x_set[-3]) / 6
-    A[1, -1] = (x_set[-1] - x_set[-3]) / 3
+    # A[0, -1] = (x_set[-2] - x_set[-3]) / 6
+    # A[1, -1] = (x_set[-1] - x_set[-3]) / 3
 
-    B[0] = (z_set[2] - z_set[1]) / (x_set[2] - x_set[1]) - (z_set[1] - z_set[0]) / (x_set[1] - x_set[0])
+    # B[0] = (z_set[2] - z_set[1]) / (x_set[2] - x_set[1]) - (z_set[1] - z_set[0]) / (x_set[1] - x_set[0])
 
-    B[-1] = (z_set[- 1] - z_set[- 2]) / (x_set[- 1] - x_set[- 2]) -\
-            (z_set[- 2] - z_set[- 3]) / (x_set[- 2] - x_set[- 3])
+    # B[-1] = (z_set[- 1] - z_set[- 2]) / (x_set[- 1] - x_set[- 2]) -\
+    #         (z_set[- 2] - z_set[- 3]) / (x_set[- 2] - x_set[- 3])
 
-    for i in np.arange(1, A.shape[1] - 1, 1):
+    # for i in np.arange(1, A.shape[1] - 1, 1):
 
-        A[0, i] = (x_set[i + 1] - x_set[i]) / 6
-        A[1, i] = (x_set[i + 2] - x_set[i]) / 3
-        A[2, i] = (x_set[i + 1] - x_set[i]) / 6
+    #     A[0, i] = (x_set[i + 1] - x_set[i]) / 6
+    #     A[1, i] = (x_set[i + 2] - x_set[i]) / 3
+    #     A[2, i] = (x_set[i + 1] - x_set[i]) / 6
 
-        B[i] = (z_set[i + 2] - z_set[i + 1]) / (x_set[i + 2] - x_set[i + 1]) -\
-               (z_set[i + 1] - z_set[i]) / (x_set[i + 1] - x_set[i])
+    #     B[i] = (z_set[i + 2] - z_set[i + 1]) / (x_set[i + 2] - x_set[i + 1]) -\
+    #            (z_set[i + 1] - z_set[i]) / (x_set[i + 1] - x_set[i])
 
     sec_deriv = solve_banded((1, 1), A, B) # here are second derivatives in points x[1]...x[- 2].
     # So, let's append left and right edges which are supposed to be equal to zero:
@@ -118,12 +139,12 @@ def second_derivatives(x_set, z_set):
 
 
 def one_dim_polynomial(x_set, z_set):
-    '''
+    """
 
     :param x_set: strictly ascending 1D-numerical array
     :param z_set: 1D-numerical array of corresponding values z = z(x)
     :return: array of polynomial coefficients of cubic spline interpolation of z(x) function
-    '''
+    """
 
     # Returns array of coefficients of the interpolation ploynomials for function z_set defined on grid x_set with
     # second derivatives at the edges given.
@@ -133,25 +154,43 @@ def one_dim_polynomial(x_set, z_set):
 
     m_i = second_derivatives(x_set, z_set)
 
-    for i in np.arange(1, x_set.shape[0], 1):
+    steps = np.diff(x_set)
 
-        step_i = x_set[i] - x_set[i - 1]
+    one_dim_coefficients[:, 0] = m_i[: - 1] * x_set[1:] ** 3 / (6 * steps) -\
+                                 m_i[1:] * x_set[: - 1] ** 3 / (6 * steps) +\
+                                 (z_set[: - 1] - m_i[: - 1] * steps ** 2 / 6) * x_set[1:] / steps - \
+                                 (z_set[1:] - m_i[1:] * steps ** 2 / 6) * x_set[: - 1] / steps
 
-        one_dim_coefficients[i - 1, 0] = m_i[i - 1] * x_set[i] ** 3 / (6 * step_i) - \
-                                         m_i[i] * x_set[i - 1] ** 3 / (6 * step_i) + \
-                                         (z_set[i - 1] - m_i[i - 1] * step_i ** 2 / 6) * x_set[i] / step_i - \
-                                         (z_set[i] - m_i[i] * step_i ** 2 / 6) * x_set[i - 1] / step_i
+    one_dim_coefficients[:, 1] = - m_i[: - 1] * 3 * x_set[1:] ** 2 / (6 * steps) +\
+                                 m_i[1:] * 3 * x_set[: - 1] ** 2 / (6 * steps) -\
+                                 (z_set[: - 1] - m_i[: - 1] * steps ** 2 / 6) / steps +\
+                                 (z_set[1:] - m_i[1:] * steps ** 2 / 6) / steps
 
-        one_dim_coefficients[i - 1, 1] = - m_i[i - 1] * 3 * x_set[i] ** 2 / (6 * step_i) + \
-                                         m_i[i] * 3 * x_set[i - 1] ** 2 / (6 * step_i) - \
-                                         (z_set[i - 1] - m_i[i - 1] * step_i ** 2 / 6) / step_i + \
-                                         (z_set[i] - m_i[i] * step_i ** 2 / 6) / step_i
+    one_dim_coefficients[:, 2] = m_i[: - 1] * 3 * x_set[1:] / (6 * steps) -\
+                                 m_i[1:] * 3 * x_set[: - 1] / (6 * steps)
 
-        one_dim_coefficients[i - 1, 2] = m_i[i - 1] * 3 * x_set[i] / (6 * step_i) - \
-                                         m_i[i] * 3 * x_set[i - 1] / (6 * step_i)
+    one_dim_coefficients[:, 3] = - m_i[: - 1] / (6 * steps) +\
+                                 m_i[1:] / (6 * steps)
 
-        one_dim_coefficients[i - 1, 3] = - m_i[i - 1] / (6 * step_i) + \
-                                         m_i[i] / (6 * step_i)
+    # for i in np.arange(1, x_set.shape[0], 1):
+    #
+    #     step_i = x_set[i] - x_set[i - 1]
+    #
+    #     one_dim_coefficients[i - 1, 0] = m_i[i - 1] * x_set[i] ** 3 / (6 * step_i) - \
+    #                                      m_i[i] * x_set[i - 1] ** 3 / (6 * step_i) + \
+    #                                      (z_set[i - 1] - m_i[i - 1] * step_i ** 2 / 6) * x_set[i] / step_i - \
+    #                                      (z_set[i] - m_i[i] * step_i ** 2 / 6) * x_set[i - 1] / step_i
+    #
+    #     one_dim_coefficients[i - 1, 1] = - m_i[i - 1] * 3 * x_set[i] ** 2 / (6 * step_i) + \
+    #                                      m_i[i] * 3 * x_set[i - 1] ** 2 / (6 * step_i) - \
+    #                                      (z_set[i - 1] - m_i[i - 1] * step_i ** 2 / 6) / step_i + \
+    #                                      (z_set[i] - m_i[i] * step_i ** 2 / 6) / step_i
+    #
+    #     one_dim_coefficients[i - 1, 2] = m_i[i - 1] * 3 * x_set[i] / (6 * step_i) - \
+    #                                      m_i[i] * 3 * x_set[i - 1] / (6 * step_i)
+    #
+    #     one_dim_coefficients[i - 1, 3] = - m_i[i - 1] / (6 * step_i) + \
+    #                                      m_i[i] / (6 * step_i)
 
     return one_dim_coefficients
 
@@ -159,13 +198,13 @@ def one_dim_polynomial(x_set, z_set):
 
 
 def two_dim_polynomial(x_set, y_set, z_set):
-    '''
+    """
 
     :param x_set: strictly ascending 1D-numerical array
     :param y_set: strictly ascending 1D-numerical array
     :param z_set: 2D-numerical array of corresponding values z = z(x, y)
     :return: array of polynomial coefficients of bicubic spline interpolation of z(x, y) function
-    '''
+    """
 
     # Returns array of polynomial coefficients for bicubic interpolation.
 
@@ -175,27 +214,21 @@ def two_dim_polynomial(x_set, y_set, z_set):
 
     xi_coeff = np.zeros((x_set.shape[0], y_set.shape[0] - 1, 4))
 
-    for i in range(x_set.shape[0]):
-
-        xi_coeff[i, :, :] = one_dim_polynomial(y_set, z_set[i, :])
-
-    # 2. Array of polynomial coefficients for cross-section of the second partial derivative of z with respect to x
+    # 2. Array of polynomial coefficients for cross-section of the second partial derivatives of z with respect to x
     # along lines x = xi (so, this function will be a cubic polynomial of y):
 
-    # First, we have to find function d2z / dx2 on the grid:
+    z_xx = np.zeros((x_set.shape[0], y_set.shape[0]))  # array of d2z/dx2 on the grid
+    z_xx_coeff = np.zeros((x_set.shape[0], y_set.shape[0] - 1, 4))  # polynomial coefficients for d2z/dx2
 
-    z_xx = np.zeros((x_set.shape[0], y_set.shape[0])) # array for d2z/dx2
+    # Let's fill these arrays:
 
     for j in range(y_set.shape[0]):
 
         z_xx[:, j] = second_derivatives(x_set, z_set[:, j])
 
-    # And now - let's find polynomial coefficients:
-
-    z_xx_coeff = np.zeros((x_set.shape[0], y_set.shape[0] - 1, 4))
-
     for i in range(x_set.shape[0]):
 
+        xi_coeff[i, :, :] = one_dim_polynomial(y_set, z_set[i, :])
         z_xx_coeff[i, :, :] = one_dim_polynomial(y_set, z_xx[i, :])
 
     # Now we have everything what we need. Let's construct new array for two-dimensional interpolation polynomial
@@ -203,46 +236,79 @@ def two_dim_polynomial(x_set, y_set, z_set):
 
     two_dim_coefficients = np.zeros((x_set.shape[0] - 1, y_set.shape[0] - 1, 4, 4))
 
-    for i in np.arange(1, x_set.shape[0], 1):
+    x_steps_transp = np.transpose(np.array([np.diff(x_set)]))
+    x_set_transp = np.transpose(np.array([x_set]))  # the transposition is performed for correct multiplication below
 
-        step_i = x_set[i] - x_set[i - 1]
+    for m in range(4):
 
-        for j in np.arange(1, y_set.shape[0], 1):
+        two_dim_coefficients[:, :, 0, m] = (xi_coeff[: - 1, :, m] * x_set_transp[1:] -
+                                            xi_coeff[1:, :, m] * x_set_transp[: - 1]) / x_steps_transp - \
+                                           (z_xx_coeff[: - 1, :, m] * x_set_transp[1:] -
+                                            z_xx_coeff[1:, :, m] * x_set_transp[: - 1]) * x_steps_transp / 6 + \
+                                           (z_xx_coeff[: - 1, :, m] * x_set_transp[1:] ** 3 -
+                                            z_xx_coeff[1:, :, m] * x_set_transp[: - 1] ** 3) / x_steps_transp / 6
 
-            for m in range(4):
+        two_dim_coefficients[:, :, 1, m] = (xi_coeff[1:, :, m] -
+                                            xi_coeff[: - 1, :, m]) / x_steps_transp - \
+                                           (z_xx_coeff[1:, :, m] -
+                                            z_xx_coeff[: - 1, :, m]) * x_steps_transp / 6 + \
+                                           (z_xx_coeff[1:, :, m] * x_set_transp[: - 1] ** 2 -
+                                            z_xx_coeff[: - 1, :, m] * x_set_transp[1:] ** 2) / x_steps_transp / 2
 
-                two_dim_coefficients[i - 1, j - 1, 0, m] = (xi_coeff[i - 1, j - 1, m] * x_set[i] -
-                                                            xi_coeff[i, j - 1, m] * x_set[i - 1]) / step_i -\
-                                                           step_i * (z_xx_coeff[i - 1, j - 1, m] * x_set[i] -
-                                                                     z_xx_coeff[i, j - 1, m] * x_set[i - 1]) / 6 +\
-                                                           (z_xx_coeff[i - 1, j - 1, m] * x_set[i] ** 3 -
-                                                            z_xx_coeff[i, j - 1, m] * x_set[i - 1] ** 3) / step_i / 6
+        two_dim_coefficients[:, :, 2, m] = (z_xx_coeff[: - 1, :, m] * x_set_transp[1:] -
+                                            z_xx_coeff[1:, :, m] * x_set_transp[: - 1]) / x_steps_transp / 2
 
-                two_dim_coefficients[i - 1, j - 1, 1, m] = (xi_coeff[i, j - 1, m] -
-                                                            xi_coeff[i - 1, j - 1, m]) / step_i -\
-                                                           step_i * (z_xx_coeff[i, j - 1, m] -
-                                                                     z_xx_coeff[i - 1, j - 1, m]) / 6 +\
-                                                           (z_xx_coeff[i, j - 1, m] * x_set[i - 1] ** 2 -
-                                                            z_xx_coeff[i - 1, j - 1, m] * x_set[i] ** 2) / step_i / 2
+        two_dim_coefficients[:, :, 3, m] = (z_xx_coeff[1:, :, m] -
+                                            z_xx_coeff[: - 1, :, m]) / x_steps_transp / 6
 
-                two_dim_coefficients[i - 1, j - 1, 2, m] = (z_xx_coeff[i - 1, j - 1, m] * x_set[i] -
-                                                            z_xx_coeff[i, j - 1, m] * x_set[i - 1]) / step_i / 2
-
-                two_dim_coefficients[i - 1, j - 1, 3, m] = (z_xx_coeff[i, j - 1, m] -
-                                                            z_xx_coeff[i - 1, j - 1, m]) / step_i / 6
+    # two_dim_coefficients = np.zeros((x_set.shape[0] - 1, y_set.shape[0] - 1, 4, 4))
+    #
+    # # x_steps = np.diff(x_set)
+    # #
+    # # for m in range(4):
+    # #
+    # #     two_dim_coefficients[:, :, 0, m] = (xi_coeff[: - 1, :, m] * )
+    #
+    # for i in np.arange(1, x_set.shape[0], 1):
+    #
+    #     step_i = x_set[i] - x_set[i - 1]
+    #
+    #     for j in np.arange(1, y_set.shape[0], 1):
+    #
+    #         for m in range(4):
+    #
+    #             two_dim_coefficients[i - 1, j - 1, 0, m] = (xi_coeff[i - 1, j - 1, m] * x_set[i] -
+    #                                                         xi_coeff[i, j - 1, m] * x_set[i - 1]) / step_i -\
+    #                                                        step_i * (z_xx_coeff[i - 1, j - 1, m] * x_set[i] -
+    #                                                                  z_xx_coeff[i, j - 1, m] * x_set[i - 1]) / 6 +\
+    #                                                        (z_xx_coeff[i - 1, j - 1, m] * x_set[i] ** 3 -
+    #                                                         z_xx_coeff[i, j - 1, m] * x_set[i - 1] ** 3) / step_i / 6
+    #
+    #             two_dim_coefficients[i - 1, j - 1, 1, m] = (xi_coeff[i, j - 1, m] -
+    #                                                         xi_coeff[i - 1, j - 1, m]) / step_i -\
+    #                                                        step_i * (z_xx_coeff[i, j - 1, m] -
+    #                                                                  z_xx_coeff[i - 1, j - 1, m]) / 6 +\
+    #                                                        (z_xx_coeff[i, j - 1, m] * x_set[i - 1] ** 2 -
+    #                                                         z_xx_coeff[i - 1, j - 1, m] * x_set[i] ** 2) / step_i / 2
+    #
+    #             two_dim_coefficients[i - 1, j - 1, 2, m] = (z_xx_coeff[i - 1, j - 1, m] * x_set[i] -
+    #                                                         z_xx_coeff[i, j - 1, m] * x_set[i - 1]) / step_i / 2
+    #
+    #             two_dim_coefficients[i - 1, j - 1, 3, m] = (z_xx_coeff[i, j - 1, m] -
+    #                                                         z_xx_coeff[i - 1, j - 1, m]) / step_i / 6
 
     return two_dim_coefficients
 
 
 def two_dim_inter(two_dim_coeff, x_set, y_set, xy_target):
-    '''
+    """
 
     :param two_dim_coeff: array of polynomial coefficients of bicubic spline interpolation of z(x, y) function
     :param x_set: strictly ascending 1D-numerical array
     :param y_set: strictly ascending 1D-numerical array
     :param xy_target: target value of (x, y); xy_target = [x_target, y_target]
     :return: value of interpolated function z(x,y) at the target point
-    '''
+    """
 
     # Returns value of z(x, y) corresponding to the pre-constructed array of polynomial coefficients and the
     # parametrization grid.
@@ -261,7 +327,7 @@ def two_dim_inter(two_dim_coeff, x_set, y_set, xy_target):
 
 
 def two_dim_inter_dx(two_dim_coeff, x_set, y_set, xy_target):
-    '''
+    """
 
     :param two_dim_coeff: array of polynomial coefficients of bicubic spline interpolation of z(x, y) function
     :param x_set: strictly ascending 1D-numerical array
@@ -269,7 +335,7 @@ def two_dim_inter_dx(two_dim_coeff, x_set, y_set, xy_target):
     :param xy_target: target value of (x, y); xy_target = [x_target, y_target]
     :return: value of partial derivative d / dx of interpolated function z(x,y) at the target point:
     dz / dx |x = x_target, y = y_target
-    '''
+    """
 
     # Returns partial derivative dz(x, y) / dx corresponding to the pre-constructed array of polynomial
     # coefficients and the parametrization grid.
@@ -288,7 +354,7 @@ def two_dim_inter_dx(two_dim_coeff, x_set, y_set, xy_target):
 
 
 def two_dim_inter_dy(two_dim_coeff, x_set, y_set, xy_target):
-    '''
+    """
 
     :param two_dim_coeff: array of polynomial coefficients of bicubic spline interpolation of z(x, y) function
     :param x_set: strictly ascending 1D-numerical array
@@ -296,7 +362,7 @@ def two_dim_inter_dy(two_dim_coeff, x_set, y_set, xy_target):
     :param xy_target: target value of (x, y); xy_target = [x_target, y_target]
     :return: value of partial derivative d / dy of interpolated function z(x,y) at the target point:
     dz / dy |x = x_target, y = y_target
-    '''
+    """
 
     # Returns partial derivative dz(x, y) / dy corresponding to the pre-constructed array of polynomial
     # coefficients and the parametrization grid.
@@ -315,7 +381,7 @@ def two_dim_inter_dy(two_dim_coeff, x_set, y_set, xy_target):
 
 
 def two_dim_inter_dx_dx(two_dim_coeff, x_set, y_set, xy_target):
-    '''
+    """
 
     :param two_dim_coeff: array of polynomial coefficients of bicubic spline interpolation of z(x, y) function
     :param x_set: strictly ascending 1D-numerical array
@@ -323,7 +389,7 @@ def two_dim_inter_dx_dx(two_dim_coeff, x_set, y_set, xy_target):
     :param xy_target: target value of (x, y); xy_target = [x_target, y_target]
     :return: value of partial derivative d^2 / dx^2 of interpolated function z(x,y) at the target point:
     d^2 z / dx^2 |x = x_target, y = y_target
-    '''
+    """
 
     # Returns partial derivative d^2z(x, y) / dx^2 corresponding to the pre-constructed array of polynomial
     # coefficients and the parametrization grid.
@@ -342,7 +408,7 @@ def two_dim_inter_dx_dx(two_dim_coeff, x_set, y_set, xy_target):
 
 
 def two_dim_inter_dy_dy(two_dim_coeff, x_set, y_set, xy_target):
-    '''
+    """
 
     :param two_dim_coeff: array of polynomial coefficients of bicubic spline interpolation of z(x, y) function
     :param x_set: strictly ascending 1D-numerical array
@@ -350,7 +416,7 @@ def two_dim_inter_dy_dy(two_dim_coeff, x_set, y_set, xy_target):
     :param xy_target: target value of (x, y); xy_target = [x_target, y_target]
     :return: value of partial derivative d^2 / dy^2 of interpolated function z(x,y) at the target point:
     d^2 z / dy^2 |x = x_target, y = y_target
-    '''
+    """
 
     # Returns partial derivative d^2z(x, y) / dy^2 corresponding to the pre-constructed array of polynomial
     # coefficients and the parametrization grid.
@@ -369,7 +435,7 @@ def two_dim_inter_dy_dy(two_dim_coeff, x_set, y_set, xy_target):
 
 
 def two_dim_inter_dx_dy(two_dim_coeff, x_set, y_set, xy_target):
-    '''
+    """
 
     :param two_dim_coeff: array of polynomial coefficients of bicubic spline interpolation of z(x, y) function
     :param x_set: strictly ascending 1D-numerical array
@@ -377,7 +443,7 @@ def two_dim_inter_dx_dy(two_dim_coeff, x_set, y_set, xy_target):
     :param xy_target: target value of (x, y); xy_target = [x_target, y_target]
     :return: value of partial derivative d^2 / dx dy of interpolated function z(x,y) at the target point:
     d^2 z / dx dy |x = x_target, y = y_target
-    '''
+    """
 
     # Returns partial derivative d^2z(x, y) / dx dy corresponding to the pre-constructed array of polynomial
     # coefficients and the parametrization grid.
@@ -399,7 +465,7 @@ def two_dim_inter_dx_dy(two_dim_coeff, x_set, y_set, xy_target):
 
 
 def difference(s, x_set, y_set, two_dim_coeff, sou, vec):
-    '''
+    """
 
     :param s: length's value
     :param x_set: strictly ascending 1D-numerical array
@@ -409,19 +475,19 @@ def difference(s, x_set, y_set, two_dim_coeff, sou, vec):
     :param vec: direction vector
     :return: distance along z axis from the point sou + s * vec and to the surface defined by the interpolation
     polynomial
-    '''
+    """
 
     return abs(two_dim_inter(two_dim_coeff, x_set, y_set, np.array([sou[0:2] + s * vec[0:2]])) - \
                (sou[2] + s * vec[2]))
 
 
 def parabola(points, x_target):
-    '''
+    """
 
     :param points: coordinates of three points in form points = [point_1, point_2, point_3], where  point_i = [x_i, z_i]
     :param x_target: target value of x
     :return: value of parabola z = A * x**2 + B * x + C which fits all three points at x = x_target
-    '''
+    """
     # Строит параболу, проходящую через три точки points = [point_1, point_2, point_3], где все point_i = [x_i, z_i], и
     # возвращает значение этой параболы в точке aim_x.
     # Парабола ищется в виде z = A * x**2 + B * x + C
@@ -443,13 +509,13 @@ def parabola(points, x_target):
 
 
 def one_dim_parab_inter(x_set, z_set, x_target):
-    '''
+    """
 
     :param x_set: strictly ascending 1D-numerical array
     :param z_set: 1D-numerical array of corresponding values z = z(x)
     :param x_target: 1D-numerical array of corresponding values z = z(x)
     :return: average value of two neighbour parabolas at x = x_target
-    '''
+    """
     # По заданной сетке и дискретно заданной функции func = np.array([f1, f2, ..., fn]) строит одномерную
     # усреднённо-параболическую интерполяцию в точке с координатой aim_x. Усреднённо-параболическая интерполяция
     # состоит в следующем: пусть есть три точки (x1, y1), (x2, y2) и (x3, y3). Через них проводится парабола. Далее
@@ -488,7 +554,7 @@ def one_dim_parab_inter(x_set, z_set, x_target):
 
 
 def two_dim_parab_inter_surf(x_set, y_set, z_set, new_x_set, new_y_set):
-    '''
+    """
 
     :param x_set: strictly ascending 1D-numerical array
     :param y_set: strictly ascending 1D-numerical array
@@ -496,7 +562,7 @@ def two_dim_parab_inter_surf(x_set, y_set, z_set, new_x_set, new_y_set):
     :param new_x_set: strictly ascending 1D-numerical array corresponding to x_set with new sample rate
     :param new_y_set: strictly ascending 1D-numerical array corresponding to y_set with new sample rate
     :return: 2D-numeric array of values of z(x, y) function interpolated on the new grid
-    '''
+    """
     # Строит двумерную осреднённо-параболическую интерполяцию дискретно заданной функции двух переменных на новую сетку
     # координат new_x_set, new_y_set. Двумерная - т.е. сначала с помощью одномерной интерполяции строим разрез
     # имеющиейся поверхности вдоль прямой x = new_x[i], а затем по полученному разрезу строим одномерную интерполяцию
