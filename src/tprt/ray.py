@@ -592,22 +592,26 @@ class Ray(object):
                 refl_trans_coeff,\
                 inc_cosines
 
-    def get_recorded_amplitude(self, t):
+    def get_recorded_amplitude(self, times):
         # returns amplitude vector in the receiver in a particular time moment t.
         # Here I use theory presented in: Popov, M.M. Ray theory and gaussian beam method for geophysicists /
         # M. M. Popov. - Salvador: EDUFBA, 2002. – 172 p.
 
         # We use formula: A = Ricker(t - tau) * U)
         # where tau is time of the first break (i.e. traveltime along the ray), Ricker is
-        # the Ricker wavelet with dispersion given in the Source  and U is a constant vector: self.amplitude_fun.
+        # the Ricker wavelet with dispersion given in the Source  and U is a constant vector: self.ray_amplitude.
 
         tau = self.get_travel_time()
         sigma = np.sqrt(2) / self.source.fr_dom / 2 / np.pi
 
-        return 2 / np.sqrt(3 * sigma) / np.pi ** (1 / 4) *\
-               (1 - ((t - tau )/ sigma)**2) *\
-               np.exp(- (t - tau)**2 / (2 * sigma**2)) *\
-               np.dot(self.receiver.orientation.T, self.ray_amplitude)
+        time_set = np.transpose(np.array([times - tau]))  # we assume that times can be either scalar or vector of time
+        # moments; transposition is performed for sake of multiplication below.
+
+        return np.transpose(2 / np.sqrt(3 * sigma) / np.pi ** (1 / 4) *\
+                            (1 - (time_set/ sigma)**2) *\
+                            np.exp(- time_set**2 / (2 * sigma**2)) *\
+                            np.dot(self.receiver.orientation.T, self.ray_amplitude))  # we transpose the result so that
+        # its zeroth component would correspond to x-component of recoded displacement at any time moment in times
 
     def spreading(self, curv_factor, inv_bool):
         # Computes only geometrical spreading along the ray in the observation point. All comments are above.
