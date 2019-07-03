@@ -27,6 +27,7 @@ def plot_traces(
         invert_y_axis=True,
         picks_on_amplitude=False,
         picks_curve=False,
+        picks_legend=True,
         alpha=.5,
         dist_for_3c=.5,
         font_size=20,
@@ -240,67 +241,8 @@ def plot_traces(
     if invert_y_axis:
         ax.invert_yaxis()
 
-    if len(picks) > 0:
+    if (len(picks) > 0) & picks_legend:
         ax.legend(loc=2)
 
     plt.rcParams['font.size'] = old_font_size
     plt.rcParams['font.sans-serif'] = old_serif
-
-# def plot_3c(x, img=None, picks=None, w=10, h=20, dt=1, title=''):
-#     if not isinstance(img, list):
-#         img = [img]
-#
-#     if not picks:
-#         picks = {}
-#
-#     fig, axs = plt.subplots(ncols=len(img), figsize=(w * len(img), h), squeeze=False)
-#     axs = axs[0]
-#
-#     if len(x.shape) == 3:
-#         nc = x.shape[2]
-#
-#     if len(x.shape) == 2:
-#         x = x[..., None]
-#         nc = 1
-#     #     return axs[0]
-#     #     return np.squeeze(axs)
-#     #     axs = np.ar(axs)
-#     #         ax1, ax2 = axs
-#     color = ['r', 'g', 'b']
-#     frm = -.5
-#     tll = x.shape[0] * nc - .5
-#
-#     kwargs = dict(
-#         aspect='auto',
-#         origin='lower',
-#         extent=(0, x.shape[1] * dt, frm, tll),
-#         cmap=plt.cm.Greys,
-#         vmin=0,
-#         vmax=1,
-#     )
-#     x = normalize_data(x, axis=1, shift_type='mean', scale_type='maxabs')
-#     for i in range(x.shape[0]):
-#         for c in range(nc):
-#             for ax in axs:
-#                 ax.plot(np.arange(len(x[i, :, c])) * dt, x[i, :, c] / 2 + (i * nc) + ((nc - 1) - c), color=color[c])
-#
-#         for ax in axs:
-#             ax.plot([0, x.shape[1] * dt], np.zeros(2) + i * nc + 2.5, color='k', linestyle='-.', linewidth=.5)
-#             for ip, key in enumerate(picks):
-#                 ax.plot(picks[key][i] * np.ones(2) * dt, [i * nc - .5, i * nc + 2.5], color=plt.cm.tab10(ip),
-#                         linestyle='--')
-#
-#     for ip, key in enumerate(picks):
-#         axs[0].plot(np.nan, np.nan, color=plt.cm.tab10(ip), linestyle='--', label=key)
-#     if picks:
-#         axs[0].legend()
-#     for ax, _img in zip(axs, img):
-#         if not isinstance(_img, type(None)):
-#             ax.imshow(_img, **kwargs)
-#         #         ax.set_yticks(np.arange(1, x.shape[0]*3 - 1, 3))
-#         #         ax.set_yticklabels(np.arange(1, x.shape[0] + 1, 1))
-#         #         ax.grid(axis='y')
-#
-#         ax.set_title(title)
-#         ax.set_xlim([0, x.shape[1] * dt])
-#         ax.set_ylim([frm, tll])
