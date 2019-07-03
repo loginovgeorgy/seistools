@@ -15,7 +15,7 @@ def _median(x, axis):
 
 
 def _max(x, axis):
-    return np.nanmin(x, axis=axis, keepdims=True)
+    return np.nanmax(x, axis=axis, keepdims=True)
 
 
 def _min(x, axis):
