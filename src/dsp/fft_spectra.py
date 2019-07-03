@@ -197,6 +197,36 @@ def create_band_pass_filter(ns, dt, bound):
     return f
 
 
+def create_band_reject_filter(ns, dt, bound):
+    """
+    Create band pass filter
+    :param ns: num. of time samples
+    :param dt: sampling rate
+    :param bound: filter bounds in Hz
+    :return: f - filter, 1D array
+    """
+    b = np.array(bound)
+    if len(b) != 4:
+        raise Exception(
+            'Filter bounds must have 4 elements.'
+            'The shape of bounds was {}.'.format(b.shape)
+        )
+    if np.any(np.diff(b) < 0):
+        raise Exception(
+            'Filter bounds must increase.'
+            'The bounds were {}.'.format(b)
+        )
+    nw = np.int32(np.floor(ns/2)) + 1
+    b = np.int32(np.round(b*(ns-1)*dt))
+    b[b < 0] = 0
+    b[b > (nw-1)] = nw
+    f = np.ones(nw)
+    f[b[0]: b[1]] = np.linspace(1, 0, b[1]-b[0])
+    f[b[1]: b[2]] = 0
+    f[b[2]: b[3]] = np.linspace(0, 1, b[3]-b[2])
+    return f
+
+
 def apply_filter(x, f, axis=1):
     """
     Apply 1D filter along time axis
@@ -248,4 +278,20 @@ def apply_band_pass(x, dt, bound, axis=1):
     x = cast_input_to_traces(x)
     ns = x.shape[axis]
     f = create_band_pass_filter(ns, dt, bound)
+    return apply_filter(x, f, axis=axis)
+
+
+def apply_band_reject(x, dt, bound, axis=1):
+    """
+    Create and apply band_pass filter
+
+    :param x: input signal, nD Array
+    :param dt: sampling rate
+    :param bound: filter bounds in Hz
+    :param axis: axis along to perform filtering (axis of time samples)
+    :return: x - filtered signal
+    """
+    x = cast_input_to_traces(x)
+    ns = x.shape[axis]
+    f = create_band_reject_filter(ns, dt, bound)
     return apply_filter(x, f, axis=axis)
