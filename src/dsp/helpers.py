@@ -11,7 +11,7 @@ def cast_to_3c_traces(traces, nc=3):
     if nr0 % nc:
         raise ValueError('The given trace shape {} cant be casted to (-1, {}, {})'.format(traces.shape, ns, nc))
 
-    nr = (nr0 / nc).astype(int)
+    nr = int(nr0 / nc)
 
     traces = traces.reshape(nr, nc, -1)
     return traces.transpose((0, 2, 1))
