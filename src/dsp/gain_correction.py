@@ -7,35 +7,35 @@ EPS = 1e-15
 
 
 def _mean(x, axis):
-    return x.mean(axis=axis, keepdims=True)
+    return np.nanmean(x, axis=axis, keepdims=True)
 
 
 def _median(x, axis):
-    return x.median(axis=axis, keepdims=True)
+    return np.nanmedian(x, axis=axis, keepdims=True)
 
 
 def _max(x, axis):
-    return x.max(axis=axis, keepdims=True)
+    return np.nanmin(x, axis=axis, keepdims=True)
 
 
 def _min(x, axis):
-    return x.min(axis=axis, keepdims=True)
+    return np.nanmin(x, axis=axis, keepdims=True)
 
 
 def _std(x, axis):
-    return x.std(axis=axis, keepdims=True)
+    return np.nanstd(x, axis=axis, keepdims=True)
 
 
 def _maxabs(x, axis):
-    return np.abs(x).max(axis=axis, keepdims=True)
+    return np.nanmax(np.abs(x), axis=axis, keepdims=True)
 
 
 def _minmax(x, axis):
-    return x.max(axis=axis, keepdims=True) - x.min(axis=axis, keepdims=True)
+    return np.nanmax(x, axis=axis, keepdims=True) - np.nanmin(x, axis=axis, keepdims=True)
 
 
 def _minmaxabs(x, axis):
-    return np.abs(x).max(axis=axis, keepdims=True) - x.min(axis=axis, keepdims=True)
+    return np.nanmax(np.abs(x), axis=axis, keepdims=True) - np.nanmin(np.abs(x), axis=axis, keepdims=True)
 
 
 def _zero_shift(*args):
