@@ -1,5 +1,6 @@
 import numpy as np
 
+
 class Segment(object):
     def __init__(self, source, receiver, layer, start_horizon, end_horizon, vtype):
         # Changeable
