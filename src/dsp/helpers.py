@@ -192,3 +192,41 @@ def edge_preserve_smoothing(signal, window, verbose=False):
 #         eps_avg[i] = _avg[np.where(_std==_std.min())[0]].min()
         eps_avg[i] = _avg[_std.argmin()]
     return eps_avg
+
+
+def polarization_analysis(hodogram):
+    _, eig_val, eig_vec = np.linalg.svd(hodogram)
+    eig_val = eig_val ** 2
+    eig_val = eig_val / np.nanmax(eig_val)
+
+    eig_idx = np.argsort(eig_val)[::-1]
+    eig_val = eig_val[eig_idx]
+    eig_vec = eig_vec[:, eig_idx]
+
+    vector3 = np.cross(eig_vec[:, 0], eig_vec[:, 1])
+    dot_prod = np.dot(vector3, eig_vec[:, 2])
+
+    if dot_prod > 0:
+        eig_vec[:, 2] *= -1
+
+    polarization = eig_vec
+    this_rot = polarization
+
+    polar_angle = np.abs(np.arctan2(np.linalg.norm(this_rot[:1, 0]), this_rot[2, 0]))
+    # % PolarAng = acos(this_rot(3, jw) / norm(this_rot(:, jw), 2));
+    azimuth = np.arctan2(this_rot[1, 0], this_rot[0, 0])
+
+    azm_vec = np.array([-this_rot[1, 0], this_rot[0, 0], 0])
+    pol_vec = np.cross(azm_vec, this_rot[:, 0])
+    nrm_val = np.pi * eig_val / np.max(eig_val)
+
+    polar_angle_std = np.abs(np.dot(pol_vec, nrm_val[1] * this_rot[:, 1])) + \
+                      np.abs(np.dot(pol_vec, nrm_val[2] * this_rot[:, 2]))
+
+    azimuth_std = np.abs(np.dot(azm_vec, nrm_val[1] * this_rot[:, 1])) + \
+                  np.abs(np.dot(azm_vec, nrm_val[2] * this_rot[:, 2]))
+    linearity = ((eig_val[0] - eig_val[1]) ** 2 + (eig_val[0] - eig_val[2]) ** 2 +
+                 (eig_val[1] - eig_val[2]) ** 2) / (2 * sum(eig_val) ** 2)
+
+    return azimuth, azimuth_std, polar_angle, polar_angle_std, linearity
+
