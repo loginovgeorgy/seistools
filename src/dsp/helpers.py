@@ -4,6 +4,19 @@ from copy import deepcopy
 from scipy.signal import fftconvolve as convolve
 
 
+def cast_to_3c_traces(traces, nc=3):
+    nr0 = traces.shape[0]
+    ns = traces.shape[1]
+
+    if nr0 % nc:
+        raise ValueError('The given trace shape {} cant be casted to (-1, {}, {})'.format(traces.shape, ns, nc))
+
+    nr = (nr0 / nc).astype(int)
+
+    traces = traces.reshape(nr, nc, -1)
+    return traces.transpose((0, 2, 1))
+
+
 def cast_input_to_traces(x, ndmin=2):
     """
     It is better to check input data type and shape. To prevent problems, array must be at least 2D,
