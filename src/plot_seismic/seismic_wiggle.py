@@ -240,6 +240,9 @@ def plot_traces(
     if invert_y_axis:
         ax.invert_yaxis()
 
+    if len(picks) > 0:
+        ax.legend(loc=2)
+
     plt.rcParams['font.size'] = old_font_size
     plt.rcParams['font.sans-serif'] = old_serif
 
