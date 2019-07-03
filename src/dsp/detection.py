@@ -120,13 +120,13 @@ def detect_by_threshold(x, threshold, axis=1, normalize=False, replace_threshold
     return picks
 
 
-def trigger_detection_function(traces, window=200, smooth=401, threshold=2):
+def trigger_detection_function(traces, window=200, smooth=401, threshold=2, eps=EPS):
 
     traces = cast_input_to_traces(traces)
 
     left = moving_average_1d(traces ** 2, window, axis=1, window_type='left')
     right = moving_average_1d(traces ** 2, window, axis=1, window_type='right')
-    s = right / (left + 1e-15)
+    s = right / (left + eps)
     s[:, :window] = 1
     s[:, -window::1] = 1
 
