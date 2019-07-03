@@ -3,7 +3,7 @@ from copy import deepcopy
 from collections import defaultdict
 from .helpers import cast_input_to_traces, moving_average_1d
 
-EPS = 1e-15
+EPS = 1e-26
 
 
 def _mean(x, axis):
@@ -19,7 +19,7 @@ def _max(x, axis):
 
 
 def _min(x, axis):
-    return np.nanmin(x, axis=axis, keepdims=True)
+    return np.nanmax(x, axis=axis, keepdims=True)
 
 
 def _std(x, axis):
@@ -75,19 +75,20 @@ def calculate_shift(x, axis=1, shift_type='mean'):
     return _func(x, axis)
 
 
-def normalize_traces_by_std(traces, window, window_type='center', axis=1):
+def normalize_traces_by_std(traces, window, window_type='center', axis=1, eps=EPS):
     """
     Normalize traces in a running window
     :param traces: input seismic
     :param window: window length
     :param window_type: 'center', 'left', 'right'
     :param axis: axis along to perform normalization
+    :param eps: epsilon
     :return:
     """
 
     average = moving_average_1d(traces, window, window_type=window_type, axis=axis)
     std = moving_average_1d((traces - average) ** 2, window, window_type=window_type, axis=axis)
-    return traces / (np.sqrt(np.abs(std)) + EPS)
+    return traces / (np.sqrt(np.abs(std)) + eps)
 
 
 def normalize_traces(
@@ -97,7 +98,8 @@ def normalize_traces(
         scale_type='maxabs',
         duplicate=True,
         cast=True,
-        calc_scale_after_shift=True
+        calc_scale_after_shift=True,
+        eps=EPS,
 ):
     """
     Perform data normalization along set axis, to bring values in certain interval.
@@ -119,6 +121,7 @@ def normalize_traces(
     :param duplicate: deepcopy object before perform (True/False)
     :param cast: cast to expected dtype (True/False)
     :param calc_scale_after_shift:  bool, calculate scale after apply shift
+    :param eps: epsilon
     :return:
     """
 
@@ -132,10 +135,10 @@ def normalize_traces(
         shift = calculate_shift(x, axis=axis, shift_type=shift_type)
         scale = calculate_scale(x, axis=axis, scale_type=scale_type)
 
-        x = (x - shift) / (scale + EPS)
+        x = (x - shift) / (scale + eps)
     else:
         x -= calculate_shift(x, axis=axis, shift_type=shift_type)
-        x /= (calculate_scale(x, axis=axis, scale_type=scale_type) + EPS)
+        x /= (calculate_scale(x, axis=axis, scale_type=scale_type) + eps)
 
     return x
 
