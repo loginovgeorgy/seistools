@@ -1,5 +1,5 @@
-from .c_ij_matrix import c_ij, c_ijkl
-from .polarizations import polarizations
-from .rt_coefficients import rt_coefficients
+from .c_ij_matrix import iso_c_ij, voigt_notation, c_ijkl_from_c_ij
+from .polarizations import christoffel, polarizations, polarizations_alt
+from .rt_coefficients import rt_coefficients, rt_coefficients_alt
 
-__all__ = ['c_ij', 'c_ijkl', 'polarizations', 'rt_coefficients.py']
+__all__ = ['iso_c_ij', 'voigt_notation', 'c_ijkl_from_c_ij', 'christoffel', 'polarizations', 'polarizations_alt', 'rt_coefficients', 'rt_coefficients_alt']

@@ -1,36 +1,67 @@
 import numpy as np
-import cmath as cm
 
-from .c_ij_matrix import *
-
-# Среда ИЗОТРОПНАЯ.
-
-# Следующая функция будет честно, по заданной матрице упругих модулей среды Cij, плотности среды и направлению
-# в пространстве, будет составлять уравнение Кристоффеля и рассчитывать векторы поляризации волн, которые могут
-# распространяться в данном направлении.
-
-# на вход этой функции подаются аргументы в следующем порядке:
-
-# c_ij - 6x6-матрица упругих модулей среды
-# n - 3x1-матрица (т.е. вектор из трёх координат) - направление в пространстве
-
-# на выходе этой функции будет:
-
-# u - 3x3-матрица - матрица, столбцами которой будут вектора поляризации упругих волн в среде
-
-# Поляризации поперечных волн будут таковы: первая из них лежит в плосоксти экрана, а вторая смотрит в экран на нас.
-# Тройка us2,us1,up - правая.
+from .c_ij_matrix import iso_c_ij, voigt_notation, c_ijkl_from_c_ij
 
 
-def polarizations(c_ij1, n): # index "1" beside "c_ij" marks that this is a variable,
+def christoffel(c_ij, n):
+    """Constructs Christoffel matrix from 6x6 stiffness matrix c_ij and direction vector n.
+
+    :param c_ij: 6x6 stiffness matrix c_ij
+    :param n: vector of direction
+    :return: Christoffel matrix Gik = c_ijkl n_j n_l where c_ijkl is full stiffness tensor constructed from c_ij matrix
+    """
+
+    c_ijkl = c_ijkl_from_c_ij(c_ij)
+
+    # return np.einsum("ijkl, j, l", c_ijkl, n, np.conj(n))  # I am not sure if we really need complex conjugation
+    return np.einsum("ijkl, j, l", c_ijkl, n, n)
+
+
+def polarizations(c_ij, n):
+    """Computes possible polarizations for elastic waves propagating in given direction.
+
+    :param c_ij: 6x6 stiffness matrix c_ij
+    :param n: vector of direction
+    :return: possible wave polarizations for given direction
+    """
+
+    g = christoffel(c_ij, n)  # Christoffel matrix for this medium and this direction
+
+    # _, s, v = np.linalg.svd(g)  # s is vector of eigenvalues of g ad v is matrix of its eigenvectors
+
+    s, v = np.linalg.eig(g)
+    # s, v = np.linalg.eigh(g)
+
+    # v = np.real(v)  # g is positive-determined matrix but for sake of security we take real parts of eigenvectors
+    # s = np.real(s)  # and eigenvalues
+    # s = np.abs(s)
+    # s = np.sqrt(s)
+
+    idx_sort = np.abs(s).argsort()[::-1]
+    v = v[:, idx_sort]
+    # v = v[:, np.array([2, 0, 1])]
+
+    if np.dot(np.cross(v[:, 1], v[:, 2]), v[:, 0]) < 0:
+        print(v)
+
+        v = v[:, np.array([0, 2, 1])]  # I would like to have right-hand triplet
+        print(v)
+
+    if np.dot(n, v[:, 0]) < 0:
+        v = -v
+
+    return v
+
+
+def polarizations_alt(c_ij1, n): # index "1" beside "c_ij" marks that this is a variable,
     # not a function defined in another module
-    
+
     # задаём формат вывода
     u = np.array(0, dtype=complex)
     u.resize(3, 3)
-    
+
     # находим весь тензор c_ijkl1:
-    c_ijkl1 = c_ijkl(c_ij1) # the same index with the same purpose
+    c_ijkl1 = c_ijkl_from_c_ij(c_ij1) # the same index with the same purpose
 
     # Строим матрицу Кристоффеля Гik = c_ijkl1*nj*nl:
     Гik = np.array(0, dtype=complex)
@@ -41,14 +72,14 @@ def polarizations(c_ij1, n): # index "1" beside "c_ij" marks that this is a vari
             for k in range(3):
                 for l in range(3):
                     Гik[i, k] = Гik[i, k] + c_ijkl1[i, j, k, l] * n[j] * n[l]
-                    
+
     # И находим собственные векторы этой матрицы. Они и будут векторами поляризации.
     # Однако эти векторы будут в невесть каком порядке. Исправим это: отсортируем соственные числа по возрастанию:
     eigenvalues = np.linalg.eig(Гik)[0]
     I = np.argsort(eigenvalues)  # запоминаем перестановку
-    
+
     polariz = np.linalg.eig(Гik)[1]  # отсюда будем брать векторы поляризвации.
-    
+
     # поляризация продольной волны совпадает с направлением распространения волны
     u[:, 0] = polariz[:, I[2]]  # поляризация продольной волны
     if u[:, 0].dot(n) < 0:

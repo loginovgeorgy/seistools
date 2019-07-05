@@ -1,34 +1,176 @@
-# Локальная система координат: ось X направлена вправо, ось Z - вниз, а ось Y - в плоскость экрана на нас.
-
-# Названия "S1" и "S2" означаеют соответственно "SV" и "SH" (комментарии в большинсвте своём писались в ходе работы,
-# и поэтому было легче пользоваться индексацией, применяемой в коде).
-
-# Аргументы подаются в следующем порядке:
-
-# layer1 - слой, в котором распространяется падающая волна
-# layer2 - подстилающий его слой
-
-# cos_inc - косинус угла падения
-# inc_polariz - полный вектор поляризации падающей волны, записанный уже в локольных координатах.
-# inc_vel - скорость распространеня падающей волны
-
-# rt_signum - указывает на то, что происходит на границе - отражение, или преломление:
-# + 1 - преломление,
-# - 1 - отражение
-
-# На выходе функция выдаёт коэффициент отражения / прохождения для указанной волны.
-
+import numpy as np
 import cmath as cm
 
-from .polarizations import *
+from .c_ij_matrix import iso_c_ij, voigt_notation, c_ijkl_from_c_ij
+from .polarizations import christoffel, polarizations, polarizations_alt
 
 
-def rt_coefficients(vp1, vs1, rho1, vp2, vs2, rho2, cos_inc, inc_polariz, inc_vel, rt_signum):
-# def rt_coefficients(layer1, layer2, cos_inc, inc_polariz, inc_vel, rt_signum):
+def rt_coefficients(inc_slowness, inc_polariz, rt_signum, loc_sys, vp1, vs1, rho1, vp2, vs2, rho2):
+    """Computes reflection / transmission coefficients on a boundary
+
+    :param inc_slowness: slowness vector of the incident wave
+    :param inc_polariz: polarization vector of the incident wave
+    :param rt_signum: desired output's flag: + 1 means transition, - 1 stands for reflection
+    :param loc_sys: matrix of transition to local coordinate system in form d1, d2, n where n denotes unit normal to
+    the interface (v1, v2 and n are vector-columns!)
+    :param vp1: P-wave velocity in the overburden layer
+    :param vs1: S-wave velocity in the overburden layer
+    :param rho1: density in the overburden medium
+    :param vp2: P-wave velocity in the underlying layer
+    :param vs2: S-wave velocity in the underlying layer
+    :param rho2: density in the underlying layer
+    :return: array of reflection / transmission coefficents (depending on value of rt_signum)
+    """
+
+    # First, we'll need stiffness matrices of both media:
+
+    c_ij1 = iso_c_ij(np.array([vp1, vs1]), rho1 / 1000)  # we divide density by 1000 since numbers in c_ij are too big
+    c_ij2 = iso_c_ij(np.array([vp2, vs2]), rho2 / 1000)  # otherwise
+
+    # We'll also need full tensor form of these matrices:
+
+    c_ijkl1 = c_ijkl_from_c_ij(c_ij1)
+    c_ijkl2 = c_ijkl_from_c_ij(c_ij2)
+
+    # Now let's find incident wave's parameters in local coordinate system:
+
+    loc_inc_slow = np.dot(inc_slowness,
+                          loc_sys / np.linalg.norm(loc_sys, axis=0))  # we normalize columns of the transition matrix
+    loc_inc_polariz = np.dot(inc_polariz,
+                             loc_sys / np.linalg.norm(loc_sys, axis=0))  # we normalize columns of the transition matrix
+
+    # Everything below will be computed in local system.
+
+    # Construct full slownesses of reflected and transmitted waves.
+    # Tangent component of the slowness is preserved, the remaining one can be computed using slowness's definition.
+
+    refl_slow_p = np.array([loc_inc_slow[0],  # reflected P-wave slowness
+                            loc_inc_slow[1],
+                            - cm.sqrt(1 / vp1 ** 2 - np.linalg.norm(loc_inc_slow[0: 2]) ** 2)])
+    refl_slow_s = np.array([loc_inc_slow[0],  # reflected S-waves slowness
+                            loc_inc_slow[1],
+                            - cm.sqrt(1 / vs1 ** 2 - np.linalg.norm(loc_inc_slow[0: 2]) ** 2)])
+
+    trans_slow_p = np.array([loc_inc_slow[0],  # transmitted P-wave slowness
+                             loc_inc_slow[1],
+                             cm.sqrt(1 / vp2 ** 2 - np.linalg.norm(loc_inc_slow[0: 2]) ** 2)])
+    trans_slow_s = np.array([loc_inc_slow[0],  # transmitted S-wave slowness
+                             loc_inc_slow[1],
+                             cm.sqrt(1 / vs2 ** 2 - np.linalg.norm(loc_inc_slow[0: 2]) ** 2)])
+
+    # Construct polarizations of reflected and transmitted waves:
+
+    refl_polariz_p = polarizations(c_ij1, refl_slow_p)[:, 0]  # reflected P-wave polarization
+    refl_polariz_s1, refl_polariz_s2 = np.transpose(polarizations(c_ij1, refl_slow_s)[:, 1 : 3])  # reflected S-waves
+    # polarizations
+
+    trans_polariz_p = polarizations(c_ij2, trans_slow_p)[:, 0]  # reflected P-wave polarization
+    trans_polariz_s1, trans_polariz_s2 = np.transpose(polarizations(c_ij2, trans_slow_s)[:, 1 : 3])  # reflected S-waves
+    # polarizations
+
+    # All polarizations are subject to boundary conditions i.e. continuity of displacement and stress. These
+    # conditions give raise to a system of linear equations with respect to some coefficients of proportionality. They
+    # are known as reflection and transmission coefficients. Each polarization has enters the system with different
+    # factors.
+
+    # Incident wave factors:
+    inc_factors = np.einsum("ikl, k, l", c_ijkl1[:, 2, :, :], loc_inc_slow, loc_inc_polariz)
+
+    # Reflected wave factors:
+    refl_factors_p = np.einsum("ikl, k, l", c_ijkl1[:, 2, :, :], refl_slow_p, refl_polariz_p)
+    refl_factors_s1 = np.einsum("ikl, k, l", c_ijkl1[:, 2, :, :], refl_slow_s, refl_polariz_s1)
+    refl_factors_s2 = np.einsum("ikl, k, l", c_ijkl1[:, 2, :, :], refl_slow_s, refl_polariz_s2)
+
+    # Transmitted wave factors:
+    trans_factors_p = np.einsum("ikl, k, l", c_ijkl2[:, 2, :, :], trans_slow_p, trans_polariz_p)
+    trans_factors_s1 = np.einsum("ikl, k, l", c_ijkl2[:, 2, :, :], trans_slow_s, trans_polariz_s1)
+    trans_factors_s2 = np.einsum("ikl, k, l", c_ijkl2[:, 2, :, :], trans_slow_s, trans_polariz_s2)
+
+    # Form up matrix of the system:
+
+    matrix = np.array([
+        [
+            refl_polariz_p[0],
+            refl_polariz_s1[0],
+            refl_polariz_s2[0],
+            - trans_polariz_p[0],
+            - trans_polariz_s1[0],
+            - trans_polariz_s2[0]
+        ],
+        [
+            refl_polariz_p[1],
+            refl_polariz_s1[1],
+            refl_polariz_s2[1],
+            - trans_polariz_p[1],
+            - trans_polariz_s1[1],
+            - trans_polariz_s2[1]
+        ],
+        [
+            refl_polariz_p[2],
+            refl_polariz_s1[2],
+            refl_polariz_s2[2],
+            - trans_polariz_p[2],
+            - trans_polariz_s1[2],
+            - trans_polariz_s2[2]
+        ],
+        [
+            refl_factors_p[0],
+            refl_factors_s1[0],
+            refl_factors_s2[0],
+            - trans_factors_p[0],
+            - trans_factors_s1[0],
+            - trans_factors_s2[0]
+        ],
+        [
+            refl_factors_p[1],
+            refl_factors_s1[1],
+            refl_factors_s2[1],
+            - trans_factors_p[1],
+            - trans_factors_s1[1],
+            - trans_factors_s2[1]
+        ],
+        [
+            refl_factors_p[2],
+            refl_factors_s1[2],
+            refl_factors_s2[2],
+            - trans_factors_p[2],
+            - trans_factors_s1[2],
+            - trans_factors_s2[2]
+        ]
+    ])
+
+    # And right part of the system:
+
+    right_part = np.array([
+        - loc_inc_polariz[0],
+        - loc_inc_polariz[1],
+        - loc_inc_polariz[2],
+        - inc_factors[0],
+        - inc_factors[1],
+        - inc_factors[2]
+    ])
+
+    # Sought coefficients of proportionality are solutions of this system:
+
+    rp, rs1, rs2, tp, ts1, ts2 = np.linalg.solve(matrix, right_part)
+
+    # Output depends on value of rt_signum
+
+    if rt_signum == 1:
+
+        return tp, ts1, ts2
+
+    else:
+
+        return rp, rs1, rs2
+
+#
+#
+def rt_coefficients_alt(vp1, vs1, rho1, vp2, vs2, rho2, cos_inc, inc_polariz, inc_vel, rt_signum):
 
     # Для решения поставленной задачи потребуются матрицы упругих модулей сред 1 и 2:
-    c_ij1 = c_ij([vp1, vs1], rho1 / 1000)
-    c_ij2 = c_ij([vp2, vs2], rho2 / 1000)
+    c_ij1 = iso_c_ij([vp1, vs1], rho1 / 1000)
+    c_ij2 = iso_c_ij([vp2, vs2], rho2 / 1000)
     # Делим на 1000, чтобы избежать зашкаливающе больших чисел и соответствующих ошибок. На решения системы такая
     # нормировка не повлияет.
 
@@ -59,7 +201,7 @@ def rt_coefficients(vp1, vs1, rho1, vp2, vs2, rho2, cos_inc, inc_polariz, inc_ve
     k_refl[1] = np.array([k0[0] * vs1 / v0,
                           0,
                           - cm.sqrt(1 - (k0[0] * vs1 / v0) ** 2)])
-    k_refl[2] = k_refl[1] # волновые векторы для SV- и SH-волн в изотропной среде совпадают
+    k_refl[2] = k_refl[1]  # волновые векторы для SV- и SH-волн в изотропной среде совпадают
 
     k_trans[0] = np.array([k0[0] * vp2 / v0,
                            0,
@@ -68,7 +210,7 @@ def rt_coefficients(vp1, vs1, rho1, vp2, vs2, rho2, cos_inc, inc_polariz, inc_ve
     k_trans[1] = np.array([k0[0] * vs2 / v0,
                            0,
                            cm.sqrt(1 - (k0[0] * vs2 / v0) ** 2)])
-    k_trans[2] = k_trans[1] # волновые векторы для SV- и SH-волн в изотропной среде совпадают
+    k_trans[2] = k_trans[1]  # волновые векторы для SV- и SH-волн в изотропной среде совпадают
 
     # Теперь заводим векторы медленности:
 
@@ -86,36 +228,36 @@ def rt_coefficients(vp1, vs1, rho1, vp2, vs2, rho2, cos_inc, inc_polariz, inc_ve
     p_trans_s1 = k_trans[1] / vs2
 
     p_trans_s2 = k_trans[2] / vs2
-        
+
     # Поляризации отражённых и преломлённых волн:
     # отражённые волны
-    
-    u = polarizations(c_ij1, p_refl_p)  # находим, с какими поляризациями волна может распространяться
+
+    u = polarizations_alt(c_ij1, p_refl_p)  # находим, с какими поляризациями волна может распространяться
     # в 1-й среде при заданном веторе медленности p_refl_p
-    
+
     u_refl_p = u[:, 0]  # по построению, поляризация продольной волны - "первая в списке".
-    
-    u = polarizations(c_ij1, p_refl_s1)
-    
+
+    u = polarizations_alt(c_ij1, p_refl_s1)
+
     u_refl_s1 = u[:, 1]
     u_refl_s2 = u[:, 2]  # считать отдельно матрицы v и u для волны S2 бессмысленно, т.к. нормаль к её фронту
     # совпадает с нормалью к фронту волны S1
 
     # преломлённые волны
-    
-    u = polarizations(c_ij2, p_trans_p)  # находим, с какими поляризациями волна может распространяться
+
+    u = polarizations_alt(c_ij2, p_trans_p)  # находим, с какими поляризациями волна может распространяться
     # в 1-й среде при заданном веторе медленности p_refl_p
-    
+
     u_trans_p = u[:, 0]  # по построению, поляризация продольной волны - "первая в списке".
-    
-    u = polarizations(c_ij2, p_trans_s1)
-    
+
+    u = polarizations_alt(c_ij2, p_trans_s1)
+
     u_trans_s1 = u[:, 1]
     u_trans_s2 = u[:, 2]  # считать отдельно матрицы v и u для волны S2 бессмысленно, т.к. нормаль к её фронту
     # совпадает с нормалью к фронту волны S1
 
     # Зададим матрицу системы уравнений на границе.
-    
+
     # Первые три уравнения задаются легко. А вот оставшиеся три мы будем "вбивать" не напрямую, а по алгоритму,
     # представленому в "Лучевой метод в анизотропной среде (алгоритмы, программы)" Оболенцева, Гречки на стр. 97.
     # Т.е. будем задавать коэффициенты системы через довольно хитрые циклы.
@@ -138,8 +280,8 @@ def rt_coefficients(vp1, vs1, rho1, vp2, vs2, rho2, cos_inc, inc_polariz, inc_ve
 
     # При задании системы понадобится полный тензор упругих модулей:
 
-    c_ijkl_1 = c_ijkl(c_ij1)
-    c_ijkl_2 = c_ijkl(c_ij2)
+    c_ijkl_1 = c_ijkl_from_c_ij(c_ij1)
+    c_ijkl_2 = c_ijkl_from_c_ij(c_ij2)
 
     # Заполненяем в цикле векторы коэффициентов системы:
 
