@@ -86,12 +86,11 @@ def _calculate_phase_and_polarization(g, n):
     s = np.sqrt(s)
 
     idx_sort = np.abs(s).argsort()[::-1]
-    v = v[:, idx_sort]
+    v = v[idx_sort]
 
     if n.dot(v).dot(n) < 0:
         v = -v
 
-    v = v.T
     return s, v
 
 
