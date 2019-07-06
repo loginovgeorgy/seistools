@@ -593,7 +593,7 @@ class Ray(object):
                 inc_cosines
 
     def get_recorded_amplitude(self, t):
-        # returns amplitude vector in the receiver in a particular time moment t.
+        # returns amplitude vector in the receiver in a particular time smti t.
         # Here I use theory presented in: Popov, M.M. Ray theory and gaussian beam method for geophysicists /
         # M. M. Popov. - Salvador: EDUFBA, 2002. – 172 p.
 
