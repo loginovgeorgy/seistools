@@ -14,8 +14,6 @@ def radiation_operator(sou, rec):
 
 
 def calculate_wave_amplitude(sou, rec, m, vp, vs, rho):
-    if len(m.ravel()) == 6:
-        m = moment_convert(m)
 
     gp, gs = radiation_operator(sou, rec)
     gp = gp / (rho * (vp ** 3))

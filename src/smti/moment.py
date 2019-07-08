@@ -1,6 +1,15 @@
 import numpy as np
 
 
+def _moment_matrix(m):
+    _m = np.array([
+        [m[0], m[1], m[2]],
+        [m[1], m[3], m[4]],
+        [m[2], m[4], m[5]]
+    ])
+    return _m
+
+
 def _shear_moment(strike, dip, rake, ds, n):
     """
     M11 = −DS N (sin2ϕsinδcosλ + sin^2ϕsin2δsinλ)
@@ -83,5 +92,5 @@ def create_general_moment(strike, dip, rake, ds=1, dn=0, n=1, ng=1.4, a=1):
 
     m = _shear_moment(strike, dip, rake, ds, n) + _opening_moment(strike, dip, dn, n, ng)
     m = m / np.abs(a)
-    return m
+    return _moment_matrix(m)
 
