@@ -17,6 +17,28 @@ def moment_convert(m):
     return m
 
 
+def init_equidistant_sphere(n=256):
+    """
+
+    :param n:
+    :return:
+    """
+
+    golden_angle = np.pi * (3 - np.sqrt(5))
+    theta = golden_angle * np.arange(n)
+    z = np.linspace(1 - 1/n, 1/n - 1, n)
+    radius = np.sqrt(1 - z**2)
+
+    return np.array(
+        [
+            radius * np.cos(theta),
+            radius * np.sin(theta),
+            z,
+        ]
+        , dtype=np.float32
+    )
+
+
 def focal_projection(m, dx=.02):
     """
     m must be voigt-like notation [m11 m22 m33 m23 m13 m12]
