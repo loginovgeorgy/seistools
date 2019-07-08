@@ -66,7 +66,7 @@ def _opening_moment(strike, dip, dn, n, ng):
     return np.array([m11, m12, m13, m22, m23, m33])
 
 
-def create_general_moment(strike, dip, rake, ds=1, dn=0, n=1, ng=1.4, a=1, radians=False):
+def create_general_moment(strike, dip, rake, ds=1, dn=0, a=1, rho=1, vs=1, vp=1.4, radians=False):
     """
     M11 = −DS N (sin2ϕsinδcosλ + sin^2ϕsin2δsinλ) +DN (η + 2Nsin^2ϕsin^2δ)
     M12 = +DS N (cos2ϕsinδcosλ +0.5sin2ϕsin2δsinλ) −DN Nsin2ϕsin^2δ
@@ -75,6 +75,9 @@ def create_general_moment(strike, dip, rake, ds=1, dn=0, n=1, ng=1.4, a=1, radia
     M23 = −DS N (sinϕcosδcosλ − cosϕcos2δsinλ) −DN Ncosϕsin2δ
     M33 = +DS N sin2δsinλ +DN (η + 2Ncos2δ)
 
+    N - 1st Lame's C. (lambda), Pa (rho * (Vp**2 - 2*Vs**2)) or (Ev / (1+v) / (1-2v)) Young E and Poisson v
+    η - 2nd Lame's C. (mu), Pa (rho * Vs**2)
+
     output: m = np.array([m11, m12, m13, m22, m23, m33])
 
     :param strike: strike (ϕ), rad
@@ -82,19 +85,22 @@ def create_general_moment(strike, dip, rake, ds=1, dn=0, n=1, ng=1.4, a=1, radia
     :param rake: rake/slip (λ), rad
     :param ds: the magnitude of the shear (DS) dislocation, m
     :param dn: the magnitude of the opening (DN) dislocation, m
-    :param n:  1st Lame's Constant, Pa
-    :param ng: 2nd Lame's Constant, Pa
+    :param rho: density
+    :param vp: P-wave velocity
+    :param vs: S-wave velocity
     :param a: surface of source, m^2
     :param radians:
     :return:
     """
+    lam = rho *(vp**2 - vs**2)
+    mu = rho * (vs ** 2)
     if np.abs(a) < .0001:
         raise ValueError('Surface of source "a" must be bigger')
 
     if not radians:
         strike, dip, rake = [np.deg2rad(x) for x in [strike, dip, rake]]
 
-    m = _shear_moment(strike, dip, rake, ds, n) + _opening_moment(strike, dip, dn, n, ng)
+    m = _shear_moment(strike, dip, rake, ds, lam) + _opening_moment(strike, dip, dn, lam, mu)
     m = m / np.abs(a)
     return _moment_matrix(m)
 
