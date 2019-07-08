@@ -97,6 +97,9 @@ def create_general_moment(strike, dip, rake, ds=1, dn=0, a=1, rho=1, vs=1, vp=1.
     if np.abs(a) < .0001:
         raise ValueError('Surface of source "a" must be bigger')
 
+    if vp <= vs:
+        raise ValueError('P-wave velocity must be higher then S-wave velocity')
+
     if not radians:
         strike, dip, rake = [np.deg2rad(x) for x in [strike, dip, rake]]
 
