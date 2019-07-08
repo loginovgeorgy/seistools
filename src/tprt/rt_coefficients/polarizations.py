@@ -41,12 +41,6 @@ def polarizations(c_ij, n):
     v = v[:, idx_sort]
     # v = v[:, np.array([2, 0, 1])]
 
-    if np.dot(np.cross(v[:, 1], v[:, 2]), v[:, 0]) < 0:
-        print(v)
-
-        v = v[:, np.array([0, 2, 1])]  # I would like to have right-hand triplet
-        print(v)
-
     if np.dot(n, v[:, 0]) < 0:
         v = -v
 
