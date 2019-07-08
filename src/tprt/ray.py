@@ -2,7 +2,7 @@ import numpy as np
 from .utils import plot_line_3d
 from scipy.optimize import minimize
 from functools import partial
-from .rt_coefficients import rt_coefficients
+from .rt_coefficients import iso_rt_coefficients
 from .segment import Segment
 
 WAVECODE = {0: 'vp', 1: 'vs'}
@@ -321,7 +321,7 @@ class Ray(object):
         #
         # U = psi0 * 1 / v_1**3 / rho_1
         # = t / (4 * np.pi * s*_1) *
-        # * П(sqrt( |П( det M(i, s*_i) / det M(i, s*_i-1) )| ), i = 2, i = N) *
+        # * П(sqrt(|det M(i, s*_i) / det M(i, s*_i-1) )|, i = 2, i = N) *
         # * sqrt( |det M(N + 1, s) / det M(N + 1, s*_N)| ) *
         # * П( k_i )
         #
@@ -344,7 +344,7 @@ class Ray(object):
 
         # So, let's get started. Initiate two entities:
 
-        dist = 0  # arc length of the ray
+        # dist = 0  # arc length of the ray
         M = np.zeros((2, 2))  # matrix M
 
         # Let's evaluate them in the end of the first segment assuming that c11 = c22 = c12 = 0:
@@ -383,7 +383,7 @@ class Ray(object):
         else:
 
             U = (self.source.psi0(self.segments[0].receiver, e1) * e1 +
-                 self.source.psi0(self.segments[0].receiver, e2) * e2 )/ dist
+                 self.source.psi0(self.segments[0].receiver, e2) * e2) / dist
 
         # Now there are two opportunities. First, the ray can consist of just one segment. Second, it can have multiple
         # segments.
@@ -418,20 +418,27 @@ class Ray(object):
 
                 # First, let's understand what happens at the boundary: reflection or transmission.
 
-                rt_sign = 1 # initially we think about transition
+                rt_sign = 1  # initially we think about transition
 
                 if self.segments[i - 1].layer == self.segments[i].layer:
 
-                    rt_sign = - 1 # but then check whether we were right or not.
+                    rt_sign = - 1  # but then check whether we were right or not.
+
+                # Curvature matrix and matrix of transition to the local system:
+
+                D, loc_sys = self.segments[i - 1].end_horizon.get_local_properties(self.segments[i - 1].receiver[0:2],
+                                                                                   self.segments[i - 1].get_vector())
 
                 # cosine of inc_angle
-                cos_inc = abs(np.dot(self.segments[i - 1].get_vector() / np.linalg.norm(self.segments[i - 1].get_vector()),
-                                     self.segments[i - 1].end_horizon.get_normal(self.segments[i - 1].receiver[0:2])))
+                cos_inc = abs(np.dot(self.segments[i - 1].get_vector(), loc_sys[:, 2]) /
+                              np.linalg.norm(self.segments[i - 1].get_vector()) /
+                              np.linalg.norm(loc_sys[:, 2]))
                 inc_cosines[i - 1] = cos_inc
 
                 # cosine of tr_angle
-                cos_out = abs(np.dot(self.segments[i].get_vector(),
-                                     self.segments[i - 1].end_horizon.get_normal(self.segments[i - 1].receiver[0:2])))
+                cos_out = abs(np.dot(self.segments[i].get_vector(), loc_sys[:, 2]) /
+                              np.linalg.norm(self.segments[i].get_vector()) /
+                              np.linalg.norm(loc_sys[:, 2]))
 
                 S = np.array([[rt_sign * cos_inc / cos_out, 0],
                               [0, 1]])
@@ -439,20 +446,10 @@ class Ray(object):
                 G = np.array([[- rt_sign * 1 / cos_out, 0],
                               [0, 1]])
 
-                u = cos_inc/self.segments[i - 1].layer.get_velocity(1)[self.segments[i - 1].vtype] - \
-                    rt_sign * cos_out/self.segments[i].layer.get_velocity(1)[self.segments[i].vtype]
-
-                D = np.zeros((2,2))
-                D[0, 0], D[0, 1], D[1, 1], transit_matr =\
-                    self.segments[i - 1].end_horizon.get_local_properties(self.segments[i - 1].receiver[0:2],
-                                                                          self.segments[i - 1].get_vector())
-                D[1, 0] = D[0, 1]
+                u = cos_inc / self.segments[i - 1].layer.get_velocity(0)[self.segments[i - 1].vtype] -\
+                    rt_sign * cos_out / self.segments[i].layer.get_velocity(0)[self.segments[i].vtype]
 
                 # print(D[0, 0], D[1, 0], D[1, 1])
-
-                # Here transit_matr is a transition matrix from global Cartesian coordinates to local ones which are
-                # connected to the point of incidence ant the incident ray. Of course, columns of this matrix are
-                # coordinate unit vectors of the local system d1, d2 and n.
 
                 # The incident ray's e2 vector can make angle with the d2 so that:
 
@@ -466,8 +463,8 @@ class Ray(object):
                 # sin_omega = np.dot(e1, transit_matr[:, 1])
                 # cos_omega = np.dot(e2, transit_matr[:, 1])
 
-                W = np.array([[np.dot(e2, transit_matr[:, 1]), np.dot(e1, transit_matr[:, 1])],
-                              [- np.dot(e1, transit_matr[:, 1]), np.dot(e2, transit_matr[:, 1])]])
+                W = np.array([[np.dot(e2, loc_sys[:, 1]), np.dot(e1, loc_sys[:, 1])],
+                              [- np.dot(e1, loc_sys[:, 1]), np.dot(e2, loc_sys[:, 1])]])
 
                 # Since all layers are homogeneous and isotropic the general solution for matrix M (i.e. its form)
                 # remains the same:
@@ -510,6 +507,13 @@ class Ray(object):
                 # existing vector of polarization U in the local coordinate system. Remember that we've already
                 # found necessary transition matrix.
 
+                # Reflection / transmission coefficients are computed in local coordinate system. We have to find
+                # slowness and polarization of the incident wave in this system:
+
+                inc_slowness = np.dot(np.transpose(loc_sys),
+                                      t / self.segments[i - 1].layer.get_velocity(0)[self.segments[i - 1].vtype])
+                inc_polariz = np.dot(np.transpose(loc_sys), U)
+
                 # It would be convenient to give parameters of the layers explicitly:
 
                 vp1 = self.velmod.layers[self.raycode[i - 1][1]].get_velocity(0)["vp"]
@@ -520,28 +524,33 @@ class Ray(object):
                 vs2 = self.velmod.layers[self.raycode[i - 1][1] + self.raycode[i - 1][0]].get_velocity(0)["vs"]
                 rho2 = self.velmod.layers[self.raycode[i - 1][1] + self.raycode[i - 1][0]].get_density()
 
-                ampl_coeff = rt_coefficients(vp1, vs1, rho1,
-                                             vp2, vs2, rho2,
-                                             cos_inc,
-                                             np.dot(transit_matr.T, U),
-                                             self.segments[i - 1].layer.get_velocity(0)[self.segments[i - 1].vtype],
-                                             rt_sign)
+                ampl_coeff = iso_rt_coefficients(
+                    inc_slowness=inc_slowness,
+                    inc_polariz=inc_polariz,
+                    rt_signum=rt_sign,
+                    vp1=vp1,
+                    vs1=vs1,
+                    rho1=rho1,
+                    vp2=vp2,
+                    vs2=vs2,
+                    rho2=rho2
+                )
 
                 # Let's go further, to the next boundary:
 
                 dist = dist + np.linalg.norm(self.segments[i].source - self.segments[i].receiver)
 
                 M[0, 0] = (self.segments[i].layer.get_velocity(1)[self.segments[i].vtype] * dist + c_22) / \
-                          ( (self.segments[i].layer.get_velocity(1)[self.segments[i].vtype] * dist + c_11) *
-                            (self.segments[i].layer.get_velocity(1)[self.segments[i].vtype] * dist + c_22) - c_12**2)
+                          ((self.segments[i].layer.get_velocity(1)[self.segments[i].vtype] * dist + c_11) *
+                           (self.segments[i].layer.get_velocity(1)[self.segments[i].vtype] * dist + c_22) - c_12**2)
 
                 M[1, 1] = (self.segments[i].layer.get_velocity(1)[self.segments[i].vtype] * dist + c_11) / \
-                          ( (self.segments[i].layer.get_velocity(1)[self.segments[i].vtype] * dist + c_11) *
-                            (self.segments[i].layer.get_velocity(1)[self.segments[i].vtype] * dist + c_22) - c_12**2)
+                          ((self.segments[i].layer.get_velocity(1)[self.segments[i].vtype] * dist + c_11) *
+                           (self.segments[i].layer.get_velocity(1)[self.segments[i].vtype] * dist + c_22) - c_12**2)
 
                 M[0, 1] = - c_12 / \
-                          ( (self.segments[i].layer.get_velocity(1)[self.segments[i].vtype] * dist + c_11) *
-                            (self.segments[i].layer.get_velocity(1)[self.segments[i].vtype] * dist + c_22) - c_12**2)
+                          ((self.segments[i].layer.get_velocity(1)[self.segments[i].vtype] * dist + c_11) *
+                           (self.segments[i].layer.get_velocity(1)[self.segments[i].vtype] * dist + c_22) - c_12**2)
 
                 M[1, 0 ] = M[0, 1]
 
@@ -558,7 +567,7 @@ class Ray(object):
                 # local coordinate system.
 
                 t = self.segments[i].get_vector() / np.linalg.norm(self.segments[i].get_vector())
-                e2 = transit_matr[:, 1]
+                e2 = loc_sys[:, 1]
                 e1 = np.cross(e2, t)
 
                 # Finally, everything depends on the current wavetype:
@@ -576,21 +585,15 @@ class Ray(object):
                     U = (np.linalg.norm(U) * ampl_coeff[1] * e1 +
                          np.linalg.norm(U) * ampl_coeff[2] * e2) * np.sqrt(abs(det_rat))
 
-
                 # Let's go to the next layer!
 
             # We've computed the amplitude in the cycle above. Let's return it's value, but before that we have
             # to add some coefficients related to the source's layer:
 
-            # return U / np.sqrt(self.segments[0].layer.get_velocity(0)[self.segments[0].vtype] *
-            #                    self.segments[0].layer.get_density()),\
-            #        refl_trans_coeff,\
-            #        inc_cosines
-
             return U / self.segments[0].layer.get_velocity(0)[self.segments[0].vtype]**3 /\
-                self.segments[0].layer.get_density() / 4 / np.pi,\
-                refl_trans_coeff,\
-                inc_cosines
+                   self.segments[0].layer.get_density() / 4 / np.pi,\
+                   refl_trans_coeff,\
+                   inc_cosines
 
     def get_recorded_amplitude(self, times):
         # returns amplitude vector in the receiver in a particular time moment t.
