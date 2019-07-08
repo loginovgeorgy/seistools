@@ -66,7 +66,7 @@ def _opening_moment(strike, dip, dn, n, ng):
     return np.array([m11, m12, m13, m22, m23, m33])
 
 
-def create_general_moment(strike, dip, rake, ds=1, dn=0, n=1, ng=1.4, a=1):
+def create_general_moment(strike, dip, rake, ds=1, dn=0, n=1, ng=1.4, a=1, radians=False):
     """
     M11 = −DS N (sin2ϕsinδcosλ + sin^2ϕsin2δsinλ) +DN (η + 2Nsin^2ϕsin^2δ)
     M12 = +DS N (cos2ϕsinδcosλ +0.5sin2ϕsin2δsinλ) −DN Nsin2ϕsin^2δ
@@ -85,10 +85,14 @@ def create_general_moment(strike, dip, rake, ds=1, dn=0, n=1, ng=1.4, a=1):
     :param n:  1st Lame's Constant, Pa
     :param ng: 2nd Lame's Constant, Pa
     :param a: surface of source, m^2
+    :param radians:
     :return:
     """
     if np.abs(a) < .0001:
         raise ValueError('Surface of source "a" must be bigger')
+
+    if not radians:
+        strike, dip, rake = [np.deg2rad(x) for x in [strike, dip, rake]]
 
     m = _shear_moment(strike, dip, rake, ds, n) + _opening_moment(strike, dip, dn, n, ng)
     m = m / np.abs(a)
