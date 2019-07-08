@@ -80,9 +80,9 @@ def create_general_moment(strike, dip, rake, ds=1, dn=0, a=1, rho=1, vs=1, vp=1.
 
     output: m = np.array([m11, m12, m13, m22, m23, m33])
 
-    :param strike: strike (ϕ), rad
-    :param dip: dip (δ), rad,
-    :param rake: rake/slip (λ), rad
+    :param strike: strike (ϕ), rad (fault plane azimuth)
+    :param dip: dip (δ), rad, (fault plane plunge)
+    :param rake: rake/slip (λ), rad (direction of movement)
     :param ds: the magnitude of the shear (DS) dislocation, m
     :param dn: the magnitude of the opening (DN) dislocation, m
     :param rho: density
