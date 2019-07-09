@@ -5,6 +5,10 @@ from .c_ij_matrix import iso_c_ij, voigt_notation, c_ijkl_from_c_ij
 from .polarizations import christoffel, polarizations, polarizations_alt
 
 
+def _normalize_vector(v):
+    return v / cm.sqrt(np.sum(v ** 2))
+
+
 def iso_rt_coefficients(inc_slowness, inc_polariz, rt_signum, vp1, vs1, rho1, vp2, vs2, rho2):
     """Computes reflection / transmission coefficients on a boundary connecting two isotropic media.
 
@@ -23,7 +27,7 @@ def iso_rt_coefficients(inc_slowness, inc_polariz, rt_signum, vp1, vs1, rho1, vp
     # Check if incident slowness lies in vertical plane (i.e. it is given in local coordinates):
     if abs(inc_slowness[1] / np.linalg.norm(inc_slowness)) >= 0.01:
         # In local coordinates inc_slowness[1] must be equal to 0.
-        raise IncidentSlownessError("Slowness of the incident wave does not lie in vertical plane.")
+        raise Exception("Slowness of the incident wave does not lie in vertical plane.")
 
     # Construct full slownesses of reflected and transmitted waves.
     # Tangent component of the slowness is preserved, the remaining one can be computed using slowness's definition.
@@ -45,23 +49,23 @@ def iso_rt_coefficients(inc_slowness, inc_polariz, rt_signum, vp1, vs1, rho1, vp
 
     # Construct polarizations of reflected and transmitted waves:
 
-    refl_polariz_p = refl_slow_p / np.linalg.norm(refl_slow_p)  # reflected P-wave
+    refl_polariz_p = _normalize_vector(refl_slow_p)  # reflected P-wave
     refl_polariz_s2 = np.array([0, 1, 0])  # reflected SH-wave
-    refl_polariz_s1 = np.cross(refl_polariz_s2, refl_slow_s / np.linalg.norm(refl_slow_s)) # reflected SV-wave
+    refl_polariz_s1 = np.cross(refl_polariz_s2, _normalize_vector(refl_slow_s)) # reflected SV-wave
 
     trans_polariz_p = trans_slow_p / np.linalg.norm(trans_slow_p)  # transmitted P-wave
     trans_polariz_s2 = np.array([0, 1, 0])  # transmitted SH-wave
-    trans_polariz_s1 = np.cross(trans_polariz_s2, trans_slow_s / np.linalg.norm(trans_slow_s))  # transmitted SV-wave
+    trans_polariz_s1 = np.cross(trans_polariz_s2, _normalize_vector(trans_slow_s))  # transmitted SV-wave
 
     # They are unit in hermite norm. But in theory they should be unit in sense of sum of squared components:
 
-    refl_polariz_p = refl_polariz_p / cm.sqrt(refl_polariz_p[0] ** 2 + refl_polariz_p[1] ** 2 + refl_polariz_p[2] ** 2)
-    refl_polariz_s1 = refl_polariz_s1 / cm.sqrt(refl_polariz_s1[0] ** 2 + refl_polariz_s1[1] ** 2 + refl_polariz_s1[2] ** 2)
-    refl_polariz_s2 = refl_polariz_s2 / cm.sqrt(refl_polariz_s2[0] ** 2 + refl_polariz_s2[1] ** 2 + refl_polariz_s2[2] ** 2)
+    refl_polariz_p = _normalize_vector(refl_polariz_p)
+    refl_polariz_s1 = _normalize_vector(refl_polariz_s1)
+    refl_polariz_s2 = _normalize_vector(refl_polariz_s2)
 
-    trans_polariz_p = trans_polariz_p / cm.sqrt(trans_polariz_p[0] ** 2 + trans_polariz_p[1] ** 2 + trans_polariz_p[2] ** 2)
-    trans_polariz_s1 = trans_polariz_s1 / cm.sqrt(trans_polariz_s1[0] ** 2 + trans_polariz_s1[1] ** 2 + trans_polariz_s1[2] ** 2)
-    trans_polariz_s2 = trans_polariz_s2 / cm.sqrt(trans_polariz_s2[0] ** 2 + trans_polariz_s2[1] ** 2 + trans_polariz_s2[2] ** 2)
+    trans_polariz_p = _normalize_vector(trans_polariz_p)
+    trans_polariz_s1 = _normalize_vector(trans_polariz_s1)
+    trans_polariz_s2 = _normalize_vector(trans_polariz_s2)
 
     # All polarizations are subject to boundary conditions i.e. continuity of displacement and stress. These
     # conditions give raise to a system of linear equations with respect to some coefficients of proportionality. They
@@ -70,14 +74,14 @@ def iso_rt_coefficients(inc_slowness, inc_polariz, rt_signum, vp1, vs1, rho1, vp
 
     # We'll need full stiffness tensors of both media. They will be constructed using their matrix form:
 
-    c_ij1 = iso_c_ij(np.array([vp1, vs1]), rho1 / 1000)  # we divide density by 1000 since numbers in c_ij are too big
-    c_ij2 = iso_c_ij(np.array([vp2, vs2]), rho2 / 1000)  # otherwise
+    c_ij1 = iso_c_ij(vp1, vs1, rho1 / 1000)  # we divide density by 1000 since numbers in c_ij are too big
+    c_ij2 = iso_c_ij(vp2, vs2, rho2 / 1000)  # otherwise
 
     c_ijkl1 = c_ijkl_from_c_ij(c_ij1)
     c_ijkl2 = c_ijkl_from_c_ij(c_ij2)
 
     # Incident wave factors:
-    inc_factors = np.einsum("ikl, k, l", c_ijkl1[:, 2, :, :], inc_slowness, inc_polariz / np.linalg.norm(inc_polariz))
+    inc_factors = np.einsum("ikl, k, l", c_ijkl1[:, 2, :, :], inc_slowness, _normalize_vector(inc_polariz))
 
     # Reflected wave factors:
     refl_factors_p = np.einsum("ikl, k, l", c_ijkl1[:, 2, :, :], refl_slow_p, refl_polariz_p)

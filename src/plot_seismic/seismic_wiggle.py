@@ -24,7 +24,7 @@ def plot_traces(
         fill_positive=False,
         fill_negative=False,
         trace_color=None,
-        invert_y_axis=True,
+        invert_y_axis=False,
         picks_on_amplitude=False,
         picks_curve=False,
         picks_legend=True,
@@ -77,6 +77,8 @@ def plot_traces(
     _set_trace_tick_labels = ax.set_yticklabels
     _set_grid_axis = 'y'
 
+    dist_for_3c = (traces.shape[2] > 1) * dist_for_3c + (traces.shape[2] == 1) * 1.
+
     k = np.float32(traces.shape[2] * dist_for_3c) + 1e-15
     traces_lim = np.array([-.5, traces.shape[0] - .5], dtype=np.float32)
     traces_lim += np.array([- np.nanmax(np.abs(traces[0])), np.nanmax(np.abs(traces[-1]))]) / k
@@ -106,15 +108,16 @@ def plot_traces(
 
         for jc in range(traces.shape[2]):
             trace = traces[jt, :, jc]
-            if any(fill_positive) | any(fill_negative):
+            if any(fill_positive.values()) | any(fill_negative.values()):
                 trace, time = insert_zeros_in_trace(trace)
+                time = time * dt
 
             trace /= (traces.shape[2] * dist_for_3c)
             shift = .5 + (jc - traces.shape[2]) / (traces.shape[2] + 1)
             shift *= dist_for_3c
             shift += off
 
-            if any(fill_positive):
+            if any(fill_positive.values()):
                 _fill(
                     time + start_time,
                     shift,
@@ -124,7 +127,7 @@ def plot_traces(
                     facecolor=fill_positive[jc],
                 )
 
-            if any(fill_negative):
+            if any(fill_negative.values()):
                 _fill(
                     time + start_time,
                     shift,

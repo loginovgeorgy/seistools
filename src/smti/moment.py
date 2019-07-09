@@ -66,7 +66,7 @@ def _opening_moment(strike, dip, dn, n, ng):
     return np.array([m11, m12, m13, m22, m23, m33])
 
 
-def create_general_moment(strike, dip, rake, ds=1, dn=0, a=1, rho=1, vs=1, vp=1.4, radians=False):
+def create_general_moment(strike, dip, rake, ds=1, dn=0, a=1, rho=1, vp=1.4, vs=1, radians=False):
     """
     M11 = −DS N (sin2ϕsinδcosλ + sin^2ϕsin2δsinλ) +DN (η + 2Nsin^2ϕsin^2δ)
     M12 = +DS N (cos2ϕsinδcosλ +0.5sin2ϕsin2δsinλ) −DN Nsin2ϕsin^2δ

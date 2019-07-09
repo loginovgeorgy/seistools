@@ -1,10 +1,10 @@
 import numpy as np
 
 
-def iso_c_ij(velocities, density):
+def iso_c_ij(vp, vs, density):
     """Constructs c_ij stiffness matrix for isotropic medium.
-
-    :param velocities: pair of [vp, vs] - P- and S-waves velocities in the medium
+    :param vp: P-wave velocity in the medium
+    :param vs: S-wave velocity in the medium
     :param density: value of medium's density
     :return: 6x6-matrix of elastic constants
     """
@@ -12,11 +12,11 @@ def iso_c_ij(velocities, density):
     c_ij = np.zeros((6, 6))  # index "1" beside "c_ij" marks that this is a variable,
     # not a function defined above
 
-    c_ij[0, 0] = density*(velocities[0]**2)  # lambda +  2 * mu
+    c_ij[0, 0] = density*(vp ** 2)  # lambda +  2 * mu
     c_ij[1, 1] = c_ij[0, 0]
     c_ij[2, 2] = c_ij[0, 0]
 
-    c_ij[3, 3] = density*(velocities[1]**2)  # mu
+    c_ij[3, 3] = density*(vs ** 2)  # mu
     c_ij[4, 4] = c_ij[3, 3]
     c_ij[5, 5] = c_ij[3, 3]
 

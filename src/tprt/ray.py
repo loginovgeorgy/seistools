@@ -37,8 +37,7 @@ class Ray(object):
         except RaycodeError as e:
             raise RaycodeError('Raycode is initialized not correctly!')
 
-        self.raycode    =   raycode
-
+        self.raycode = raycode
 
         if np.any(raycode) == None:
                 self.segments = self._forward_ray(vel_mod)
@@ -85,7 +84,6 @@ class Ray(object):
             if d[0] != 0 and d[1] != 0 and v2<v1:
                 raise RaycodeError('Wave direction must be changed inside the same layer!')
 
-
         return True
 
     @staticmethod
@@ -105,10 +103,10 @@ class Ray(object):
 
     def _initial_ray(self, init_trj):
 
-        sou      = np.array(self.source.location, ndmin=1)
+        sou = np.array(self.source.location, ndmin=1)
         receiver = np.array(self.receiver.location, ndmin=1)
-        raycode  = self.raycode
-        vel_mod  = self.velmod
+        raycode = self.raycode
+        vel_mod = self.velmod
 
         segments = []
         for k in range(raycode.shape[0]-1):
@@ -426,8 +424,10 @@ class Ray(object):
 
                 # Curvature matrix and matrix of transition to the local system:
 
-                D, loc_sys = self.segments[i - 1].end_horizon.get_local_properties(self.segments[i - 1].receiver[0:2],
-                                                                                   self.segments[i - 1].get_vector())
+                D, loc_sys = self.segments[i - 1].end_horizon.get_local_properties(
+                    self.segments[i - 1].receiver[0:2],
+                    self.segments[i - 1].get_vector()
+                )
 
                 # cosine of inc_angle
                 cos_inc = abs(np.dot(self.segments[i - 1].get_vector(), loc_sys[:, 2]) /
@@ -463,8 +463,10 @@ class Ray(object):
                 # sin_omega = np.dot(e1, transit_matr[:, 1])
                 # cos_omega = np.dot(e2, transit_matr[:, 1])
 
-                W = np.array([[np.dot(e2, loc_sys[:, 1]), np.dot(e1, loc_sys[:, 1])],
-                              [- np.dot(e1, loc_sys[:, 1]), np.dot(e2, loc_sys[:, 1])]])
+                W = np.array([
+                    [np.dot(e2, loc_sys[:, 1]), np.dot(e1, loc_sys[:, 1])],
+                    [- np.dot(e1, loc_sys[:, 1]), np.dot(e2, loc_sys[:, 1])]
+                ])
 
                 # Since all layers are homogeneous and isotropic the general solution for matrix M (i.e. its form)
                 # remains the same:
@@ -510,8 +512,10 @@ class Ray(object):
                 # Reflection / transmission coefficients are computed in local coordinate system. We have to find
                 # slowness and polarization of the incident wave in this system:
 
-                inc_slowness = np.dot(np.transpose(loc_sys),
-                                      t / self.segments[i - 1].layer.get_velocity(0)[self.segments[i - 1].vtype])
+                inc_slowness = np.dot(
+                    np.transpose(loc_sys),
+                    t / self.segments[i - 1].layer.get_velocity(0)[self.segments[i - 1].vtype]
+                )
                 inc_polariz = np.dot(np.transpose(loc_sys), U)
 
                 # It would be convenient to give parameters of the layers explicitly:

@@ -127,14 +127,14 @@ def input_check_color_dicts(no_of_components, **kwargs):
                 result[dict_name] = color_dict
         else:
             if isinstance(color_dict, type(None)):
-                result[dict_name] = [False]
+                result[dict_name] = {}
                 continue
 
             elif isinstance(color_dict, bool):
                 if color_dict:
                     result[dict_name] = FILL_COLORS
                 else:
-                    result[dict_name] = [False]
+                    result[dict_name] = {}
                     continue
             else:
                 result[dict_name] = color_dict
