@@ -1,5 +1,5 @@
 import numpy as np
-import pylab as plt
+from scipy.interpolate import griddata
 
 
 def moment_convert(m):
@@ -91,3 +91,16 @@ def projection(plunge):
     rho[idx] = np.sin(plunge[idx] / 2) / np.sin(.5 * np.pi + plunge[idx] / 2)
 
     return rho
+
+
+def interpolate_grid(x, y, z, grid_size=100, method='linear'):
+    x = np.float32(x)
+    y = np.float32(y)
+    z = np.float32(z)
+    xg, yg = np.meshgrid(
+        np.linspace(x.min(), x.max(), grid_size),
+        np.linspace(y.min(), y.max(), grid_size),
+    )
+    zg = griddata((x, y), z, (xg, yg), method='linear')
+
+    return xg, yg, zg
