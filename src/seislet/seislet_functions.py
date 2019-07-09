@@ -94,7 +94,7 @@ def _ricker(
         **kwargs
 ):
     t = t - tau
-    alpha = np.pi * np.pi * f * f
+    alpha = ((np.pi * f) ** 2)
     spectrum = (1 - 2 * alpha * (t ** 2))
     envelope = np.exp(alpha * (- t ** 2))
 
@@ -111,7 +111,7 @@ def _berlage(
         **kwargs
 ):
     t = t - tau
-    alpha *= ((np.pi * f) ** 2)
+    alpha = alpha * ((np.pi * f) ** 2)
     spectrum = np.sin(2 * np.pi * f * t + theta)
     envelope = t * np.exp(alpha * (- t ** 2))
 
@@ -132,8 +132,8 @@ def _chirplet(
 ):
     t = t - tau
 
-    alpha *= ((np.pi * f) ** 2)
-    gamma *= (np.pi * f) ** 2
+    alpha = alpha * ((np.pi * f) ** 2)
+    gamma = gamma * (np.pi * f) ** 2
     k = 1 / dt / k
     betta = np.abs(betta)
 

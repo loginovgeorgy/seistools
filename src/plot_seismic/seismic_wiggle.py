@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from .helpers import insert_zeros_in_trace, input_check, input_check_color_dicts
+from functools import wraps
 
 MARKERS = ['s', 'D', 'd', 'o', '.', 'x', '+']
 
@@ -8,6 +9,7 @@ COLORMAP = plt.cm.tab10
 
 
 def set_plt_params(func):
+    @wraps(func)
     def wrapper(*args, **kwargs):
         old_font_size = plt.rcParams['font.size']
         old_serif = plt.rcParams['font.sans-serif']

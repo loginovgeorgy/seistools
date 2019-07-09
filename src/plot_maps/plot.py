@@ -1,8 +1,11 @@
 import pylab as plt
 from .utils import *
 from copy import deepcopy
+from functools import wraps
+
 
 def set_plt_params(func):
+    @wraps(func)
     def wrapper(*args, **kwargs):
         old_font_size = plt.rcParams['font.size']
         old_serif = plt.rcParams['font.sans-serif']
@@ -19,6 +22,7 @@ def set_plt_params(func):
     return wrapper
 
 # TODO add inputs checker
+
 
 @set_plt_params
 def plot_map(
@@ -85,6 +89,8 @@ def plot_map(
         )
     if title:
         ax.set_title(title)
+
+    ax.grid()
 
     if return_img:
         return img
