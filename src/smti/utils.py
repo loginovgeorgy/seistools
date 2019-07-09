@@ -1,4 +1,5 @@
 import numpy as np
+import pylab as plt
 
 
 def moment_convert(m):
@@ -75,3 +76,63 @@ def focal_projection(m, dx=.02):
     u = u1 + u2 + u3
     u[r2 > 1] = np.nan
     return u, vij1, vij2, vij3
+
+
+def pol2cart(th, r):
+    x = r * np.cos(th)
+    y = r * np.sin(th)
+    return x, y
+
+
+def projection(plunge):
+    rho = np.sin(.5 * np.pi - plunge / 2) / np.sin(np.pi - plunge / 2)
+    idx = plunge < .5 * np.pi
+
+    rho[idx] = np.sin(plunge[idx] / 2) / np.sin(.5 * np.pi + plunge[idx] / 2)
+
+    return rho
+
+
+def plot_hemisphere(dx, dy, radians=True):
+    fig, ax = plt.subplots(figsize=(10, 10), facecolor='w')
+    ax.set_axis_off()
+
+    polar = np.arange(0, 91, 15)
+    azimuth = np.arange(0, 360, 30)
+    rho = projection(np.deg2rad(polar))
+    for r, p in zip(rho, polar):
+        x1, y1 = pol2cart(np.linspace(0, 2 * np.pi, 50), r)
+        ax.plot(x1, y1, color=[.5, .5, .5, .5])
+        ax.text(r, 0, p)
+
+    vertical_alignment = [
+        'center', 'baseline', 'baseline', 'bottom', 'baseline',
+        'baseline', 'center', 'top', 'top', 'top', 'top', 'top'
+    ]
+
+    horizontal_alignment = [
+        'left', 'left', 'left', 'center', 'right', 'right',
+        'right', 'right', 'right', 'center', 'left', 'left'
+    ]
+
+    for i, a in enumerate(azimuth):
+        x1, y1 = pol2cart(np.deg2rad(a), np.array([0, 1]))
+        ax.plot(x1, y1, color=[.5, .5, .5, .5])
+        if i > 0:
+            ax.text(
+                x1[1], y1[1], a,
+                verticalalignment=vertical_alignment[i],
+                horizontalalignment=horizontal_alignment[i]
+            )
+
+    dx = np.array(dx, ndmin=2)
+    dy = np.array(dy, ndmin=2)
+    if not radians:
+        dx = np.deg2rad(dx)
+        dy = np.deg2rad(dy)
+
+    yy = projection(dy)
+    x1, y1 = pol2cart(dx, yy)
+    ax.scatter(x1, y1)
+
+    return ax
