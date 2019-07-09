@@ -44,7 +44,7 @@ def cast_input_to_trace(x):
 
 
 def insert_zeros_in_trace(trace):
-    trace = cast_input_to_trace(trace)
+    trace = cast_input_to_trace(trace) + 1e-16
     # trace = np.squeeze(trace)
 
     time = np.arange(len(trace))
