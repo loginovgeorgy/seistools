@@ -161,9 +161,18 @@ def get_detection_spikes(x):
     pick = np.round(pick)
     pick = np.int32(pick)
 
-    pick_width = idx_minus[idx_right] - idx_plus[idx_left]
+    pick_width_small = idx_minus[idx_right] - idx_plus[idx_left]
     pick_value = x[pick]
-    return pick, pick_value, pick_width
+
+    idx = np.where(x == 0)[0]
+    pick_dist = pick[None, ...] - idx[..., None]
+    left = pick_dist * (pick_dist > 0) + len(x) * (pick_dist < 0)
+    left = idx[left.argmin(axis=0)]
+    right = -pick_dist * (pick_dist < 0) + len(x) * (pick_dist > 0)
+    right = idx[right.argmin(axis=0)]
+    pick_width_big = right - left
+
+    return pick, pick_value, pick_width_small, pick_width_big
 
 
 def cut_trigger_from_traces(traces, center, before=.5, after=.5, dt=.00025, axis=1):
