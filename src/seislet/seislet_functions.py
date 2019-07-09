@@ -222,5 +222,6 @@ def seismic_signal(
             print('>>> ', k, kwargs[k])
 
     traces = SIGNAL_TYPE[signal](t, dt, **kwargs)
-    traces /= np.abs(np.nanmax(traces, axis=0, keepdims=True))
+    traces /= np.abs(np.nanmax(traces, axis=1, keepdims=True))
     return traces
+

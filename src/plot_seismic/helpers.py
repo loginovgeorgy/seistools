@@ -111,6 +111,7 @@ def input_check(traces, offset, mask, picks, ndmin=2):
 
     for label in picks:
         picks[label] = np.array(picks[label], dtype=np.int32)
+        picks[label] = np.squeeze(picks[label])
         if picks[label].shape[0] != traces.shape[0]:
             raise ValueError(shape_error.format('picks - "{}""'.format(label), picks[label].shape))
 
