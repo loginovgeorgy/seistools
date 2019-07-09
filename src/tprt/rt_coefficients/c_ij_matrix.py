@@ -1,69 +1,67 @@
 import numpy as np
 
-# среда ИЗОТРОПНАЯ
 
-# на вход нижеописанной функции подаются:
-# velocities - 1x2-вектор скоростей в следующием порядке: [vp,vs]
-# density - скалярная величина, плотность среды
+def iso_c_ij(velocities, density):
+    """Constructs c_ij stiffness matrix for isotropic medium.
 
-# на выходе будет:
-# c_ij - 6x6-матрица упругих модулей среды
+    :param velocities: pair of [vp, vs] - P- and S-waves velocities in the medium
+    :param density: value of medium's density
+    :return: 6x6-matrix of elastic constants
+    """
 
-
-def c_ij(velocities, density):
-    
-    # в изотропном случае в данной матрице будет всего два независимых элемента.
-    # заполняем матрицу:
-
-    c_ij1 = np.zeros((6, 6)) # index "1" beside "c_ij" marks that this is a variable,
+    c_ij = np.zeros((6, 6))  # index "1" beside "c_ij" marks that this is a variable,
     # not a function defined above
 
-    c_ij1[0, 0] = density*(velocities[0]**2)
-    c_ij1[1, 1] = c_ij1[0, 0]
-    c_ij1[2, 2] = c_ij1[0, 0]
+    c_ij[0, 0] = density*(velocities[0]**2)  # lambda +  2 * mu
+    c_ij[1, 1] = c_ij[0, 0]
+    c_ij[2, 2] = c_ij[0, 0]
 
-    c_ij1[3, 3] = density*(velocities[1]**2)
-    c_ij1[4, 4] = c_ij1[3, 3]
-    c_ij1[5, 5] = c_ij1[3, 3]
+    c_ij[3, 3] = density*(velocities[1]**2)  # mu
+    c_ij[4, 4] = c_ij[3, 3]
+    c_ij[5, 5] = c_ij[3, 3]
 
-    c_ij1[0, 1] = c_ij1[0, 0] - 2 * c_ij1[3, 3]
-    c_ij1[0, 2] = c_ij1[0, 1]
-    c_ij1[1, 2] = c_ij1[0, 1]
-    c_ij1[1, 0] = c_ij1[0, 1]
-    c_ij1[2, 0] = c_ij1[0, 1]
-    c_ij1[2, 1] = c_ij1[0, 1]
+    c_ij[0, 1] = c_ij[0, 0] - 2 * c_ij[3, 3]  # lambda
+    c_ij[0, 2] = c_ij[0, 1]
+    c_ij[1, 2] = c_ij[0, 1]
+    c_ij[1, 0] = c_ij[0, 1]
+    c_ij[2, 0] = c_ij[0, 1]
+    c_ij[2, 1] = c_ij[0, 1]
     
-    return c_ij1
-
-# Следующей функции на вход подаётся матрица c_ij, а на выходе будет 3x3x3x3-тензор упругих модулей среды c_ijkl
-# Используется так называемая нотация Фойгта, согласно которой элементы тензора c_ijkl связаны с элементами матрицы c_ij
-# следующими соотношениями: (слева - пары ij или kl из c_ijkl, а справа - индескы i или j из c_ij)
-
-# 11 -> 1; 22 -> 2; 33 -> 3;
-# 23,32 -> 4; 13,31 -> 5; 12,21 -> 6.
-
-# НО: в "Питоне" индексы начинаются с нуля, а НЕ с единицы.
-# Поэтому наша форма этой нотации будет несколько отличатся от заданной выше: у всех чисел нужно отнять по единице.
+    return c_ij
 
 
-# Поэтому сначала зададим эти переходы как функцию индексов i и j:
 def voigt_notation(i, j):
-    if i == j:
-        return i
-    else:
-        if [i, j] == [1, 2] or [i, j] == [2, 1]:
-            return 3
-        if [i, j] == [0, 2] or [i, j] == [2, 0]:
-            return 4
-        if [i, j] == [0, 1] or [i, j] == [1, 0]:
-            return 5
+    """Defines transition rule c_ijkl -> c_ij (from fourth-rank stiffness tensor to second-rank matrix using symmetry).
+
+    11 -> 1; 22 -> 2; 33 -> 3;
+    23,32 -> 4; 13,31 -> 5; 12,21 -> 6.
+    Remember that in Python indexing starts from 0, not from 1.
+
+    :param i: index i from ij pair (index k from kl pair)
+    :param j: index j from ij pair (index l from kl pair)
+    :return: corresponding index i of 6x6 stiffness matrix
+    """
+
+    # if i == j:
+    #     return i
+    # if [i, j] == [1, 2] or [i, j] == [2, 1]:
+    #     return 3
+    # if [i, j] == [0, 2] or [i, j] == [2, 0]:
+    #     return 4
+    # if [i, j] == [0, 1] or [i, j] == [1, 0]:
+    #     return
+
+    return i * (i == j) + (6 - i - j) * (i != j)
 
 
-# А теперь перйдём к восстановлению тензора c_ijkl:
-def c_ijkl(c_ij1): # index "1" beside "c_ij" marks that this is a variable,
-    # not a function defined above
+def c_ijkl_from_c_ij(c_ij):
+    """Constructs full stiffness tensor c_ijkl from its matrix form c_ij.
+
+    :param c_ij: stiffness matrix c_ij
+    :return: 3x3x3x3-tensor of elastic constants
+    """
     
-    c_ijkl1 = np.zeros((3, 3, 3, 3)) # the same index with the same purpose
+    c_ijkl1 = np.zeros((3, 3, 3, 3))
     
     for i in range(3):
         for j in range(3):
@@ -73,6 +71,6 @@ def c_ijkl(c_ij1): # index "1" beside "c_ij" marks that this is a variable,
                     from_i = voigt_notation(i, j)
                     from_j = voigt_notation(k, l)
                     
-                    c_ijkl1[i, j, k, l] = c_ij1[from_i, from_j]
+                    c_ijkl1[i, j, k, l] = c_ij[from_i, from_j]
                     
     return c_ijkl1

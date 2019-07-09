@@ -88,26 +88,24 @@ def second_derivatives(x_set, z_set):
     """
 
     :param x_set: strictly ascending 1D-numerical array
-    :param z_set: 1D-numerical array of corresponding values z = z(x)
-    :return: 1D-numerical array of second derivatives z'' = z''(x) at points from x_set
+    :param z_set: 1D/2D-numerical array of corresponding values z = z_j(x) where index j denotes number of "profile"
+    :return: 1D/2D-numerical array of second derivatives z'' = z_j''(x) at points from x_set
     """
 
-    # Returns array of second derivatives of z in x = x_set[i].
+    # Returns array of second derivatives of z at points x = x_set[i].
 
-    # Here a system of linear equations is solved:
+    # A system of linear equations is solved:
     # A m = B
-    # Matrix A is three-diagonal. Som there is no need to keep it all.
+    # Matrix A is three-diagonal.
 
-    A = np.zeros((3, z_set.shape[0] - 2)) # here we shall write all three non-zero diagonals of the system's matrix
+    steps = np.diff(x_set) # steps between x[i] and x[i + 1] for all i
+
+    A = np.zeros((3, x_set.shape[0] - 2)) # here we shall write all three non-zero diagonals of the system's matrix
     B = np.zeros(A.shape[1]) # right part of the system
-    
-    steps = np.diff(x_set)
-    
+
     A[0, 1:] = steps[1: - 1] / 6
     A[1, :] = (steps[0: - 1] + steps[1:]) / 3
     A[2, 0: - 1] = steps[1: - 1] / 6
-    
-    B = z_set[: - 2] / steps[: - 1] - z_set[1: - 1] * (1 / steps[: - 1] + 1 / steps[1:]) + z_set[2 :] / steps[1:]
 
     # A[1, 0] = (x_set[2] - x_set[0]) / 3
     # A[2, 0] = (x_set[2] - x_set[1]) / 6
@@ -129,11 +127,33 @@ def second_derivatives(x_set, z_set):
     #     B[i] = (z_set[i + 2] - z_set[i + 1]) / (x_set[i + 2] - x_set[i + 1]) -\
     #            (z_set[i + 1] - z_set[i]) / (x_set[i + 1] - x_set[i])
 
-    sec_deriv = solve_banded((1, 1), A, B) # here are second derivatives in points x[1]...x[- 2].
-    # So, let's append left and right edges which are supposed to be equal to zero:
+    # Matrix A now corresponds to the system for a single "profile".
+    # If this "profile" is really single everything is straightforward:
 
-    sec_deriv = np.append(0, sec_deriv)
-    sec_deriv = np.append(sec_deriv, 0)
+    if len(z_set.shape) == 1:
+
+        B = z_set[: - 2] / steps[: - 1] - z_set[1: - 1] * (1 / steps[: - 1] + 1 / steps[1:]) + z_set[2 :] / steps[1:]
+
+        sec_deriv = solve_banded((1, 1), A, np.ravel(B)) # here are second derivatives in points x[1]...x[- 2].
+
+        sec_deriv = np.append(0, sec_deriv)
+        sec_deriv = np.append(sec_deriv, 0)
+
+    # If there are several of them, system is slightly different:
+
+    else:
+
+        A = np.tile(A, z_set.shape[0])
+
+        B = z_set[:, : - 2] / steps[: - 1] - \
+            z_set[:, 1: - 1] * (1 / steps[: - 1] + 1 / steps[1:]) + \
+            z_set[:, 2 :] / steps[1:]
+
+        sec_deriv = solve_banded((1, 1), A, np.ravel(B)) # here are second derivatives in points x[1]...x[- 2].
+        sec_deriv = np.reshape(sec_deriv, (z_set.shape[0], z_set.shape[1] - 2))
+
+        sec_deriv = np.append(np.zeros((z_set.shape[0], 1)), sec_deriv, axis=1)
+        sec_deriv = np.append(sec_deriv, np.zeros((z_set.shape[0], 1)), axis=1)
 
     return sec_deriv
 
@@ -142,35 +162,62 @@ def one_dim_polynomial(x_set, z_set):
     """
 
     :param x_set: strictly ascending 1D-numerical array
-    :param z_set: 1D-numerical array of corresponding values z = z(x)
+    :param z_set: 1D/2D-numerical array of corresponding values z = z_j(x) where index j denotes number of "profile"
     :return: array of polynomial coefficients of cubic spline interpolation of z(x) function
     """
 
-    # Returns array of coefficients of the interpolation ploynomials for function z_set defined on grid x_set with
-    # second derivatives at the edges given.
+    # Returns array of coefficients of the interpolation ploynomials for function z_set defined on grid x_set.
 
-    one_dim_coefficients = np.zeros((x_set.shape[0] - 1, 4)) # first index represents x_i (nearest left neighbour of
-    # current x) and the second indicates the power of x in the polynomial.
+    steps = np.diff(x_set) # steps between x[i] and x[i + 1] for all i
 
-    m_i = second_derivatives(x_set, z_set)
+    # If there is a single "profile":
+    if len(z_set.shape) == 1:
 
-    steps = np.diff(x_set)
+        one_dim_coefficients = np.zeros((x_set.shape[0] - 1, 4)) # the first index corresponds to the left nearest neighbour
+        # and the second index denotes power of x in polynomial
 
-    one_dim_coefficients[:, 0] = m_i[: - 1] * x_set[1:] ** 3 / (6 * steps) -\
-                                 m_i[1:] * x_set[: - 1] ** 3 / (6 * steps) +\
-                                 (z_set[: - 1] - m_i[: - 1] * steps ** 2 / 6) * x_set[1:] / steps - \
-                                 (z_set[1:] - m_i[1:] * steps ** 2 / 6) * x_set[: - 1] / steps
+        m_i = second_derivatives(x_set, z_set)
 
-    one_dim_coefficients[:, 1] = - m_i[: - 1] * 3 * x_set[1:] ** 2 / (6 * steps) +\
-                                 m_i[1:] * 3 * x_set[: - 1] ** 2 / (6 * steps) -\
-                                 (z_set[: - 1] - m_i[: - 1] * steps ** 2 / 6) / steps +\
-                                 (z_set[1:] - m_i[1:] * steps ** 2 / 6) / steps
+        one_dim_coefficients[:, 0] = m_i[: - 1] * x_set[1:] ** 3 / (6 * steps) - \
+                                     m_i[1:] * x_set[: - 1] ** 3 / (6 * steps) + \
+                                     (z_set[: - 1] - m_i[: - 1] * steps ** 2 / 6) * x_set[1:] / steps - \
+                                     (z_set[1:] - m_i[1:] * steps ** 2 / 6) * x_set[: - 1] / steps
 
-    one_dim_coefficients[:, 2] = m_i[: - 1] * 3 * x_set[1:] / (6 * steps) -\
-                                 m_i[1:] * 3 * x_set[: - 1] / (6 * steps)
+        one_dim_coefficients[:, 1] = - m_i[: - 1] * 3 * x_set[1:] ** 2 / (6 * steps) + \
+                                     m_i[1:] * 3 * x_set[: - 1] ** 2 / (6 * steps) - \
+                                     (z_set[: - 1] - m_i[: - 1] * steps ** 2 / 6) / steps + \
+                                     (z_set[1:] - m_i[1:] * steps ** 2 / 6) / steps
 
-    one_dim_coefficients[:, 3] = - m_i[: - 1] / (6 * steps) +\
-                                 m_i[1:] / (6 * steps)
+        one_dim_coefficients[:, 2] = m_i[: - 1] * 3 * x_set[1:] / (6 * steps) - \
+                                     m_i[1:] * 3 * x_set[: - 1] / (6 * steps)
+
+        one_dim_coefficients[:, 3] = - m_i[: - 1] / (6 * steps) + \
+                                     m_i[1:] / (6 * steps)
+
+    # If there are several of them:
+    else:
+
+        one_dim_coefficients = np.zeros((z_set.shape[0], x_set.shape[0] - 1, 4)) # the first index corresponds to the
+        # "profile" number, the second index corresponds to the left nearest neighbour and the third index denotes power
+        # of x in polynomial
+
+        m_i = second_derivatives(x_set, z_set)
+
+        one_dim_coefficients[:, :, 0] = m_i[:, : - 1] * x_set[1:] ** 3 / (6 * steps) - \
+                                        m_i[:, 1:] * x_set[: - 1] ** 3 / (6 * steps) + \
+                                        (z_set[:, : - 1] - m_i[:, : - 1] * steps ** 2 / 6) * x_set[1:] / steps - \
+                                        (z_set[:, 1:] - m_i[:, 1:] * steps ** 2 / 6) * x_set[: - 1] / steps
+
+        one_dim_coefficients[:, :, 1] = - m_i[:, : - 1] * 3 * x_set[1:] ** 2 / (6 * steps) + \
+                                        m_i[:, 1:] * 3 * x_set[: - 1] ** 2 / (6 * steps) - \
+                                        (z_set[:, : - 1] - m_i[:, : - 1] * steps ** 2 / 6) / steps + \
+                                        (z_set[:, 1:] - m_i[:, 1:] * steps ** 2 / 6) / steps
+
+        one_dim_coefficients[:, :, 2] = m_i[:, : - 1] * 3 * x_set[1:] / (6 * steps) - \
+                                        m_i[:, 1:] * 3 * x_set[: - 1] / (6 * steps)
+
+        one_dim_coefficients[:, :, 3] = - m_i[:, : - 1] / (6 * steps) + \
+                                        m_i[:, 1:] / (6 * steps)
 
     # for i in np.arange(1, x_set.shape[0], 1):
     #
@@ -212,24 +259,29 @@ def two_dim_polynomial(x_set, y_set, z_set):
 
     # 1. Array of polynoial coefficients for cross-sections z(xi, y):
 
-    xi_coeff = np.zeros((x_set.shape[0], y_set.shape[0] - 1, 4))
+    xi_coeff = one_dim_polynomial(y_set, z_set)
+
+    # xi_coeff = np.zeros((x_set.shape[0], y_set.shape[0] - 1, 4))
 
     # 2. Array of polynomial coefficients for cross-section of the second partial derivatives of z with respect to x
     # along lines x = xi (so, this function will be a cubic polynomial of y):
 
-    z_xx = np.zeros((x_set.shape[0], y_set.shape[0]))  # array of d2z/dx2 on the grid
-    z_xx_coeff = np.zeros((x_set.shape[0], y_set.shape[0] - 1, 4))  # polynomial coefficients for d2z/dx2
+    z_xx = second_derivatives(x_set, np.transpose(z_set))
+    z_xx_coeff = one_dim_polynomial(y_set, z_xx)
+
+    # z_xx = np.zeros((x_set.shape[0], y_set.shape[0]))  # array of d2z/dx2 on the grid
+    # z_xx_coeff = np.zeros((x_set.shape[0], y_set.shape[0] - 1, 4))  # polynomial coefficients for d2z/dx2
 
     # Let's fill these arrays:
 
-    for j in range(y_set.shape[0]):
-
-        z_xx[:, j] = second_derivatives(x_set, z_set[:, j])
-
-    for i in range(x_set.shape[0]):
-
-        xi_coeff[i, :, :] = one_dim_polynomial(y_set, z_set[i, :])
-        z_xx_coeff[i, :, :] = one_dim_polynomial(y_set, z_xx[i, :])
+    # for j in range(y_set.shape[0]):
+    #
+    #     z_xx[:, j] = second_derivatives(x_set, z_set[:, j])
+    #
+    # for i in range(x_set.shape[0]):
+    #
+    #     xi_coeff[i, :, :] = one_dim_polynomial(y_set, z_set[i, :])
+    #     z_xx_coeff[i, :, :] = one_dim_polynomial(y_set, z_xx[i, :])
 
     # Now we have everything what we need. Let's construct new array for two-dimensional interpolation polynomial
     # coefficients:

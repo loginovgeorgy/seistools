@@ -52,8 +52,8 @@ class Horizon:
 
         :param xy_target: target value of (x, y); xy_target = [x_target, y_target]
         :param vec: incident vector vec = [vec1, vec2, vec3]
-        :return: second partial derivatives of the surface calculated in local system at the point of incidence
-        [x_target, y_target, z(x_target, y_target)] and the transformation matrix [d1, d2, n].
+        :return: matrix of second partial derivatives of the surface calculated in local system at the point of
+        incidence [x_target, y_target, z(x_target, y_target)] and the transformation matrix [d1, d2, n].
         '''
         pass
 
@@ -228,7 +228,7 @@ class FlatHorizon(Horizon):
 
         # second derivatives on a plane are equal to zero in any coordinate system. So, let's return the result:
 
-        return 0, 0, 0, np.array([d1, d2, n]).T
+        return np.array([[0, 0], [0, 0]]), np.array([d1, d2, n]).T
 
     def plot(self, ax=None):
 
@@ -466,7 +466,7 @@ class GridHorizon(Horizon):
 
         h11, h12, h22 = np.linalg.solve(A, B)
 
-        return h11, h12, h22, np.array([d1, d2, n]).T
+        return np.array([[h11, h12], [h12, h22]]), np.array([d1, d2, n]).T
 
     def plot(self, ax=None):
 
