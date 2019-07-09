@@ -93,3 +93,5 @@ def decomposition_vu(m):
     v = (1 / 3) * (m1 + m2 + m3)
 
     return v, u
+
+# TODO develop procedure to restore dip, strike, rake
