@@ -49,7 +49,7 @@ def decomposition(m, basic=True):
     return k_iso, k_clvd, k_dc
 
 
-def decompose_m(m):
+def decompose_moment_tensor(m):
     # by Vavricuk
 
     eig_val, eig_vector = np.linalg.eig(m)
