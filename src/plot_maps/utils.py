@@ -26,8 +26,8 @@ def interpolate_grid(x, y, z, grid_size=100, method='linear'):
 
 def get_bound_square(z):
     _z = z.copy().T
-    _z[~np.isnan(_z)] = 0
-    _z[np.isnan(_z)] = 1
+    _z[~np.isnan(_z)] = 0.
+    _z[np.isnan(_z)] = 1.
     _z = np.abs(np.gradient(_z.T, axis=0))
     _z[_z == 0] = np.nan
 

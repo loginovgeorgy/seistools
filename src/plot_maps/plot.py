@@ -25,11 +25,11 @@ def plot_map(
         x,
         y,
         z,
-        grid_size=100,
-        method='linear',
+        interp_grid_size=100,
+        interp_method='linear',
         font_size=20,
         title=None,
-        shift_to_min=True,
+        shift_to_min=False,
         x_label='X, m',
         y_label='Y, m',
         return_img=False,
@@ -40,8 +40,8 @@ def plot_map(
         add_xy=False,
         colorbar_label='',
         ax=None,
-        fig_width=10,
-        fig_height=10,
+        fig_width=5,
+        fig_height=5,
         style='imshow',
 ):
     x0, y0, z0 = deepcopy(x), deepcopy(y), deepcopy(z)
@@ -50,11 +50,12 @@ def plot_map(
         x0 -= x0.min()
         y0 -= y0.min()
 
-    x, y, z = interpolate_grid(x0, y0, z0, grid_size=grid_size)
+    x, y, z = interpolate_grid(x0, y0, z0, grid_size=interp_grid_size, method=interp_method)
 
     if isinstance(ax, type(None)):
         fig, ax = plt.subplots(figsize=(fig_width, fig_height), facecolor='w')
 
+    # TODO add styles: pcolor, pcolormesh, contourf
     img = ax.imshow(
         z,
         extent=(x.min(), x.max(), y.min(), y.max()),
@@ -73,7 +74,15 @@ def plot_map(
 
     if add_bound:
         square = get_bound_square(z)
-        ax.imshow(square, alpha=1, extent=(x.min(), x.max(), y.min(), y.max()), cmap='gray', origin='lower')
+        ax.imshow(
+            square,
+            alpha=1,
+            extent=(x.min(), x.max(), y.min(), y.max()),
+            cmap='gray',
+            origin='lower',
+            vmin=0,
+            vmax=1
+        )
     if title:
         ax.set_title(title)
 
