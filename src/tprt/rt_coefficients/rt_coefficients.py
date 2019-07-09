@@ -6,6 +6,11 @@ from .polarizations import christoffel, polarizations, polarizations_alt
 
 
 def _normalize_vector(v):
+    """Makes sum of squared components of a vector be equal to one
+
+    :param v: vector of any dimensions
+    :return: vector v divided by square root of the sum of its squared components
+    """
     return v / cm.sqrt(np.sum(v ** 2))
 
 
@@ -49,13 +54,13 @@ def iso_rt_coefficients(inc_slowness, inc_polariz, rt_signum, vp1, vs1, rho1, vp
 
     # Construct polarizations of reflected and transmitted waves:
 
-    refl_polariz_p = _normalize_vector(refl_slow_p)  # reflected P-wave
+    refl_polariz_p = refl_slow_p / np.linalg.norm(refl_slow_p)  # reflected P-wave
     refl_polariz_s2 = np.array([0, 1, 0])  # reflected SH-wave
-    refl_polariz_s1 = np.cross(refl_polariz_s2, _normalize_vector(refl_slow_s)) # reflected SV-wave
+    refl_polariz_s1 = np.cross(refl_polariz_s2, refl_slow_s / np.linalg.norm(refl_slow_s))  # reflected SV-wave
 
     trans_polariz_p = trans_slow_p / np.linalg.norm(trans_slow_p)  # transmitted P-wave
     trans_polariz_s2 = np.array([0, 1, 0])  # transmitted SH-wave
-    trans_polariz_s1 = np.cross(trans_polariz_s2, _normalize_vector(trans_slow_s))  # transmitted SV-wave
+    trans_polariz_s1 = np.cross(trans_polariz_s2, trans_slow_s / np.linalg.norm(trans_slow_s))  # transmitted SV-wave
 
     # They are unit in hermite norm. But in theory they should be unit in sense of sum of squared components:
 
