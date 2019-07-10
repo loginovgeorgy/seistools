@@ -25,7 +25,7 @@ class Velocity_model(object):
 
             if i<len(velocities)-1: bottom = self.horizons[i]
             else: bottom = FlatHorizon(depth = np.inf)
-            Layers.append(Layer(velocity, density, top, bottom, name=name))
+            Layers.append(Layer(velocity, density, top, bottom, name=name, number=i))
         return Layers
 
     def add_horizon(self, Horizon):
@@ -51,3 +51,7 @@ class Velocity_model(object):
                 # z-coordinate of location then add 1 to the layer_num.
 
         return self.layers[layer_num]
+
+    def plot(self, ax):
+        for l in self.layers[:-1]:
+            l.bottom.plot(ax=ax)
