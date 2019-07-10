@@ -4,6 +4,7 @@ from scipy.optimize import minimize
 from functools import partial
 from .rt_coefficients import iso_rt_coefficients
 from .segment import Segment
+from .. import seislet
 
 WAVECODE = {0: 'vp', 1: 'vs'}
 
@@ -401,15 +402,11 @@ class Ray(object):
 
             U = U / (4 * np.pi * first_layer.get_velocity(0)[first_segment.vtype]**3 * first_layer.get_density())
 
-            return U, [], []
+            return U
 
         else:
 
             # If there are some boundaries on the ray's path, we shall need to carry out more complicated calculations.
-            # For sake of inversion, we shall also keep all reflection/transmission coefficients in an array:
-
-            refl_trans_coeff = np.zeros(len(self.segments) - 1, dtype = complex)
-            inc_cosines = np.zeros(len(self.segments) - 1, dtype = complex)
 
             for i in np.arange(1, len(self.segments), 1):
 
@@ -448,11 +445,8 @@ class Ray(object):
                     prev_segment.get_vector()
                 )
 
-                # cosine of inc_angle
+                # cosines of inc_angle and tr_angle:
                 cos_inc = abs(np.dot(prev_segment.get_vector(), loc_sys[:, 2]))
-                inc_cosines[i - 1] = cos_inc
-
-                # cosine of tr_angle
                 cos_out = abs(np.dot(curr_segment.get_vector(), loc_sys[:, 2]))
 
                 S = np.array([[rt_sign * cos_inc / cos_out, 0],
@@ -462,8 +456,6 @@ class Ray(object):
 
                 u = cos_inc / prev_layer.get_velocity(0)[prev_segment.vtype] -\
                     rt_sign * cos_out / curr_layer.get_velocity(0)[curr_segment.vtype]
-
-                # print(D[0, 0], D[1, 0], D[1, 1])
 
                 # The incident ray's e2 vector can make angle with the d2 so that:
 
@@ -590,10 +582,6 @@ class Ray(object):
 
                 if curr_segment.vtype == 'vp':
 
-                    # Append it to the corresponding array:
-
-                    refl_trans_coeff[i - 1] = ampl_coeff[0]
-
                     U = np.linalg.norm(U) * ampl_coeff[0] * np.sqrt(abs(det_rat)) * t
 
                 if curr_segment.vtype == 'vs':
@@ -608,7 +596,126 @@ class Ray(object):
 
             U = U / (4 * np.pi * first_layer.get_velocity(0)[first_segment.vtype]**3 * first_layer.get_density())
 
-            return U, refl_trans_coeff, inc_cosines
+            return U
+
+    def compute_coefficients(self):
+
+        first_segment = self.segments[0]
+
+        t = first_segment.get_vector()  # unit vector pointed in the direction of wave's propagation
+
+        if t[2] == 1:
+
+            e1 = np.array([1, 0, 0])
+            e2 = np.array([0, 1, 0])
+
+        else:
+
+            e2 = np.array([t[1], - t[0], 0]) / np.sqrt(t[1] ** 2 + t[0] ** 2)  # SH-polarized unit vector
+            e1 = np.cross(e2, t)  # SV-polarized unit vector
+
+        if self.segments[0].vtype == 'vp':
+
+            U = self.source.psi0(first_segment.receiver, t) * t
+
+        else:
+
+            U = self.source.psi0(first_segment.receiver, e1) * e1 +\
+                self.source.psi0(first_segment.receiver, e2) * e2
+
+        if len(self.segments) == 1:
+
+            return np.array([])
+
+        else:
+
+            refl_trans_coeff = np.zeros(len(self.segments) - 1, dtype = complex)
+
+            for i in np.arange(1, len(self.segments), 1):
+
+                prev_segment = self.segments[i - 1]
+                prev_layer = self.segments[i - 1].layer
+
+                curr_segment = self.segments[i]
+                curr_layer = self.segments[i].layer
+
+                if prev_layer == curr_layer:
+
+                    rt_sign = - 1
+
+                else:
+
+                    rt_sign = 1
+
+                _, loc_sys = prev_segment.end_horizon.get_local_properties(
+                    prev_segment.receiver[0:2],
+                    prev_segment.get_vector()
+                )
+
+                inc_slowness = np.dot(
+                    np.transpose(loc_sys),
+                    t / prev_layer.get_velocity(0)[prev_segment.vtype]
+                )
+                inc_polariz = np.dot(np.transpose(loc_sys), U)
+
+                vp1 = self.velmod.layers[self.raycode[i - 1][1]].get_velocity(0)["vp"]
+                vs1 = self.velmod.layers[self.raycode[i - 1][1]].get_velocity(0)["vs"]
+                rho1 = self.velmod.layers[self.raycode[i - 1][1]].get_density()
+
+                vp2 = self.velmod.layers[self.raycode[i - 1][1] + self.raycode[i - 1][0]].get_velocity(0)["vp"]
+                vs2 = self.velmod.layers[self.raycode[i - 1][1] + self.raycode[i - 1][0]].get_velocity(0)["vs"]
+                rho2 = self.velmod.layers[self.raycode[i - 1][1] + self.raycode[i - 1][0]].get_density()
+
+                ampl_coeff = iso_rt_coefficients(
+                    inc_slowness=inc_slowness,
+                    inc_polariz=inc_polariz,
+                    rt_signum=rt_sign,
+                    vp1=vp1,
+                    vs1=vs1,
+                    rho1=rho1,
+                    vp2=vp2,
+                    vs2=vs2,
+                    rho2=rho2
+                )
+
+                t = curr_segment.get_vector()
+                e2 = loc_sys[:, 1]
+                e1 = np.cross(e2, t)
+
+                if curr_segment.vtype == 'vp':
+
+                    refl_trans_coeff[i - 1] = ampl_coeff[0]
+
+                    U = np.linalg.norm(U) * ampl_coeff[0] * t
+
+                if curr_segment.vtype == 'vs':
+
+                    refl_trans_coeff[i - 1] = np.sqrt(ampl_coeff[1] ** 2 + ampl_coeff[2] ** 2)
+
+                    U = np.linalg.norm(U) * ampl_coeff[1] * e1 +\
+                        np.linalg.norm(U) * ampl_coeff[2] * e2
+
+            return refl_trans_coeff
+
+    def get_inc_cosines(self):
+
+        if len(self.segments) == 1:
+
+            return np.array([])
+
+        else:
+
+            inc_cosines = np.zeros(len(self.segments) - 1)
+
+            for i in np.arange(1, len(self.segments), 1):
+
+                prev_segment = self.segments[i - 1]
+
+                normal = prev_segment.end_horizon.get_normal(prev_segment.receiver[0:2])
+
+                inc_cosines[i - 1] = abs(np.dot(prev_segment.get_vector(), normal))
+
+            return inc_cosines
 
     def get_recorded_amplitude(self, times):
         # returns amplitude vector in the receiver in a particular time moment t.
@@ -618,6 +725,10 @@ class Ray(object):
         # We use formula: A = Ricker(t - tau) * U)
         # where tau is time of the first break (i.e. traveltime along the ray), Ricker is
         # the Ricker wavelet with dispersion given in the Source  and U is a constant vector: self.ray_amplitude.
+
+        # return seislet.seismic_signal(signal="ricker",
+        #                               t=times,
+        #                               f=self.source.fr_dom) * np.dot(self.receiver.orientation.T, self.ray_amplitude)
 
         tau = self.get_travel_time()
         sigma = np.sqrt(2) / self.source.fr_dom / 2 / np.pi
