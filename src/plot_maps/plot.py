@@ -24,6 +24,7 @@ def set_plt_params(func):
 
 
 @set_plt_params
+@decorate_input
 def plot_map(
         z,
         x=None,
