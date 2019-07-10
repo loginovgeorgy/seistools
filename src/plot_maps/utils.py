@@ -9,6 +9,27 @@ def cast_grid(x):
     return np.squeeze(x)
 
 
+def decorate_input(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        if len(args) == 1:
+            pass
+        elif len(args) == 3:
+            kwargs.update(
+                dict(
+                    x=args[0],
+                    y=args[1],
+                )
+            )
+            args = args[2]
+        else:
+            raise ValueError('Input must be "(z, x=..., y=...)" or "(x, y, z)" otherwise - incorrect')
+        return func(args, **kwargs)
+
+    return wrapper
+
+
+@decorate_input
 def input_check(x, y, z):
     z = cast_grid(z)
     if len(z.shape) == 1:
@@ -84,28 +105,6 @@ def input_check(x, y, z):
     return x, y, z
 
 
-def decorate_input(func):
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        if len(args) == 1:
-            func(args[0], **kwargs)
-
-        elif len(args) == 3:
-            kwargs.update(
-                dict(
-                    x=args[0],
-                    y=args[1],
-                )
-            )
-            func(args[2], **kwargs)
-        else:
-            raise ValueError('Input must be "(z, x=..., y=...)" or "(x, y, z)" otherwise - incorrect')
-        return
-
-    return wrapper
-
-
-@decorate_input
 def interpolate_grid(z, x=None, y=None, nx=None, ny=None, method='linear'):
     """
     :param x: 1D vector
@@ -136,7 +135,7 @@ def interpolate_grid(z, x=None, y=None, nx=None, ny=None, method='linear'):
         np.linspace(y.min(), y.max(), ny),
     )
 
-    zg = griddata((x, y), z, (xg, yg), method=method)
+    zg = griddata((x.ravel(), y.ravel()), z.ravel(), (xg, yg), method=method)
 
     return xg, yg, zg
 
