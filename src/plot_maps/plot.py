@@ -93,7 +93,7 @@ def plot_map(
     """
 
     if use_regular_grid | (not isinstance(interpolation, type(None))):
-        x, y, z = interpolate_grid(x, y, z, nx=regular_grid_nx, ny=regular_grid_ny, method=regular_grid_method)
+        x, y, z = interpolate_grid(z, x=x, y=y, nx=regular_grid_nx, ny=regular_grid_ny, method=regular_grid_method)
     else:
         x, y, z = input_check(x, y, z)
 
