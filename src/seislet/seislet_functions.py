@@ -1,119 +1,227 @@
 import numpy as np
-from .default_seislet import *
+from copy import deepcopy
+DEFAULT_DT = 1e-3
+DEFAULT_NS = 256
 
-SEISLET_DEFAULT_PARAMETERS = {
-    'f': default_f,
-    'tau': default_tau,
-    'alpha': default_alpha,
-    'a0': default_a0,
-    'theta': default_theta,
-    'gamma': default_gamma,
-    'K': default_k,
-    'betta': default_betta
+
+def cast_input_to_traces(x, ndmin=2):
+    """
+    It is better to check input data type and shape. To prevent problems, array must be at least 2D,
+    where time axis equals 1.
+    :param x: list or array
+    :param ndmin: minimal array dimension
+    :return: np.array(x, ndmin=ndmin)
+    """
+    # x = np.array(x)
+    # x = np.squeeze(x)
+    x = deepcopy(x)
+    x = np.array(x, ndmin=ndmin, dtype=np.float32)
+    return x
+
+
+def _default_f(dt, ns):
+    """
+    Central frequency
+    :param dt:
+    :param ns:
+    :return:
+    """
+
+    return 1 / 2 / dt / 10
+
+
+def _default_tau(dt, ns):
+    """
+    timeshift
+    :param dt:
+    :param ns:
+    :return:
+    """
+
+    return dt * ns / 2
+
+
+def _default_alpha(dt, ns):
+    """
+    bandwidth factor (decay) (0, 1)
+    :param dt:
+    :param ns:
+    :return: alpha > 0
+    """
+    return 1. / 3
+
+
+def _default_theta(dt, ns):
+    """
+    theta in (0, 2pi)
+    :param dt:
+    :param ns:
+    :return:
+    """
+
+    return 0
+
+
+def _default_gamma(dt, ns):
+    """
+    Chirp rate
+    :param dt:
+    :param ns:
+    :return:
+    """
+    return 0.01
+
+
+def _default_k(dt, ns):
+    return 100
+
+
+def _default_betta(dt, ns):
+    """
+    asymmetry factor
+    :param dt:
+    :param ns:
+    :return:
+    """
+    return 1
+
+
+def _ricker(
+        t,
+        dt=None,
+        tau=None,
+        f=None,
+        **kwargs
+):
+    t = t - tau
+    alpha = np.pi * np.pi * f * f
+    spectrum = (1 - 2 * alpha * (t ** 2))
+    envelope = np.exp(alpha * (- t ** 2))
+
+    return spectrum * envelope
+
+
+def _berlage(
+        t,
+        dt,
+        tau=None,
+        f=None,
+        alpha=None,
+        theta=None,
+        **kwargs
+):
+    t = t - tau
+    alpha *= ((np.pi * f) ** 2)
+    spectrum = np.sin(2 * np.pi * f * t + theta)
+    envelope = t * np.exp(alpha * (- t ** 2))
+
+    return envelope * spectrum * (t > 0)
+
+
+def _chirplet(
+        t,
+        dt,
+        tau=None,
+        f=None,
+        alpha=None,
+        theta=None,
+        gamma=None,
+        betta=None,
+        k=None,
+        **kwargs
+):
+    t = t - tau
+
+    alpha *= ((np.pi * f) ** 2)
+    gamma *= (np.pi * f) ** 2
+    k = 1 / dt / k
+    betta = np.abs(betta)
+
+    spectrum = np.cos(2 * np.pi * f * t + gamma * (t ** 2) + theta)
+    envelope = np.exp(alpha * (1 - betta * np.tanh(k * t)) * (- t ** 2))
+
+    return spectrum * envelope
+
+
+SIGNAL_TYPE = {
+    'ricker': _ricker,
+    'berlage': _berlage,
+    'chirplet': _chirplet,
+}
+
+DEFAULT_PARAMETERS = {
+    'tau': _default_tau,
+    'f': _default_f,
+    'alpha': _default_alpha,
+    'theta': _default_theta,
+    'gamma': _default_gamma,
+    'betta': _default_betta,
+    'k': _default_k,
 }
 
 
-def check_parameters(dt, ns, s_let_default_parameters=SEISLET_DEFAULT_PARAMETERS, **parameters):
-    parameters_value = []
-    for parameter_name in parameters:
-        parameter = parameters[parameter_name]
-        if parameter is None:
-            set_default_parameter_func = s_let_default_parameters[parameter_name]
-            parameter = set_default_parameter_func(dt, ns)
-
-        parameters_value.append(parameter)
-
-    return parameters_value
+def _cast_n_check_signal_parameters(dt, ns, kwargs):
+    dt = np.float32(dt)
+    ns = np.int32(ns)
+    for key in kwargs:
+        tmp = np.array(kwargs[key], ndmin=2, dtype=np.float32)
+        is_nan = np.isnan(tmp)
+        tmp[is_nan] = DEFAULT_PARAMETERS[key](dt, ns)
+        kwargs[key] = tmp
+    return dt, ns, kwargs
 
 
-def berlage_function(dt=DEFAULT_DT, ns=DEFAULT_NS, a0=None, tau=None, f=None, alpha=None, **kwargs):
-    parameters = check_parameters(dt, ns, a0=a0, tau=tau, f=f, alpha=alpha)
+def seismic_signal(
+        signal='ricker',
+        t=None,
+        dt=DEFAULT_DT,
+        ns=DEFAULT_NS,
+        tau=None,
+        f=None,
+        alpha=None,
+        theta=None,
+        gamma=None,
+        betta=None,
+        k=None,
+        verbose=False,
+):
+    """
 
-    a0, tau, f, alpha = parameters
+    :param signal: 'ricker', 'berlage', 'chirplet'
+    :param t: time vector None or np.array()
+    :param dt: sampling, seconds
+    :param ns: number of samples
+    :param tau: arrival time
+    :param f: central frequency
+    :param alpha: decay
+    :param theta: phase
+    :param gamma:
+    :param betta: symmetry
+    :param k:
+    :param verbose: print given properties
+    :return: signal
+    """
 
-    if alpha <= 0:
-        alpha = 1
+    kwargs = dict(
+        tau=tau,
+        f=f,
+        alpha=alpha,
+        theta=theta,
+        gamma=gamma,
+        betta=betta,
+        k=k,
+    )
 
-    alpha = f / dt / (alpha * 2)
+    dt, ns, kwargs = _cast_n_check_signal_parameters(dt, ns, kwargs)
 
-    t = np.arange(0, ns * dt, dt)
+    if not isinstance(t, np.ndarray):
+        t = cast_input_to_traces(np.arange(0, ns * dt, dt))
 
-    envelope = np.sin(2 * f * np.pi * (t - tau))
-    spectrum = (t - tau) * np.exp(-alpha * (t - tau) ** 2)
+    if verbose:
+        for k in kwargs:
+            print('>>> ', k, kwargs[k])
 
-    signal = spectrum * envelope
-    signal[t < tau] = 0
+    traces = SIGNAL_TYPE[signal](t, dt, **kwargs)
+    traces /= np.abs(np.nanmax(traces, axis=1, keepdims=True))
+    return traces
 
-    signal = a0 * signal / np.abs(signal).max()
-
-    return signal
-
-
-def puzirev_function(dt=DEFAULT_DT, ns=DEFAULT_NS, a0=None, tau=None, f=None, alpha=None, theta=None, **kwargs):
-    parameters = check_parameters(dt, ns, a0=a0, tau=tau, f=f, alpha=alpha, theta=theta)
-
-    a0, tau, f, alpha, theta = parameters
-
-    if alpha <= 0:
-        alpha = 1
-
-    alpha = f / dt / (alpha * 2)
-
-    t = np.arange(0, ns * dt, dt)
-
-    envelope = np.sin(2 * np.pi * f * (t - tau) + theta)
-    spectrum = np.exp(-(alpha ** 2) * (t - tau) ** 2)
-
-    signal = a0 * spectrum * envelope
-
-    return signal
-
-
-def chirplet_function(dt=DEFAULT_DT,
-                      ns=DEFAULT_NS,
-                      a0=None,
-                      tau=None,
-                      f=None,
-                      alpha=None, theta=None, gamma=None, K=None, betta=None, **kwargs):
-    parameters = check_parameters(dt, ns,
-                                  a0=a0,
-                                  tau=tau,
-                                  f=f,
-                                  alpha=alpha,
-                                  theta=theta,
-                                  betta=betta,
-                                  K=K,
-                                  gamma=gamma)
-
-    a0, tau, f, alpha, theta, gamma, K, betta = parameters
-
-    if alpha <= 0:
-        alpha = 1
-
-    alpha = f / dt / (alpha * 2)
-
-    t = np.arange(0, ns * dt, dt)
-
-    envelope = np.exp(-alpha * (1 - betta * np.tanh(K * (t - tau))) * ((t - tau) ** 2))
-    spectrum = np.cos(f * (t - tau) + gamma * (t - tau) ** 2 + theta)
-
-    signal = a0 * spectrum * envelope
-
-    return signal
-
-
-def ricker_function(dt=DEFAULT_DT, ns=DEFAULT_NS, a0=None, tau=None, f=None, **kwargs):
-    parameters = check_parameters(dt, ns, a0=a0, tau=tau, f=f)
-
-    a0, tau, f = parameters
-
-    t = np.arange(0, ns * dt, dt)
-    # signal = a0*(1-2*pi*pi*f*f*(t-tau).^2).*exp(-pi*pi*f*f*(t-tau).^2)
-
-    envelope = (1 - 2 * np.pi * np.pi * f * f * (t - tau) ** 2)
-    spectrum = np.exp(-np.pi * np.pi * f * f * (t - tau) ** 2)
-
-    signal = a0 * spectrum * envelope
-    signal[t < tau] = 0
-
-    return signal

@@ -55,5 +55,5 @@ def grid_model(xz, media, n=30):
     xi = np.linspace(min(xz[:,0]),max(xz[:,0]),n)
     zi = np.linspace(min(xz[:,1]),max(xz[:,1]),n)
 
-    media = griddata(xz[:,0],xz[:,1],media.ravel(), xi, zi, interp='linear')
+    media = griddata(xz[:, 0], xz[:, 1], media.ravel(), xi, zi, interp='linear')
     return media, xi, zi
