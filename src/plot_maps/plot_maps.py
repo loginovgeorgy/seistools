@@ -23,7 +23,30 @@ def set_plt_params(func):
     return wrapper
 
 
+def decorate_input_plot(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        if len(args) == 1:
+            z = args[0]
+            x = kwargs.get('x', None)
+            y = kwargs.get('y', None)
+
+        elif len(args) == 3:
+            x = args[0]
+            y = args[1]
+            z = args[2]
+            kwargs.pop('x')
+            kwargs.pop('y')
+
+        else:
+            raise ValueError('Input must be "(z, x=..., y=...)" or "(x, y, z)" otherwise - incorrect')
+        return func(z, x=x, y=y, **kwargs)
+
+    return wrapper
+
+
 @set_plt_params
+@decorate_input_plot
 def plot_map(
         z,
         x=None,
@@ -97,6 +120,7 @@ def plot_map(
     else:
         x, y, z = input_check(x, y, z)
 
+
     if isinstance(ax, type(None)):
         fig, ax = plt.subplots(figsize=(fig_width, fig_height), facecolor='w')
 
@@ -128,6 +152,7 @@ def plot_map(
         plot_func = ax.tripcolor
 
     if not isinstance(interpolation, type(None)):
+
         plot_func = ax.imshow
         plot_func_args = [z]
         plot_func_kwargs = dict(
@@ -135,10 +160,12 @@ def plot_map(
             vmin=vmin,
             vmax=vmax,
             alpha=alpha,
-            extent=(x.min(), x.max(), y.min, y.max()),
+            extent=(x.min(), x.max(), y.min(), y.max()),
             origin='lower',
+            interpolation=interpolation,
         )
 
+    print(plot_func)
     img = plot_func(
         *plot_func_args,
         **plot_func_kwargs,
@@ -147,17 +174,17 @@ def plot_map(
     if add_colorbar:
         plot_colorbar(img, cbar_label=colorbar_label)
 
-    if add_bound:
-        square = get_bound_square(z)
-        ax.imshow(
-            square,
-            alpha=1,
-            extent=(x.min(), x.max(), y.min(), y.max()),
-            cmap='gray',
-            origin='lower',
-            vmin=0,
-            vmax=1
-        )
+        if add_bound:
+            square = get_bound_square(z)
+            ax.imshow(
+                square,
+                alpha=1,
+                extent=(x.min(), x.max(), y.min(), y.max()),
+                cmap='gray',
+                origin='lower',
+                vmin=0,
+                vmax=1
+            )
 
     ax.set_ylabel(y_label, fontsize=font_size)
     ax.set_xlabel(x_label, fontsize=font_size)
