@@ -36,12 +36,12 @@ class Survey:
             ray_i.optimize(method=method, survey2D=survey2D)
 
     def plot(self, ax):
-        for sou in self.sources:
-            sou.plot(ax=ax, marker='^')
         for rec in self.receivers:
             rec.plot(ax=ax)
         for ray in self.rays:
             ray.plot(ax=ax)
+        for sou in self.sources:
+            sou.plot(ax=ax, marker='^', color='k')
 
     def get_traveltimes(self):
         n, m = len(self.sources), len(self.receivers)

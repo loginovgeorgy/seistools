@@ -9,11 +9,11 @@ WAVECODE = {0: 'vp', 1: 'vs',
 
 
 ########################### RAYCODE #######################################
-## In order to initialize a ray with a raycode, you should know:
-## 1. We define the raycode between source and receiver
-## 2. Each element of raycode describes the changing of direction (depth)
-##    between local source and receiver
-## 3. An element is list as [direction, № of Layer from depth=0, wavecode]
+# In order to initialize a ray with a raycode, you should know:
+# 1. We define the raycode between source and receiver
+# 2. Each element of raycode describes the changing of direction (depth)
+#    between local source and receiver
+# 3. An element is list as [direction, № of Layer from depth=0, wavecode]
 ###########################################################################
 
 class Ray(object):
@@ -34,16 +34,17 @@ class Ray(object):
 
         try:
             self.check_raycode(raycode)
-        except RaycodeError as e:
+        except RaycodeError:
             raise RaycodeError('Raycode is initialized not correctly!')
 
         self.raycode = raycode
 
         if not np.any(raycode):
-                self.segments = self._forward_ray(vel_mod, vtype=vtype)
-        else:   self.segments = self._initial_ray(init_trajectory)
+            self.segments = self._forward_ray(vel_mod, vtype=vtype)
+        else:
+            self.segments = self._initial_ray(init_trajectory)
 
-        self.ray_amplitude = np.array([1, 0, 0]) # this initial amplitude should be replaced by the right one in the
+        self.ray_amplitude = np.array([1, 0, 0])  # this initial amplitude should be replaced by the right one in the
         # optimize method.
 
         self.traveltime = self.get_travel_time()  # initial value
@@ -57,7 +58,7 @@ class Ray(object):
 
         # 1. Check the source layer
         sou_layer = self._get_location_layer(self.source.location, self.velmod)
-        sou_corresponding = (raycode[0,1] == sou_layer.number)
+        sou_corresponding = (raycode[0, 1] == sou_layer.number)
         if not sou_corresponding:
             raise RaycodeError('Source layer does not correspond to the first layer of raycode!')
 
@@ -72,7 +73,7 @@ class Ray(object):
         # If layer number is changing,
         # then it is head wave (for FlatHorizon) or penetrated wave (for GridHorizon).
         # So, if direction is not changing inside the same layer, then it is Error
-        diff = np.diff(raycode[:,:-1], axis=0)
+        diff = np.diff(raycode[:, :-1], axis=0)
 
         for i, d in enumerate(diff):
             if d[0] == 0 and d[1] != raycode[i, 0]:
@@ -80,10 +81,10 @@ class Ray(object):
 
             # if v2 > v1, then head wave can be an exception
 
-            v1 = self.velmod.layers[raycode[i,1]].get_velocity(0)[WAVECODE[raycode[i,-1]]]
-            v2 = self.velmod.layers[raycode[i+1,1]].get_velocity(0)[WAVECODE[raycode[i+1,-1]]]
+            v1 = self.velmod.layers[raycode[i, 1]].get_velocity(0)[WAVECODE[raycode[i, -1]]]
+            v2 = self.velmod.layers[raycode[i+1, 1]].get_velocity(0)[WAVECODE[raycode[i+1, -1]]]
 
-            if d[0] != 0 and d[1] != 0 and v2<v1:
+            if d[0] != 0 and d[1] != 0 and v2 < v1:
                 raise RaycodeError('Wave direction must be changed inside the same layer!')
 
         return True
@@ -139,14 +140,14 @@ class Ray(object):
             sou = seg.receiver
 
         segments[0].start_horizon = None
-        last_layer = vel_mod.layers[raycode[-1,1]]
-        segments.append(Segment(sou, receiver, last_layer, start_horizon=last_layer.code_horizon[raycode[-1,0]],
-                                end_horizon=None, vtype=WAVECODE[raycode[-1,-1]]))
+        last_layer = vel_mod.layers[raycode[-1, 1]]
+        segments.append(Segment(sou, receiver, last_layer, start_horizon=last_layer.code_horizon[raycode[-1, 0]],
+                                end_horizon=None, vtype=WAVECODE[raycode[-1, -1]]))
         return segments
 
     def _forward_ray(self, vel_mod, vtype='vp'):
         # TODO: make more pythonic
-        source   = np.array(self.source.location, ndmin=1)
+        source = np.array(self.source.location, ndmin=1)
         receiver = np.array(self.receiver.location, ndmin=1)
         array = []
         for hor in vel_mod.horizons:
@@ -187,7 +188,8 @@ class Ray(object):
     @staticmethod
     def _get_location_layer(x, vel_mod):
         for i, l in enumerate(vel_mod.layers):
-            if (l.bottom.get_depth(x[:2]) > x[2] > l.top.get_depth(x[:2])): return l
+            if l.bottom.get_depth(x[:2]) > x[2] > l.top.get_depth(x[:2]):
+                return l
 
     def get_travel_time(self):
         time = 0.0
@@ -211,7 +213,8 @@ class Ray(object):
     def dtravel(self, survey2D=False):
         def _f(x):
             amount_of_borders = len(self.segments) - 1
-            dt = np.zeros((amount_of_borders, 2))             # Производные по dx & dy соответственно, на каждой пересекающей луч границе
+            dt = np.zeros((amount_of_borders, 2))             # Производные по dx & dy соответственно,
+                                                              # на каждой пересекающей луч границе
 
             for ind_border in range(amount_of_borders):
                 seg1 = self.segments[ind_border]              # Соседние 2 сегмента, около точки на границе
@@ -227,13 +230,16 @@ class Ray(object):
                 dv1 = seg1.layer.get_dv(vec1)[seg1.vtype]
                 dv2 = seg2.layer.get_dv(vec2)[seg2.vtype]
 
-                dt[ind_border] += (seg1.receiver[:-1] - seg1.source[:-1] + (seg1.receiver[-1] - seg1.source[-1])*gradient)/dist1/v1
+                dt[ind_border] += (seg1.receiver[:-1] - seg1.source[:-1] +
+                                   (seg1.receiver[-1] - seg1.source[-1])*gradient)/dist1/v1
                 dt[ind_border] -= dist1 * dv1 / (v1 ** 2)
-                dt[ind_border] -= (seg2.receiver[:-1] - seg2.source[:-1] + (seg2.receiver[-1] - seg2.source[-1])*gradient)/dist2/v2
+
+                dt[ind_border] -= (seg2.receiver[:-1] - seg2.source[:-1] +
+                                   (seg2.receiver[-1] - seg2.source[-1])*gradient)/dist2/v2
                 dt[ind_border] += dist2 * dv2 / (v2 ** 2)
 
             if survey2D:
-                dt[:,1] *= self._2d_parametrization(self.source.location, self.receiver.location, dy=survey2D)
+                dt[:, 1] *= self._2d_parametrization(self.source.location, self.receiver.location, dy=survey2D)
                 dt = dt.sum(axis=1)
 
             return dt.ravel()
@@ -252,7 +258,7 @@ class Ray(object):
 
     @staticmethod
     def to_3d(x, y):
-        x_3d = np.array([[xi, yi] for xi,yi in zip(x, y(x))])
+        x_3d = np.array([[xi, yi] for xi, yi in zip(x, y(x))])
         return x_3d.ravel()
 
     def optimize(self, method='BFGS', tol=1e-32, Ferma=True,
@@ -338,7 +344,7 @@ class Ray(object):
             # if np.array(critic).any():
             #     raise SnelliusError('На границе {} достигнут критический угол'.format(i + 1))
 
-            snell.append(abs(sin_r1 * v2 - v1 * sin_r2 ))
+            snell.append(abs(sin_r1 * v2 - v1 * sin_r2))
 
         return np.array(snell)
 
