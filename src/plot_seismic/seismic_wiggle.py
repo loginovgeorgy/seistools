@@ -16,11 +16,11 @@ def set_plt_params(func):
 
         plt.rcParams['font.size'] = kwargs.get('font_size', 20)
         plt.rcParams['font.sans-serif'] = 'Arial'
-
-        func(*args, **kwargs)
-
-        plt.rcParams['font.size'] = old_font_size
-        plt.rcParams['font.sans-serif'] = old_serif
+        try:
+            func(*args, **kwargs)
+        finally:
+            plt.rcParams['font.size'] = old_font_size
+            plt.rcParams['font.sans-serif'] = old_serif
         return
 
     return wrapper
