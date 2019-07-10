@@ -13,24 +13,24 @@ def decorate_input(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
         if len(args) == 1:
-            pass
+            z = args[0]
+            x = kwargs.get('x', None)
+            y = kwargs.get('y', None)
+
         elif len(args) == 3:
-            kwargs.update(
-                dict(
-                    x=args[0],
-                    y=args[1],
-                )
-            )
-            args = args[2]
+            x = args[0]
+            y = args[1]
+            z = args[2]
+
         else:
             raise ValueError('Input must be "(z, x=..., y=...)" or "(x, y, z)" otherwise - incorrect')
-        return func(args, **kwargs)
+        return func(z, x=x, y=y)
 
     return wrapper
 
 
 @decorate_input
-def input_check(x, y, z):
+def input_check(z, x=None, y=None):
     z = cast_grid(z)
     if len(z.shape) == 1:
         if isinstance(x, type(None)):
@@ -129,6 +129,15 @@ def interpolate_grid(z, x=None, y=None, nx=None, ny=None, method='linear'):
 
         if isinstance(ny, type(None)):
             ny = z.shape[0]
+
+        if (len(x.shape) == 1) & (len(y.shape) == 1):
+            x, y = np.meshgrid(x, y)
+
+        if (len(x.shape) == 1) & (len(y.shape) != 1):
+            x = x[None,...].repeat(z.shape[0], axis=0)
+
+        if (len(x.shape) != 1) & (len(y.shape) == 1):
+            y = y[..., None].repeat(z.shape[1], axis=1)
 
     xg, yg = np.meshgrid(
         np.linspace(x.min(), x.max(), nx),
