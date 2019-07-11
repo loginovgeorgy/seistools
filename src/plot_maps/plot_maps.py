@@ -119,7 +119,6 @@ def plot_map(
     :param verbose:
     :return:
     """
-    print('hi', verbose)
     if use_regular_grid | (not isinstance(interpolation, type(None))):
         x, y, z = interpolate_grid(
             z,
