@@ -192,7 +192,7 @@ def cut_trigger_from_traces(traces, center, before=.5, after=.5, dt=.00025, axis
     _till = center + np.int32(np.round(after / dt))
 
     _from = (_from >= 0) * _from + (_from < 0)
-    _till = (_till < traces.shape[axis]) * _till + (_from >= traces.shape[axis]) * (traces.shape[axis] - 1)
+    _till = (_till < traces.shape[axis]) * _till + (_till >= traces.shape[axis]) * (traces.shape[axis] - 1)
 
     slc = [slice(None)] * len(traces.shape)
     slc[axis] = slice(_from, _till)
