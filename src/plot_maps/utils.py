@@ -204,11 +204,17 @@ def interpolate_grid(z, x=None, y=None, nx=None, ny=None, method='linear', verbo
 
 
 def get_bound_square(z):
-    _z = z.copy().T
-    _z[~np.isnan(_z)] = 0.
-    _z[np.isnan(_z)] = 1.
-    _z = np.abs(np.gradient(_z.T, axis=0))
-    _z[_z == 0] = np.nan
+
+    _z = np.isnan(z.copy()) * 1. + (1 - np.isnan(z.copy())) * .0
+    d_0 = np.abs(np.gradient(_z, axis=0))
+    d_1 = np.abs(np.gradient(_z, axis=1))
+    _z = np.zeros(np.array(z.shape)) * np.nan
+    _z[(d_0>0) | (d_1>0)] = 1.
+
+    # _z[~np.isnan(_z)] = 0.
+    # _z[np.isnan(_z)] = 1.
+    # _z = np.abs(np.gradient(_z.T, axis=0))
+    # _z[_z == 0] = np.nan
 
     return np.float32(_z)
 

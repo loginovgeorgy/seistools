@@ -162,6 +162,7 @@ def plot_map(
 
     if (len(z.shape) == 1) & (not use_regular_grid) & isinstance(interpolation, type(None)):
         plot_func = ax.tripcolor
+        add_bound = False
 
     if not isinstance(interpolation, type(None)):
 
@@ -185,14 +186,14 @@ def plot_map(
     if add_colorbar:
         plot_colorbar(img, cbar_label=colorbar_label)
 
+    # TODO prettify plotting of the boundary
     if add_bound:
         square = get_bound_square(z)
-        ax.imshow(
-            square > 0,
-            alpha=1,
-            extent=(x.min(), x.max(), y.min(), y.max()),
+        ax.pcolormesh(
+            x,
+            y,
+            square,
             cmap='gray',
-            origin='lower',
         )
 
     ax.set_ylabel(y_label, fontsize=font_size)
