@@ -5,5 +5,5 @@ from .dsp import detection, decomposed_cnn, gain_correction, fft_spectra
 from .plot_seismic import plot_traces
 from .smti import *
 from .seislet import seismic_signal
-from .plot_maps import plot_colorbar, plot_map, interpolate_grid
+from .plot_maps import *
 

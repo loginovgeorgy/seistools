@@ -10,7 +10,7 @@ def set_plt_params(func):
         old_font_size = plt.rcParams['font.size']
         old_serif = plt.rcParams['font.sans-serif']
 
-        plt.rcParams['font.size'] = kwargs.get('font_size', 20)
+        plt.rcParams['font.size'] = kwargs.get('font_size', 12)
         plt.rcParams['font.sans-serif'] = 'Arial'
 
         try:
@@ -35,11 +35,12 @@ def decorate_input_plot(func):
             x = args[0]
             y = args[1]
             z = args[2]
-            kwargs.pop('x')
-            kwargs.pop('y')
 
         else:
             raise ValueError('Input must be "(z, x=..., y=...)" or "(x, y, z)" otherwise - incorrect')
+
+        kwargs.pop('x', None)
+        kwargs.pop('y', None)
         return func(z, x=x, y=y, **kwargs)
 
     return wrapper
@@ -55,7 +56,7 @@ def plot_map(
         regular_grid_nx=100,
         regular_grid_ny=100,
         regular_grid_method='linear',
-        font_size=20,
+        font_size=5,
         title=None,
         x_label='X, m',
         y_label='Y, m',
@@ -72,11 +73,13 @@ def plot_map(
         shift_to_center=False,
         axis_off=False,
         axis_aspect_equal=True,
+        axis_aspect_square=False,
         axis_grid_on=True,
         interpolation=None,
         colormap='seismic',
         edge_colors=None,
         return_img=False,
+        verbose=False,
 ):
     """
 
@@ -104,6 +107,7 @@ def plot_map(
     :param shift_to_center: True/False
     :param axis_off: True/False
     :param axis_aspect_equal: True/False
+    :param axis_aspect_square: True/False
     :param axis_grid_on: True/False
     :param interpolation: one of: {'none', 'nearest', 'bilinear', 'bicubic',
     'spline16', 'spline36', 'hanning', 'hamming', 'hermite', 'kaiser',
@@ -112,14 +116,22 @@ def plot_map(
     :param colormap:
     :param edge_colors: None or color: 'k', 'r', 'b', 'g'
     :param return_img:
+    :param verbose:
     :return:
     """
-
+    print('hi', verbose)
     if use_regular_grid | (not isinstance(interpolation, type(None))):
-        x, y, z = interpolate_grid(z, x=x, y=y, nx=regular_grid_nx, ny=regular_grid_ny, method=regular_grid_method)
+        x, y, z = interpolate_grid(
+            z,
+            x=x,
+            y=y,
+            nx=regular_grid_nx,
+            ny=regular_grid_ny,
+            method=regular_grid_method,
+            verbose=verbose,
+        )
     else:
         x, y, z = input_check(x, y, z)
-
 
     if isinstance(ax, type(None)):
         fig, ax = plt.subplots(figsize=(fig_width, fig_height), facecolor='w')
@@ -165,7 +177,6 @@ def plot_map(
             interpolation=interpolation,
         )
 
-    print(plot_func)
     img = plot_func(
         *plot_func_args,
         **plot_func_kwargs,
@@ -200,6 +211,8 @@ def plot_map(
     if axis_aspect_equal:
         ax.set_aspect('equal')
 
+    if axis_aspect_square:
+        ax.set_aspect('equal')
     if axis_grid_on:
         ax.grid()
 
