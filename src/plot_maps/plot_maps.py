@@ -56,7 +56,7 @@ def plot_map(
         regular_grid_nx=100,
         regular_grid_ny=100,
         regular_grid_method='linear',
-        font_size=5,
+        font_size=12,
         title=None,
         x_label='X, m',
         y_label='Y, m',
