@@ -188,13 +188,11 @@ def plot_map(
     if add_bound:
         square = get_bound_square(z)
         ax.imshow(
-            square,
+            square > 0,
             alpha=1,
             extent=(x.min(), x.max(), y.min(), y.max()),
             cmap='gray',
             origin='lower',
-            vmin=.5,
-            vmax=.6
         )
 
     ax.set_ylabel(y_label, fontsize=font_size)
