@@ -2,6 +2,7 @@ import pylab as plt
 from .utils import *
 
 from functools import wraps
+FONT_SIZE = 12
 
 
 def set_plt_params(func):
@@ -10,7 +11,7 @@ def set_plt_params(func):
         old_font_size = plt.rcParams['font.size']
         old_serif = plt.rcParams['font.sans-serif']
 
-        plt.rcParams['font.size'] = kwargs.get('font_size', 12)
+        plt.rcParams['font.size'] = kwargs.get('font_size', FONT_SIZE)
         plt.rcParams['font.sans-serif'] = 'Arial'
 
         try:
@@ -56,7 +57,7 @@ def plot_map(
         regular_grid_nx=100,
         regular_grid_ny=100,
         regular_grid_method='linear',
-        font_size=12,
+        font_size=FONT_SIZE,
         title=None,
         x_label='X, m',
         y_label='Y, m',
