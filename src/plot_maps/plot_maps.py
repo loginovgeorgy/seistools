@@ -64,7 +64,7 @@ def plot_map(
         alpha=1,
         vmin=None,
         vmax=None,
-        add_bound=True,
+        add_bound=False,
         add_colorbar=False,
         colorbar_label='',
         ax=None,
@@ -185,17 +185,17 @@ def plot_map(
     if add_colorbar:
         plot_colorbar(img, cbar_label=colorbar_label)
 
-        if add_bound:
-            square = get_bound_square(z)
-            ax.imshow(
-                square,
-                alpha=1,
-                extent=(x.min(), x.max(), y.min(), y.max()),
-                cmap='gray',
-                origin='lower',
-                vmin=0,
-                vmax=1
-            )
+    if add_bound:
+        square = get_bound_square(z)
+        ax.imshow(
+            square,
+            alpha=1,
+            extent=(x.min(), x.max(), y.min(), y.max()),
+            cmap='gray',
+            origin='lower',
+            vmin=.5,
+            vmax=.6
+        )
 
     ax.set_ylabel(y_label, fontsize=font_size)
     ax.set_xlabel(x_label, fontsize=font_size)
