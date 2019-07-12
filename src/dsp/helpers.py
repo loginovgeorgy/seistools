@@ -166,7 +166,7 @@ def moving_average_1d(x, window, axis=1, window_type='left'):
 
 
 def edge_preserve_smoothing(signal, window, verbose=False):
-    # TODO Rebuild
+    # TODO Rebuild to boost speed
     if window <= 0:
 
         return signal

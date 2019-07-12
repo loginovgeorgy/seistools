@@ -1,12 +1,32 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from .helpers import insert_zeros_in_trace, input_check, input_check_color_dicts
+from functools import wraps
 
 MARKERS = ['s', 'D', 'd', 'o', '.', 'x', '+']
 
 COLORMAP = plt.cm.tab10
 
 
+def set_plt_params(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        old_font_size = plt.rcParams['font.size']
+        old_serif = plt.rcParams['font.sans-serif']
+
+        plt.rcParams['font.size'] = kwargs.get('font_size', 20)
+        plt.rcParams['font.sans-serif'] = 'Arial'
+        try:
+            func(*args, **kwargs)
+        finally:
+            plt.rcParams['font.size'] = old_font_size
+            plt.rcParams['font.sans-serif'] = old_serif
+        return
+
+    return wrapper
+
+
+@set_plt_params
 def plot_traces(
         traces,
         dt=1.,
@@ -35,10 +55,6 @@ def plot_traces(
         fig_width=10,
         fig_height=10,
 ):
-    old_font_size = plt.rcParams['font.size']
-    old_serif = plt.rcParams['font.sans-serif']
-    plt.rcParams['font.size'] = font_size
-    plt.rcParams['font.sans-serif'] = 'Arial'
 
     traces, offset, mask, picks = input_check(traces, offset, mask, picks)
     offset_ticks = offset.copy()
@@ -247,5 +263,4 @@ def plot_traces(
     if (len(picks) > 0) & picks_legend:
         ax.legend(loc=2)
 
-    plt.rcParams['font.size'] = old_font_size
-    plt.rcParams['font.sans-serif'] = old_serif
+
