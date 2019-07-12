@@ -1,7 +1,7 @@
 import os
 import struct
 import numpy as np
-
+from tqdm import tqdm_notebook as tqdm
 from .header import *
 
 # endian='>' # Big Endian  # modified by A Squelch
@@ -13,6 +13,35 @@ BYTES_FOR_TEXTUAL_HEADER = 3200
 BYTES_FOR_SGY_HEADER = 400
 BYTES_FOR_TRACE_HEADER = 240
 BYTES_FOR_HEADER = BYTES_FOR_TEXTUAL_HEADER + BYTES_FOR_SGY_HEADER
+
+
+def ibm2ieee(ibm_float):
+    """
+    ibm2ieee2(ibm_float)
+    Used by permission
+    (C) Secchi Angelo
+    with thanks to Howard Lightstone and Anton Vredegoor.
+    """
+    dividend = np.float32(16 ** 6)
+
+    if ibm_float == 0:
+        return 0.0
+
+    c_format = ">{}B".format(len(ibm_float))
+    res = struct.unpack(c_format, ibm_float)
+    istic, a, b, c = res[::4], res[1::4], res[2::4], res[3::4]
+    istic = np.float32(istic)
+    a = np.float32(a)
+    b = np.float32(b)
+    c = np.float32(c)
+
+    idx = istic >= 128
+    sign = np.ones(len(istic))
+    sign[idx] = -1.
+    istic[idx] -= 128
+
+    mant = np.float32(a*(2**16)) + np.float32(b * (2**8)) + np.float32(c)
+    return sign * 16 ** (istic - 64) * (mant / dividend)
 
 
 def _read_file(file_name, start=0, n_bytes=-1):
@@ -38,7 +67,12 @@ def _get_value(
             ).format(c_type, str(np.unique(list(TRACES_SAMPLES_FORMAT.values()))))
         )
     try:
-        size = struct.calcsize(c_type)
+        if c_type == 'ibm':
+            size = struct.calcsize('f')
+            c_format = "{}{}{}".format(endian, samples, 'f')
+        else:
+            size = struct.calcsize(c_type)
+            c_format = "{}{}{}".format(endian, samples, c_type)
 
     except:
         raise TypeError(
@@ -49,10 +83,12 @@ def _get_value(
             ).format(c_type, str(np.unique(list(TRACES_SAMPLES_FORMAT.values()))))
         )
 
-    c_format = "{}{}{}".format(endian, samples, c_type)
     index_end = index + size * samples
     buffer = data[index:index_end]
-    value = struct.unpack(c_format, buffer)
+    if c_type == 'ibm':
+        value = ibm2ieee(buffer)
+    else:
+        value = struct.unpack(c_format, buffer)
     return value
 
 
@@ -78,6 +114,8 @@ def read_bin_header(
 
         value = _get_value(data, index, c_type=c_type, endian=endian, samples=1)
         bin_header[key] = value[0]
+        if bin_header[key] < 0:
+            print('Warning, negative parameter \n Key {}, Value {}'.format(key, value[0]))
 
     return bin_header
 
@@ -142,9 +180,18 @@ def _read_traces(
             )
         )
 
+    if samples_format == 'ibm':
+        samples_format = 'f'
+
     bytes_per_sample = struct.calcsize(samples_format)
     bytes_per_trace = bytes_per_sample * no_of_samples
 
+    check_variables.update(
+        dict(
+            bytes_per_sample=bytes_per_sample,
+            bytes_per_trace=bytes_per_trace,
+        )
+    )
     _no_of_traces = (file_size - BYTES_FOR_HEADER) / (bytes_per_trace + BYTES_FOR_TRACE_HEADER)
     if _no_of_traces != no_of_traces:
         Warning(
@@ -163,10 +210,12 @@ def _read_traces(
                 **check_variables,
             )
         )
+        print(check_variables)
+        j_traces = tqdm(j_traces)
+
     check_variables.update(
         dict(
-            bytes_per_sample=bytes_per_sample,
-            bytes_per_trace=bytes_per_trace,
+
             j_traces=j_traces,
         )
     )
@@ -198,6 +247,7 @@ def read_trace_header(
     )
 
     j_traces = check_variables['j_traces']
+
     bytes_per_trace = check_variables['bytes_per_trace']
 
     trace_header = {}
@@ -209,6 +259,7 @@ def read_trace_header(
         size = struct.calcsize(c_type)
 
         for jt in j_traces:
+
             _pos = pos + BYTES_FOR_HEADER + (bytes_per_trace + BYTES_FOR_TRACE_HEADER) * jt
             data = _read_file(file_name, start=_pos, n_bytes=size)
             value = _get_value(data, 0, c_type=c_type, endian=endian, samples=1)
