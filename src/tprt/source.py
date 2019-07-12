@@ -17,7 +17,7 @@ class Source(object):
             name=DEFAULT_SOURCE_NAME,
     ):
         self.name = name
-        self.location = np.array(location).ravel()
+        self.location = np.array(location, dtype=float).ravel()
         self.layer = vel_model.get_location_layer(self.location)
         self.fr_dom = fr_dom
 

@@ -26,7 +26,7 @@ class Receiver(object):
         :param dt:
         :param kwargs:
         """
-        self.location = np.array(location).ravel()
+        self.location = np.array(location, dtype=float).ravel()
         self.orientation = orientation
         self.name = name
         self.dt = dt

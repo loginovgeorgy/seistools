@@ -5,10 +5,11 @@ from .layer import Layer
 from .velocity import ISOVelocity
 from .units import Units
 from .ray import Ray
-from .velocity_model import Velocity_model
+from .velocity_model import VelocityModel
 from .segment import Segment
-from .survey import Survey, Survey2D, Survey3D, SurveyBorehole
+from .survey import Survey
 __all__ = ['Receiver', 'Source', 'DilatCenter', 'RotatCenter',
            'Units', 'Horizon', 'FlatHorizon', 'GridHorizon',
-           'Layer', 'Ray', 'ISOVelocity', 'Velocity_model', 'Segment']
+           'Layer', 'Ray', 'ISOVelocity', 'VelocityModel',
+           'Segment', 'Survey', ]
 
