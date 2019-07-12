@@ -39,10 +39,7 @@ class Ray(object):
 
         self.raycode = raycode
 
-        if not np.any(raycode):
-            self.segments = self._forward_ray(vel_mod, vtype=vtype)
-        else:
-            self.segments = self._initial_ray(init_trajectory)
+        self.segments = self._initial_ray(init_trajectory)
 
         self.ray_amplitude = np.array([1, 0, 0])  # this initial amplitude should be replaced by the right one in the
         # optimize method.
@@ -53,7 +50,7 @@ class Ray(object):
             self.optimize()
 
     def check_raycode(self, raycode):
-        if np.any(raycode) is None:
+        if np.any(raycode[:,0]) ==0:
             return True
 
         # 1. Check the source layer
@@ -105,8 +102,32 @@ class Ray(object):
         return seg
 
     @staticmethod
-    def get_raycode(sou, rec, reflect_horizon, vel_mod, vtype):
+    def get_raycode(sou, rec, reflect_horizon, vel_mod, vtype='vp', forward=False):
         # Only for reflected waves. Source and receiver layers must coincide
+        if forward:
+            return Ray._raycode_forward(sou, rec, vel_mod, vtype)
+        else:
+            return Ray._raycode_reflect(sou, rec, reflect_horizon, vel_mod, vtype)
+    
+    @staticmethod
+    def _raycode_forward(sou, rec, vel_mod, vtype):
+        sou_layer = Ray._get_location_layer(sou.location, vel_mod).number
+        rec_layer = Ray._get_location_layer(rec.location, vel_mod).number
+
+        d = np.sign(rec_layer - sou_layer)
+        raycode = np.empty(shape=(0, 3), dtype=int)
+        i_layer = sou_layer
+        if d!=0:
+            while rec_layer != i_layer-1:
+                raycode = np.concatenate((raycode, np.array([[d, i_layer, WAVECODE[vtype]]], dtype=int),), axis=0)
+                i_layer += d
+        if d==0:
+            raycode = np.concatenate((raycode, np.array([[d, i_layer, WAVECODE[vtype]]], dtype=int),), axis=0)
+        
+        return raycode
+            
+    @staticmethod
+    def _raycode_reflect(sou, rec, reflect_horizon, vel_mod, vtype):
         sou_layer = Ray._get_location_layer(sou.location, vel_mod).number
         rec_layer = Ray._get_location_layer(rec.location, vel_mod).number
 
@@ -118,9 +139,9 @@ class Ray(object):
         while rec_layer != i_layer+1:
             raycode = np.concatenate((raycode, np.array([[-1, i_layer, WAVECODE[vtype]]], dtype=int),), axis=0)
             i_layer -= 1
-
+            
         return raycode
-
+        
     def _initial_ray(self, init_trj):
 
         sou = np.array(self.source.location, ndmin=1)
@@ -129,6 +150,7 @@ class Ray(object):
         vel_mod = self.velmod
 
         segments = []
+        
         for k in range(raycode.shape[0]-1):
             if not np.any(init_trj):
                 x = None
@@ -139,14 +161,15 @@ class Ray(object):
             segments.append(seg)
             sou = seg.receiver
 
-        segments[0].start_horizon = None
-        last_layer = vel_mod.layers[raycode[-1, 1]]
+        last_layer = self._get_location_layer(receiver, vel_mod)
         segments.append(Segment(sou, receiver, last_layer, start_horizon=last_layer.code_horizon[raycode[-1, 0]],
                                 end_horizon=None, vtype=WAVECODE[raycode[-1, -1]]))
+        segments[0].start_horizon = None
+        
         return segments
 
     def _forward_ray(self, vel_mod, vtype='vp'):
-        # TODO: make more pythonic
+        # This method is outdated and unused
         source = np.array(self.source.location, ndmin=1)
         receiver = np.array(self.receiver.location, ndmin=1)
         array = []
@@ -834,7 +857,6 @@ class Ray(object):
 
 class RaycodeError(Exception):
     """Exception raised for errors in the input."""
-
 
     def __init__(self, msg):
         self.message = msg
