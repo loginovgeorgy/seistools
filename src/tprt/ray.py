@@ -403,9 +403,9 @@ class Ray(object):
         #
         # U = psi0 * 1 / v_1**3 / rho_1
         # = t / (4 * np.pi * s*_1) *
-        # * П(sqrt(|det M(i, s*_i) / det M(i, s*_i-1) )|, i = 2, i = N) *
+        # * Product(sqrt(|det M(i, s*_i) / det M(i, s*_i-1) )|, i = 2, i = N) *
         # * sqrt( |det M(N + 1, s) / det M(N + 1, s*_N)| ) *
-        # * П( k_i )
+        # * Product( k_i )
         #
         # Here s*_i denote i-th point of intersection of the ray with a boundary, k_i is either reflection of
         # transmission coefficient and M(k, s) is matrix M (explained below) in k-th segment evaluated at point s.
@@ -443,7 +443,7 @@ class Ray(object):
         dist = first_segment.get_distance() # this will be distance along the ray
 
         M[0, 0] = 1 / (first_layer.get_velocity(1)[first_segment.vtype] * dist)
-        M[1, 1] = 1 / (first_layer.layer.get_velocity(1)[first_segment.vtype] * dist)
+        M[1, 1] = 1 / (first_layer.get_velocity(1)[first_segment.vtype] * dist)
 
         # Now we are ready to write down ray amplitude in the end of the first segment. It will be written in terms of
         # ray-centered coordinates, so let's set corresponding unit vectors:
@@ -803,27 +803,28 @@ class Ray(object):
     def get_recorded_amplitude(self, times):
         # returns amplitude vector in the receiver in a particular time moment t.
         # Here I use theory presented in: Popov, M.M. Ray theory and gaussian beam method for geophysicists /
-        # M. M. Popov. - Salvador: EDUFBA, 2002. – 172 p.
+        # M. M. Popov. - Salvador: EDUFBA, 2002. - 172 p.
 
         # We use formula: A = Ricker(t - tau) * U)
         # where tau is time of the first break (i.e. traveltime along the ray), Ricker is
         # the Ricker wavelet with dispersion given in the Source  and U is a constant vector: self.ray_amplitude.
 
-        # return seislet.seismic_signal(signal="ricker",
-        #                               t=times,
-        #                               f=self.source.fr_dom) * np.dot(self.receiver.orientation.T, self.ray_amplitude)
+        # Let's generate our wavelet:
 
-        tau = self.get_travel_time()
-        sigma = np.sqrt(2) / self.source.fr_dom / 2 / np.pi
+        wavelet = seislet.seismic_signal(signal="ricker",
+                                         t=times,
+                                         tau=self.get_travel_time(),
+                                         f=self.source.fr_dom)
 
-        time_set = np.transpose(np.array([times - tau]))  # we assume that times can be either scalar or vector of time
-        # moments; transposition is performed for sake of multiplication below.
+        # Receiver's sensitivity axes may not correspond to those of the global coordinate system. So, ray amplitude
+        # vector must be rotated:
 
-        return np.transpose(2 / np.sqrt(3 * sigma) / np.pi ** (1 / 4) *\
-                            (1 - (time_set/ sigma)**2) *\
-                            np.exp(- time_set**2 / (2 * sigma**2)) *\
-                            np.dot(self.receiver.orientation.T, self.ray_amplitude))  # we transpose the result so that
-        # its zeroth component would correspond to x-component of recoded displacement at any time moment in times
+        rec_amplitude = np.dot(self.receiver.orientation.T, self.ray_amplitude)
+
+        # We want to see array with shape (3, len(times)) so that its zeroth component would correspond to X-axis
+        # record, second component - to Y-axis record and the third component - to Z-axis record:
+
+        return wavelet * np.reshape(rec_amplitude, (3, 1))
 
     def spreading(self, curv_factor, inv_bool):
         # Computes only geometrical spreading along the ray in the observation point. All comments are above.
