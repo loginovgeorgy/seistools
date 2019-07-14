@@ -1,4 +1,5 @@
 import numpy as np
+from tqdm import tqdm_notebook
 from .ray import Ray
 
 class Survey:
@@ -14,6 +15,7 @@ class Survey:
 
         self.rays = None
         self.traveltimes = None
+        self.amplitudes = None
 
     def initialize_rays(self, reflect_horizon=2, vtype='vp', forward=False):
         """
@@ -27,13 +29,17 @@ class Survey:
             for j, rec in np.ndenumerate(self.receivers):
                 raycode_ij = Ray.get_raycode(sou, rec, reflect_horizon, self.velmod, vtype, forward=forward)
                 self.rays[i+j] = Ray(sou, rec, self.velmod, raycode=raycode_ij, vtype=vtype)
-        
+                
     def calculate(self, method='BFGS', survey2D=False):
         self.traveltimes = np.empty(shape=self.rays.shape, dtype=float)
-        for i, ray in np.ndenumerate(self.rays):
-            ray.optimize(method=method, survey2D=survey2D)
-            ray.ray_amplitude = ray.compute_ray_amplitude()[0]
-            self.traveltimes[i] = ray.traveltime
+        self.amplitudes = np.empty(shape=self.rays.shape+(3,), dtype=complex)
+        with tqdm_notebook(total=np.size(self.rays), desc='Rays calculating:') as p_bar:
+            for i, ray in np.ndenumerate(self.rays):
+                ray.optimize(method=method, survey2D=survey2D)
+                ray.ray_amplitude = ray.compute_ray_amplitude()[0]
+                self.amplitudes[i] = ray.ray_amplitude
+                self.traveltimes[i] = ray.traveltime
+                p_bar.update()
             
 
     def plot(self, **kwargs):
@@ -52,11 +58,4 @@ class Survey:
             sou.plot(ax=ax, marker='^', color='k')
 
     def get_traveltimes(self):
-        n, m = len(self.sources), len(self.receivers)
-        shape = (n, m)
-        T = np.empty(shape=shape)
-        for i, ray in enumerate(self.rays):
-            T[i // m, i % m] = ray.traveltime
-
-        self.traveltimes = T
-        return T
+        pass

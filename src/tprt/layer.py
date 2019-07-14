@@ -15,7 +15,7 @@ class Layer(object):
 
         self.code_horizon = {+1: self.bottom, -1: self.top, 0: None}
 
-    def get_velocity(self, x):
+    def get_velocity(self, x=None):
         return self.velocity.get_velocity(x)
 
     def get_dv(self, x):
