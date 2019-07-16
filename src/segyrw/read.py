@@ -3,6 +3,7 @@ import struct
 import numpy as np
 from tqdm import tqdm_notebook as tqdm
 from .header import *
+from io import BytesIO, IOBase
 
 # endian='>' # Big Endian  # modified by A Squelch
 # endian='<' # Little Endian
@@ -45,9 +46,14 @@ def ibm2ieee(ibm_float):
 
 
 def _read_file(file_name, start=0, n_bytes=-1):
+    if isinstance(file_name, IOBase):
+        file_name.seek(start)
+        return file_name.read(n_bytes)
+
     with open(file_name, 'rb') as f:
         f.seek(start)
         data = f.read(n_bytes)
+
     return data
 
 
@@ -101,6 +107,7 @@ def read_bin_header(
         file_name,
         bin_descriptor=None,
         endian='>',
+        verbose=False,
         **kwargs
 ):
     if isinstance(bin_descriptor, type(None)):
@@ -114,7 +121,7 @@ def read_bin_header(
 
         value = _get_value(data, index, c_type=c_type, endian=endian, samples=1)
         bin_header[key] = value[0]
-        if bin_header[key] < 0:
+        if (bin_header[key] < 0) & (verbose):
             print('Warning, negative parameter \n Key {}, Value {}'.format(key, value[0]))
 
     return bin_header
@@ -130,7 +137,10 @@ def _read_traces(
         method='',
         **kwargs
 ):
-    file_size = os.path.getsize(file_name)
+    if isinstance(file_name, str):
+        file_size = os.path.getsize(file_name)
+    elif isinstance(file_name, IOBase):
+        file_size = file_name.__sizeof__()
 
     if not isinstance(bin_header, dict):
         bin_header = read_bin_header(file_name, endian=endian, **kwargs)
@@ -203,14 +213,14 @@ def _read_traces(
         )
 
     if verbose:
-        print(
-            message.format(
-                msg_type='',
-                method=method,
-                **check_variables,
-            )
-        )
-        print(check_variables)
+        # print(
+        #     message.format(
+        #         msg_type='',
+        #         method=method,
+        #         **check_variables,
+        #     )
+        # )
+        # print(check_variables)
         j_traces = tqdm(j_traces)
 
     check_variables.update(

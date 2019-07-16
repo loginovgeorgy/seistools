@@ -443,7 +443,7 @@ class Ray(object):
         dist = first_segment.get_distance() # this will be distance along the ray
 
         M[0, 0] = 1 / (first_layer.get_velocity(1)[first_segment.vtype] * dist)
-        M[1, 1] = 1 / (first_layer.layer.get_velocity(1)[first_segment.vtype] * dist)
+        M[1, 1] = 1 / (first_layer.get_velocity(1)[first_segment.vtype] * dist)
 
         # Now we are ready to write down ray amplitude in the end of the first segment. It will be written in terms of
         # ray-centered coordinates, so let's set corresponding unit vectors:

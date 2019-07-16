@@ -1,8 +1,21 @@
 import numpy as np
 from copy import deepcopy
+from itertools import product
+
+
+ANI_AXIS = np.array([0., 0., 1.], dtype=np.float32)
+ANGLE = 0
+ROTATION_AXIS = 1
 
 
 def rotation_matrix(phi, axis, radians=False):
+    """
+    Build rotation matrix according to given angle phi and axis
+    :param phi: angle in degrees (if radians=False) or in radians (if radians=True)
+    :param axis: axis along to perform rotation
+    :param radians: True/False if False - preform transforms
+    :return:
+    """
     if not radians:
         phi = phi * np.pi / 180
 
@@ -50,29 +63,26 @@ def reflect_triangle_matrix(x, upper=True):
     return x
 
 
-def vector_from_angles(azimuth, polar, r=1, radians=True):
-    if not radians:
-        azimuth = azimuth * np.pi / 180
-        polar = polar * np.pi / 180
+def init_equidistant_sphere(n=256):
+    """
 
-    x = r * np.sin(polar) * np.cos(azimuth)
-    y = r * np.sin(polar) * np.sin(azimuth)
-    z = r * np.cos(polar)
+    :param n:
+    :return:
+    """
 
-    return np.array([x, y, z], dtype=np.float32)
+    golden_angle = np.pi * (3 - np.sqrt(5))
+    theta = golden_angle * np.arange(n)
+    z = np.linspace(1 - 1/n, 1/n - 1, n)
+    radius = np.sqrt(1 - z**2)
 
-
-def angles_from_vector(x, y, z, radians=True):
-    r = np.sqrt(x**2 + y**2 + z**2)
-
-    az = np.arctan2(y, x)
-    el = np.arctan2(z, r)
-
-    if not radians:
-        az = az * 180 / np.pi
-        el = el * 180 / np.pi
-
-    return np.array([az, el, r], dtype=np.float32)
+    return np.array(
+        [
+            radius * np.cos(theta),
+            radius * np.sin(theta),
+            z,
+        ]
+        , dtype=np.float32
+    )
 
 
 def cart2sph(x, y, z, radians=True):
@@ -117,23 +127,153 @@ def sph2cart(az, el, r=1, radians=True):
     return np.array([x, y, z], dtype=np.float32)
 
 
-def init_equidistant_sphere(n=256):
+def idx_from_3x3_to_6x6(i, j):
+    return i * (i == j) + (6 - i - j) * (i != j)
+
+
+def rotate_cijkl(c_ijkl, a, tol=1e-15):
+    """
+    Perform rotation of given c_ijkl tensor
+
+    :param c_ijkl: stiffness tensor with shape (3,3,3,3)
+    :param a: rotation matrix with shape of (3,3)
+    :param tol: tolerance
+    :return: rotated c_ijkl
+    """
+    c_ijkl = deepcopy(c_ijkl)
+    a = np.array(deepcopy(a), dtype=np.float32)
+
+    # Is this a rotation matrix?
+    if np.sometrue(np.abs(a.dot(a.T) - np.eye(3, dtype=np.float32)) > tol):
+        raise RuntimeError('Matrix *A* does not describe a rotation.')
+
+    # Rotate
+    c = np.einsum('ia,jb,kc,ld,abcd->ijkl', a, a, a, a, c_ijkl)
+    return np.asarray(c)
+
+
+def rotate_cij(c_ij, a):
+    """
+    Perform rotation of given c_ijkl tensor
+    :param c_ij: stiffness tensor with shape (6,6)
+    :param a: rotation matrix with shape of (3,3)
+    :return: rotated c_ij
+    """
+    c_ijkl = cij_to_cijkl(c_ij)
+    c_ijkl = rotate_cijkl(c_ijkl, a)
+    return cijkl_to_cij(c_ijkl)
+
+
+def cij_to_cijkl(c_ij):
+    """
+    Conversion of stiffness tensor from shape (6,6) to (3,3,3,3)
+    :param c_ij: stiffness tensor with shape (6,6)
+    :return: stiffness tensor with shape (3,3,3,3)
+    """
+    c_ijkl = np.zeros((3, 3, 3, 3))
+    for i, j, k, l in product(*[range(3)] * 4):
+        p = idx_from_3x3_to_6x6(i, j)
+        q = idx_from_3x3_to_6x6(k, l)
+        c_ijkl[i, j, k, l] = c_ij[p, q]
+    return c_ijkl
+
+
+def cijkl_to_cij(c_ijkl):
+    """
+    Conversion of stiffness tensor from shape from (3,3,3,3) to (6,6)
+    :param c_ijkl: stiffness tensor with shape (3,3,3,3)
+    :return: stiffness tensor with shape (6,6)
+    """
+    c_ij = np.zeros((6, 6))
+
+    for i, j, k, l in product(*[range(3)] * 4):
+        p = idx_from_3x3_to_6x6(i, j)
+        q = idx_from_3x3_to_6x6(k, l)
+        c_ij[p, q] = c_ijkl[i, j, k, l]
+    return c_ij
+
+
+def thomsen_to_cij(vp_0=2., vs_0=1., epsilon=0., delta=0., gamma=0., rho=1.):
+    """
+    Calculate  the stiffness tensor according to Ani=[Vp0, Vs0, epsilon, delta, gamma]
+    c33 = Ani(1) ^ 2; c11 = c33 * (1 + 2 * Ani(3));
+    c55 = Ani(2) ^ 2; c66 = c55 * (1 + 2 * Ani(5));
+
+    :param vp_0: P-wave velocity
+    :param vs_0: S-wave velocity
+    :param epsilon:
+    :param delta:
+    :param gamma:
+    :param rho: density
+    :return: stiffness tensor with shape (6,6)
     """
 
-    :param n:
-    :return:
-    """
+    c_ij = np.zeros((6, 6))
+    c33 = rho * (vp_0 ** 2)
+    c11 = c33 * (1 + 2 * epsilon)
+    c55 = rho * (vs_0 ** 2)
+    c66 = c55 * (1 + 2 * gamma)
 
-    golden_angle = np.pi * (3 - np.sqrt(5))
-    theta = golden_angle * np.arange(n)
-    z = np.linspace(1 - 1/n, 1/n - 1, n)
-    radius = np.sqrt(1 - z**2)
+    cc = (c33 - c55) * (2 * delta * c33 + c33 - c55)
 
-    return np.array(
-        [
-            radius * np.cos(theta),
-            radius * np.sin(theta),
-            z,
-        ]
-        , dtype=np.float32
-    )
+    if cc > 0:
+        c13 = np.sqrt(cc) - c55
+    else:
+        c13 = 0
+
+    # Construct Cij
+    c_ij[0, 0] = c11
+    c_ij[0, 1] = c11 - 2 * c66
+    c_ij[0, 2] = c13
+    c_ij[1, 1] = c11
+    c_ij[1, 2] = c13
+    c_ij[2, 2] = c33
+    c_ij[3, 3] = c55
+    c_ij[4, 4] = c55
+    c_ij[5, 5] = c66
+
+    c_ij = reflect_triangle_matrix(c_ij, upper=True)
+
+    return c_ij
+
+
+def thomsen_to_cij_gpn(vp_0=2., vs_0=1., epsilon=0., delta=0., gamma=0., rho=1.):
+    # % % Calculate  the stiffnesses
+    # [Vp0, Vs0, epsilon, delta, gamma]
+    # c33 = Ani(1) ^ 2; c11 = c33 * (1 + 2 * Ani(3));
+    # c55 = Ani(2) ^ 2; c66 = c55 * (1 + 2 * Ani(5));
+
+    c_ij = np.zeros((6, 6))
+
+    c22 = rho * (vp_0 ** 2)
+    c33 = rho * (vp_0 ** 2)
+    c11 = c33 * (1 + 2 * epsilon)
+    c55 = rho * (vs_0 ** 2)
+    c66 = rho * (vs_0 ** 2)
+    c44 = c55 * (1 + 2 * gamma)
+    c23 = c33 - 2 * c44
+
+    cc = (c33 - c55) * (c33 * (1 + 2 * delta) - c55)
+
+    if cc > 0:
+        cc = np.sqrt(cc) - c55
+    else:
+        cc = 0
+
+    c12 = cc
+    c13 = cc
+
+    # Construct Cij
+    c_ij[0, 0] = c11
+    c_ij[1, 1] = c22
+    c_ij[2, 2] = c33
+    c_ij[3, 3] = c44
+    c_ij[4, 4] = c55
+    c_ij[5, 5] = c66
+    c_ij[0, 1] = c12
+    c_ij[0, 2] = c13
+    c_ij[1, 2] = c23
+
+    c_ij = reflect_triangle_matrix(c_ij, upper=True)
+
+    return c_ij
