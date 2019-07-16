@@ -5,6 +5,8 @@ from .rt_coefficients import iso_rt_coefficients
 from .segment import Segment
 from .. import seislet
 
+import warnings
+
 WAVECODE = {0: 'vp', 1: 'vs',
             'vp': 0, 'vs': 1}
 
@@ -396,7 +398,12 @@ class Ray(object):
 
         return np.array(snell)
 
-    def compute_ray_amplitude(self):
+    def compute_ray_amplitude(self, survey2D=False):
+        """Computes vector of the ray's amplitude
+
+        :param survey2D: boolean variable which indicates if ray amplitude should be computed as in 2.5D problem
+        :return: displacement vector in the receiver point (in global coordinate system)
+        """
 
         # This method computes amplitude vector in frequency domain. Assuming that the ray passes through N + 1 layers
         # amplitude of P-wave in the observation point can be found using formula:
@@ -428,18 +435,18 @@ class Ray(object):
         # three-dimensional inhomogeneous media //Bulletin of the Seismological Society of America. – 1980. – vol. 70. –
         # №. 1. – pp. 47-77.
 
+        # If survey2D is True all computations are performed as in 2.5D case.
+
         # So, let's get started:
 
         # dist = 0  # arc length of the ray
         M = np.zeros((2, 2))  # matrix M
 
         # Set first segment and layer:
-
         first_segment = self.segments[0]
         first_layer = self.segments[0].layer
 
         # Let's evaluate dist and M in the end of the first segment assuming that c11 = c22 = c12 = 0:
-
         dist = first_segment.get_distance() # this will be distance along the ray
 
         M[0, 0] = 1 / (first_layer.get_velocity(1)[first_segment.vtype] * dist)
@@ -447,12 +454,10 @@ class Ray(object):
 
         # Now we are ready to write down ray amplitude in the end of the first segment. It will be written in terms of
         # ray-centered coordinates, so let's set corresponding unit vectors:
-
         t = first_segment.get_vector()  # unit vector pointed in the direction of wave's propagation
 
         # We cannot distinguish SV and SH polarization if t is strictly vertical. In that case we'll just set e1 and
         # e2 coincident with i ang j unit vectors of the global Cartesian coordinates:
-
         if t[2] == 1:
 
             e1 = np.array([1, 0, 0])
@@ -470,8 +475,7 @@ class Ray(object):
 
             U = self.source.psi0(first_segment.receiver, t) * t / dist
 
-        # if self.segments[0].vtype == 'vs':
-        else:
+        else:  # if self.segments[0].vtype == 'vs':
 
             U = (self.source.psi0(first_segment.receiver, e1) * e1 +
                  self.source.psi0(first_segment.receiver, e2) * e2) / dist
@@ -480,11 +484,17 @@ class Ray(object):
         # segments.
 
         if len(self.segments) == 1:
-            # If there is only one segment, calculate the amplitude in
-            # the receiver and return it.
+            # If there is only one segment, return amplitude with some transformations:
 
             U = U / (4 * np.pi * first_layer.get_velocity(0)[first_segment.vtype]**3 * first_layer.get_density())
 
+            return U
+
+        # But even if there are several segments, if ray amplitude is already zero there is no reason to continue
+        # evaluation:
+        if np.linalg.norm(U) == 0:
+
+            warnings.warn("Zero amplitude in the end of segment №1.\n U = {}".format(U))
             return U
 
         else:
@@ -492,6 +502,14 @@ class Ray(object):
             # If there are some boundaries on the ray's path, we shall need to carry out more complicated calculations.
 
             for i in np.arange(1, len(self.segments), 1):
+
+                # If amplitude becomes zero, return it:
+                if np.linalg.norm(U) == 0:
+
+                    warnings.warn("Zero amplitude in the start point of segment №{}.\n U = {}".format(i + 1, U))
+                    return U
+
+                # If not, proceed further:
 
                 # Set current and previous segments and layers:
                 prev_segment = self.segments[i - 1]
@@ -512,7 +530,6 @@ class Ray(object):
                 # Let's form up necessary entities.
 
                 # First, let's understand what happens at the boundary: reflection or transmission.
-
                 if prev_layer == curr_layer:
 
                     rt_sign = - 1
@@ -522,10 +539,10 @@ class Ray(object):
                     rt_sign = 1
 
                 # Curvature matrix and matrix of transition to the local system:
-
                 D, loc_sys = prev_segment.end_horizon.get_local_properties(
                     prev_segment.receiver[0:2],
-                    prev_segment.get_vector()
+                    prev_segment.get_vector(),
+                    survey2D=survey2D
                 )
 
                 # cosines of inc_angle and tr_angle:
@@ -589,7 +606,6 @@ class Ray(object):
                 # Now we have a new value of M. Let's introduce / re-evaluate ratio
                 # det_rat = det M(i, s*_i) / det M(i, s*_i-1)
                 # Now we know only the denominator:
-
                 det_rat = 1 / np.linalg.det(M)
 
                 # And we have to not forget about transmission coefficient. In order to compute it we have to rewrite
@@ -598,7 +614,6 @@ class Ray(object):
 
                 # Reflection / transmission coefficients are computed in local coordinate system. We have to find
                 # slowness and polarization of the incident wave in this system:
-
                 inc_slowness = np.dot(
                     np.transpose(loc_sys),
                     t / prev_layer.get_velocity(0)[prev_segment.vtype]
@@ -606,7 +621,6 @@ class Ray(object):
                 inc_polariz = np.dot(np.transpose(loc_sys), U)
 
                 # It would be convenient to give parameters of the layers explicitly:
-
                 vp1 = self.velmod.layers[self.raycode[i - 1][1]].get_velocity(0)["vp"]
                 vs1 = self.velmod.layers[self.raycode[i - 1][1]].get_velocity(0)["vs"]
                 rho1 = self.velmod.layers[self.raycode[i - 1][1]].get_density()
@@ -628,7 +642,6 @@ class Ray(object):
                 )
 
                 # Let's go further, to the next boundary:
-
                 dist = dist + curr_segment.get_distance()
 
                 M[0, 0] = (curr_layer.get_velocity(1)[curr_segment.vtype] * dist + c_22) / \
@@ -646,7 +659,6 @@ class Ray(object):
                 M[1, 0 ] = M[0, 1]
 
                 # Full value of the detRat:
-
                 det_rat = det_rat * np.linalg.det(M)
 
                 # That's all for this segment. We are almost ready to rewrite the value of amlitude. But first consider
@@ -662,7 +674,6 @@ class Ray(object):
                 e1 = np.cross(e2, t)
 
                 # Finally, everything depends on the current wavetype:
-
                 if curr_segment.vtype == 'vp':
 
                     U = np.linalg.norm(U) * ampl_coeff[0] * np.sqrt(abs(det_rat)) * t
@@ -676,7 +687,6 @@ class Ray(object):
 
             # We've computed the amplitude in the cycle above. Let's return it's value, but before that we have
             # to add some coefficients related to the source's layer:
-
             U = U / (4 * np.pi * first_layer.get_velocity(0)[first_segment.vtype]**3 * first_layer.get_density())
 
             return U
