@@ -2,13 +2,12 @@ import numpy as np
 import pylab as plt
 from scipy.optimize import minimize
 from mpl_toolkits.mplot3d import Axes3D
-from .units import Units
 from .bicubic_interpolation import *
 
 
 class Horizon:
     def get_depth(self, xy_target):
-        """
+        """Returns value fo horizons's function z(x, y) in the point with given x- and y-coordinates.
 
         :param xy_target: target value of (x, y); xy_target = [x_target, y_target]
         :return: value of z(x_target, y_target)
@@ -16,8 +15,7 @@ class Horizon:
         pass
 
     def intersect(self, sou, rec):
-        """
-        Returns the point of intersection of a straight line connecting source and receiver with the "horizon".
+        """Returns the point of intersection of a straight line connecting source and receiver with the horizon.
 
         :param sou: coordinates of the starting point; sou = [sou1, sou2, sou3]
         :param rec: coordinates of the ending point; sou = [sou1, sou2, sou3]
@@ -26,7 +24,7 @@ class Horizon:
         pass
 
     def get_gradient(self, xy_target):
-        """
+        """Returns gradient of the horizons's function z(x, y) in the point with given x- and y-coordinates.
 
         :param xy_target: target value of (x, y); xy_target = [x_target, y_target]
         :return: gradient of the "horizon" function: grad( z(x,y) ) = [dz / dx, dz / dy] |(x -> x_target, y -> y_target)
@@ -34,7 +32,8 @@ class Horizon:
         pass
 
     def get_normal(self, xy_target):
-        """
+        """Returns unit normal to the point [x, y, z(x,y)]. Normal orientation is chosen so that its third component
+        would be positive.
 
         :param xy_target: target value of (x, y); xy_target = [x_target, y_target]
         :return: unit normal to the point [x, y, z(x,y)] with x = x_target, y = y_target
@@ -43,9 +42,9 @@ class Horizon:
 
     def get_local_properties(self, xy_target, inc_vec, survey2D=False):
         """
-        1. Constructs local system of coordinates e1, e2 and n, where n is unit normal to the point [x, y, z(x,y)],
-        d1 and d2 are tangent vectors to the surface at this point. It will be explained later what tangent vectors are
-        used.
+        1. Constructs local system of coordinates d1, d2 and n, where n is unit normal to the point [x, y, z(x,y)],
+        d1 and d2 are tangent vectors to the surface at this point. It will be explained later which tangent vectors are
+        used. If survey2D is True then the system is slightly different.
         2. Returns second partial derivatives of the surface calculated in local system at the point [x, y, z(x,y)] and
         the transformation matrix [d1, d2, n].
         Further explanations are presented below.
@@ -60,7 +59,7 @@ class Horizon:
 
     @staticmethod
     def _plot_horizon_3d(x, y, z, ax=None):
-        """
+        """Plots horizons's function z(x, y).
 
         :param x: strictly ascending 1D-numerical array
         :param y: strictly ascending 1D-numerical array
@@ -96,12 +95,10 @@ class FlatHorizon(Horizon):
         :param region: explicitly defined rectangular region in form [[x_min, y_min], [x_max, y_max]]
         """
 
-        self.units = Units()
-
         # Any plane in 3D space can be set by an equation:
         # A * x + B * y + C * z + D = 0
+        # It would be just natural to keep constants A, B, C and D as class's fields.
 
-        # It would be convenient to use four constants A, B, C and D as fields of this class:
         self.A = np.sin(np.radians(dip)) * np.cos(np.radians(azimuth))
         self.B = np.sin(np.radians(dip)) * np.sin(np.radians(azimuth))
         self.C = - np.cos(np.radians(dip))
@@ -118,11 +115,13 @@ class FlatHorizon(Horizon):
         # z = - A / C * x - B / C * y - D/ C => f(x, y, z) = A / C * x + B / C * y + D / C + z = 0 everywhere on the
         # plane => grad(f) = [A / C, B / C, 1] is the sought normal vector. We just have to normalize it.
 
-        return np.array([self.A / self.C, self.B / self.C, 1]) / np.linalg.norm(np.array([self.A / self.C, self.B / self.C, 1]))
+        n = np.array([self.A / self.C, self.B / self.C, 1])
+
+        return n / np.linalg.norm(n)
 
     def get_gradient(self, xy_target):
 
-        return - np.array([self.A, self.B]) / self.C # it is obvious from the formula of the gradient of z(x,y)
+        return - np.array([self.A, self.B]) / self.C  # it is obvious from the formula of the gradient of z(x,y)
 
     def intersect(self, sou, rec):
 
@@ -187,42 +186,26 @@ class FlatHorizon(Horizon):
             n = self.get_normal(xy_target)
 
         else:  # if we are, then ve have to find projection of the normal vector on the vertical plane:
+            # Basis of this plane:
+            basis_1 = np.array([0, 0, 1])
+            basis_2 = inc_vec - np.dot(inc_vec, basis_1) * basis_1
+            basis_2 = basis_2 / np.linalg.norm(basis_2)
 
             n = self.get_normal(xy_target)
-            n = np.dot(n, np.array([0, 0, 1])) * np.array([0, 0, 1]) +\
-                np.dot(n, inc_vec) * inc_vec / np.linalg.norm(inc_vec)**2
-            # we assume that inc_vec lies in vertical plane
-
+            n = np.dot(n, basis_1) * basis_1 + np.dot(n, basis_2) * basis_2
             n = n / np.linalg.norm(n)
 
         n = np.sign(np.dot(n, inc_vec)) * n  # anyway, it has to be pointed in direction of vec
 
-        # The tangent plain is formed up by vectors dr/dx = [1, 0, z_x] and dr/dy = [0, 1, z_y]. But they are not
-        # unit and even not orthogonal to each other. Let's orthogonalize them:
-        tang_x = np.array([1, 0, - self.A / self.C])  # dr/dx
-        tang_y = np.array([0, 1, - self.B / self.C])  # dr/dy
+        # d1 is normed projection (along n) of inc_vec on the tangent plane:
+        d1 = inc_vec - np.dot(inc_vec, n) * n
 
-        tang_y = tang_y - np.dot(tang_y, tang_x) / np.dot(tang_x, tang_x) * tang_x  # now tang_y is perpendicular to
-        # tang_x.
+        # There is a possibility that inc_vec and n are collinear; in this case:
+        if np.linalg.norm(d1) < 1e-10:
+            d1 = np.array([1, 0, - self.A / self.C])  # dr/dx
 
-        tang_x = tang_x / np.linalg.norm(tang_x)
-        tang_y = tang_y / np.linalg.norm(tang_y)  # and now they both are unit
-
-        # So, we are ready to introduce d1 and d2. But we should note that if vec is collinear with n (i.e. we deal
-        # with normal incidence) than d1 and d2 are not defined. In that case we shall set d1 as follows:
-        if np.linalg.norm(np.cross(inc_vec, n)) == 0:
-
-            d1 = tang_x
-
-        else:
-
-            d1 = np.dot(inc_vec, tang_x) * tang_x + np.dot(inc_vec, tang_y) * tang_y
-
-        # Let's normalize it:
         d1 = d1 / np.linalg.norm(d1)
-
-        # d2 is still defined as a cross-product:
-        d2 = np.cross(n, d1)
+        d2 = np.cross(n, d1)  # d2 is cross product [n x d1]. It is already unit
 
         # second derivatives on a plane are equal to zero in any coordinate system. So, let's return the result:
         return np.array([[0, 0], [0, 0]]), np.array([d1, d2, n]).T
@@ -404,27 +387,26 @@ class GridHorizon(Horizon):
             n = self.get_normal(xy_target)
 
         else:  # if we are, then ve have to find projection of the normal vector on the vertical plane:
+            # Basis of this plane:
+            basis_1 = np.array([0, 0, 1])
+            basis_2 = inc_vec - np.dot(inc_vec, basis_1) * basis_1
+            basis_2 = basis_2 / np.linalg.norm(basis_2)
 
             n = self.get_normal(xy_target)
-            n = np.dot(n, np.array([0, 0, 1])) * np.array([0, 0, 1]) + \
-                np.dot(n, inc_vec) * inc_vec / np.linalg.norm(inc_vec) ** 2
-            # we assume that inc_vec lies in vertical plane
-
+            n = np.dot(n, basis_1) * basis_1 + np.dot(n, basis_2) * basis_2
             n = n / np.linalg.norm(n)
 
         n = np.sign(np.dot(n, inc_vec)) * n  # anyway, it has to be pointed in direction of vec
 
-        # d1 is normed projection (along n) of inc_vec on the tangent plane. d2 is cross product [n x d1].
-
+        # d1 is normed projection (along n) of inc_vec on the tangent plane:
         d1 = inc_vec - np.dot(inc_vec, n) * n
 
         # There is a possibility that inc_vec and n are collinear; in this case:
         if np.linalg.norm(d1) < 1e-10:
-
             d1 = np.array([1, 0, z_x])  # dr/dx
 
         d1 = d1 / np.linalg.norm(d1)
-        d2 = np.cross(n, d1)  # it is already unit
+        d2 = np.cross(n, d1)  # d2 is cross product [n x d1]. It is already unit
 
         # OK. The last thing to do is to recalculate known d2z/dx2, d2z/dxdy and d2z/dy2 into second partial derivatives
         # of z(x, y) written in local coordinates along e1 and e2 axes. Let's call the latter h11, h12 and h22.
@@ -457,7 +439,7 @@ class GridHorizon(Horizon):
 
         else:
 
-            return np.array([[h11,0], [0, 0]]), np.array([d1, d2, n]).T
+            return np.array([[h11, 0], [0, 0]]), np.array([d1, d2, n]).T
 
     def plot(self, ax=None):
 

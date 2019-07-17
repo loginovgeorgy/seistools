@@ -691,7 +691,7 @@ class Ray(object):
 
             return U
 
-    def compute_coefficients(self):
+    def compute_coefficients(self, survey2D=False):
 
         first_segment = self.segments[0]
 
@@ -742,7 +742,8 @@ class Ray(object):
 
                 _, loc_sys = prev_segment.end_horizon.get_local_properties(
                     prev_segment.receiver[0:2],
-                    prev_segment.get_vector()
+                    prev_segment.get_vector(),
+                    survey2D=survey2D
                 )
 
                 inc_slowness = np.dot(
@@ -790,7 +791,7 @@ class Ray(object):
 
             return refl_trans_coeff
 
-    def get_inc_cosines(self):
+    def get_inc_cosines(self, survey2D=False):
 
         if len(self.segments) == 1:
 
@@ -804,9 +805,13 @@ class Ray(object):
 
                 prev_segment = self.segments[i - 1]
 
-                normal = prev_segment.end_horizon.get_normal(prev_segment.receiver[0:2])
+                _, loc_sys = prev_segment.end_horizon.get_local_properties(
+                    prev_segment.receiver[0:2],
+                    prev_segment.get_vector(),
+                    survey2D=survey2D
+                )
 
-                inc_cosines[i - 1] = abs(np.dot(prev_segment.get_vector(), normal))
+                inc_cosines[i - 1] = abs(np.dot(prev_segment.get_vector(), loc_sys[:, 2]))
 
             return inc_cosines
 
@@ -836,7 +841,7 @@ class Ray(object):
 
         return wavelet * np.reshape(rec_amplitude, (3, 1))
 
-    def spreading(self, curv_factor, inv_bool):
+    def compute_spreading(self, inv_bool, survey2D=False):
         # Computes only geometrical spreading along the ray in the observation point. All comments are above.
 
         # curv_factor is an array of two boolean variables. curv_factor[0] indicates if we have to consider curvature
@@ -896,7 +901,8 @@ class Ray(object):
 
                 D, loc_sys = prev_segment.end_horizon.get_local_properties(
                     prev_segment.receiver[0:2],
-                    prev_segment.get_vector()
+                    prev_segment.get_vector(),
+                    survey2D=survey2D
                 )
 
                 cos_inc = abs(np.dot(prev_segment.get_vector(), loc_sys[:, 2]))
