@@ -163,7 +163,7 @@ def _read_traces(
             j_traces = index
 
     check_variables = dict(
-        read_traces=len(j_traces),
+        idx_traces=len(j_traces),
         no_of_traces=no_of_traces,
         file_name=file_name,
         file_size=file_size,
@@ -174,7 +174,7 @@ def _read_traces(
 
     message = """
     {msg_type}Reading SEG-Y {method} for:
-    {read_traces} traces (total: {no_of_traces})
+    {idx_traces} traces (total: {no_of_traces})
     File: {file_name} of ({file_size}) bytes 
     SEG-Y Rev.: {sgy_revision_number}
     No. of samples: {no_of_samples}
@@ -301,18 +301,17 @@ def read_traces(
     j_traces = check_variables['j_traces']
     bytes_per_trace = check_variables['bytes_per_trace']
     bytes_per_sample = check_variables['bytes_per_sample']
-    no_of_traces = check_variables['no_of_traces']
+    no_of_traces = check_variables['idx_traces']
     no_of_samples = check_variables['no_of_samples']
     samples_format = check_variables['samples_format']
 
     traces = np.zeros((no_of_traces, no_of_samples))
-    for jt in j_traces:
+    for j, jt in enumerate(j_traces):
         pos = BYTES_FOR_HEADER + BYTES_FOR_TRACE_HEADER + (bytes_per_trace + BYTES_FOR_TRACE_HEADER) * jt
-
         data = _read_file(file_name, start=pos, n_bytes=no_of_samples * bytes_per_sample)
 
         values = _get_value(data, 0, c_type=samples_format, endian=endian, samples=no_of_samples)
         values = np.float32(values)
-        traces[jt] = np.squeeze(values)
+        traces[j] = np.squeeze(values)
 
     return traces
