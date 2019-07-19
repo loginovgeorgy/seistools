@@ -473,12 +473,12 @@ class Ray(object):
 
         if self.segments[0].vtype == 'vp':
 
-            U = self.source.psi0(first_segment.receiver, t) * t / dist
+            U = self.source.scalar_radiation(first_segment.receiver, t) * t / dist
 
         else:  # if self.segments[0].vtype == 'vs':
 
-            U = (self.source.psi0(first_segment.receiver, e1) * e1 +
-                 self.source.psi0(first_segment.receiver, e2) * e2) / dist
+            U = (self.source.scalar_radiation(first_segment.receiver, e1) * e1 +
+                 self.source.scalar_radiation(first_segment.receiver, e2) * e2) / dist
 
         # Now there are two opportunities. First, the ray can consist of just one segment. Second, it can have multiple
         # segments.
@@ -709,12 +709,12 @@ class Ray(object):
 
         if self.segments[0].vtype == 'vp':
 
-            U = self.source.psi0(first_segment.receiver, t) * t
+            U = self.source.scalar_radiation(first_segment.receiver, t) * t
 
         else:
 
-            U = self.source.psi0(first_segment.receiver, e1) * e1 +\
-                self.source.psi0(first_segment.receiver, e2) * e2
+            U = self.source.scalar_radiation(first_segment.receiver, e1) * e1 +\
+                self.source.scalar_radiation(first_segment.receiver, e2) * e2
 
         if len(self.segments) == 1:
 

@@ -12,14 +12,16 @@ class Source(object):
     def __init__(
             self,
             vel_model,
-            fr_dom=DEFAULT_FREQUENCY,  # dominant frequency in the Ricker wavelet (Hz)
-            location=DEFAULT_LOCATION,
             name=DEFAULT_SOURCE_NAME,
+            location=DEFAULT_LOCATION,
+            dom_ferq=DEFAULT_FREQUENCY,  # dominant frequency in the Ricker wavelet (Hz)
+            magnitude=DEFAULT_MAGNITUDE
     ):
         self.name = name
         self.location = np.array(location, dtype=float).ravel()
+        self.dom_ferq = dom_ferq
+        self.magnitude = magnitude
         self.layer = vel_model.get_location_layer(self.location)
-        self.fr_dom = fr_dom
 
     def _get_description(self):
         return 'Source "{}", loc ({})'.format(
@@ -36,24 +38,27 @@ class Source(object):
     def plot(self, **kwargs):
         plot_points_3d(self.location, **kwargs)
 
-    def psi0(self, r0, vec):
-        # returns a coefficient from 0 to 1 which defines the amplitude at point with radius-vector r0 in vicinity of
-        # the source. Argument vec specifies the desired direction of polarization.
-        # Here I use theory presented in: Popov, M.M. Ray theory and gaussian beam method for geophysicists /
-        # M. M. Popov. - Salvador: EDUFBA, 2002. – 172 p.
+    def scalar_radiation(self, r, polarization):
+        """
+
+        :param r: radius-vector of a point in 3D
+        :param polarization: desired polarization
+        :return: scalar amplitude in given point for desired polarization (in assumption that the source's layer is
+        infinite)
+        """
         pass
 
 
 class DilatCenter(Source):
     # A class for sources-centers of dilation.
 
-    def psi0(self, r0, vec):
+    def scalar_radiation(self, r, polarization):
 
         # This type of source irradiates only P-wave.
 
-        r = r0 - self.location
+        direction = r - self.location
 
-        return np.dot(r, vec) / np.linalg.norm(r) / np.linalg.norm(vec)
+        return np.dot(direction, polarization) / (np.linalg.norm(direction) * np.linalg.norm(polarization))
 
 
 class RotatCenter(Source):
@@ -61,25 +66,29 @@ class RotatCenter(Source):
 
     def __init__(
             self,
-            fr_dom, # dominant frequency in the Ricker wavelet (Hz)
             axis,
             vel_model,
-            location=DEFAULT_LOCATION,
             name=DEFAULT_SOURCE_NAME,
+            location=DEFAULT_LOCATION,
+            dom_ferq=DEFAULT_FREQUENCY,  # dominant frequency in the Ricker wavelet (Hz)
+            magnitude=DEFAULT_MAGNITUDE
     ):
-        self.name = name
-        self.location = np.array(location).ravel()
-        self.layer = vel_model.get_location_layer(self.location)
-        self.fr_dom = fr_dom
-        self.axis = axis / np.linalg.norm(axis) # axis of rotation
 
-    def psi0(self, r0, vec):
+        self.axis = axis / np.linalg.norm(axis)  # axis of rotation
+
+        Source.__init__(self,
+                        vel_model,
+                        name,
+                        location,
+                        dom_ferq,
+                        magnitude)
+
+    def scalar_radiation(self, r, polarization):
 
         # This type of source irradiates only S-wave.
 
-        r = r0 - self.location
+        direction = r - self.location
+        cross_prod = np.cross(direction, self.axis)
 
-        cross_prod = np.cross(r / np.linalg.norm(r), self.axis)
-
-        return np.dot(cross_prod, vec) / np.linalg.norm(vec)
+        return np.dot(cross_prod, polarization) / (np.linalg.norm(cross_prod) * np.linalg.norm(polarization))
 
