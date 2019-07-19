@@ -45,7 +45,7 @@ class Source(object):
 
 
 class DilatCenter(Source):
-    # A class for sources-centers of dilatation.
+    # A class for sources-centers of dilation.
 
     def psi0(self, r0, vec):
 

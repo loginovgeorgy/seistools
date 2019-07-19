@@ -36,7 +36,7 @@ class Survey:
         with tqdm_notebook(total=np.size(self.rays), desc='Rays calculating:') as p_bar:
             for i, ray in np.ndenumerate(self.rays):
                 ray.optimize(method=method, survey2D=survey2D)
-                ray.ray_amplitude = ray.compute_ray_amplitude()[0]
+                ray.ray_amplitude = ray.compute_ray_amplitude(survey2D=survey2D)
                 self.amplitudes[i] = ray.ray_amplitude
                 self.traveltimes[i] = ray.traveltime
                 p_bar.update()
