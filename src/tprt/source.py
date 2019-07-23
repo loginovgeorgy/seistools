@@ -2,11 +2,8 @@ import numpy as np
 from .units import Units
 from .utils import plot_points_3d
 
-from ..seislet.seislet_functions import DEFAULT_PARAMETERS  # Not sure if this is a good import
-
 DEFAULT_SOURCE_NAME = 'event'
 DEFAULT_WAVELET_NAME = "ricker"
-DEFAULT_LOCATION = np.array([0, 0, 0])
 DEFAULT_MOMENT = np.eye(3)
 DEFAULT_MAGNITUDE = 1
 
@@ -15,20 +12,21 @@ class Source(object):
     def __init__(
             self,
             vel_model,
+            location,
             name=DEFAULT_SOURCE_NAME,
-            location=DEFAULT_LOCATION,
             moment=DEFAULT_MOMENT,
+            magnitude=DEFAULT_MAGNITUDE,
             wavelet_name=DEFAULT_WAVELET_NAME,
-            wavelet_parameters=DEFAULT_PARAMETERS,
-            magnitude=DEFAULT_MAGNITUDE
+            **wavelet_parameters
     ):
-        self.name = name
+
         self.location = np.array(location, dtype=float).ravel()
+        self.layer = vel_model.get_location_layer(self.location)
+        self.name = name
+        self.magnitude = magnitude
         self.moment = moment
         self.wavelet_name = wavelet_name
         self.wavelet_parameters = wavelet_parameters
-        self.magnitude = magnitude
-        self.layer = vel_model.get_location_layer(self.location)
 
     def _get_description(self):
         return 'Source "{}", loc ({})'.format(
@@ -82,25 +80,24 @@ class Source(object):
         return displacement
 
 
-DEFAULT_FREQUENCY = 40
-
-
 class DilatCenter(object):
     # A class for sources-centers of dilation.
-
     def __init__(
             self,
             vel_model,
+            location,
             name=DEFAULT_SOURCE_NAME,
-            location=DEFAULT_LOCATION,
-            dom_ferq=DEFAULT_FREQUENCY,  # dominant frequency in the Ricker wavelet (Hz)
-            magnitude=DEFAULT_MAGNITUDE
+            magnitude=DEFAULT_MAGNITUDE,
+            wavelet_name=DEFAULT_WAVELET_NAME,
+            **wavelet_parameters
     ):
-        self.name = name
+
         self.location = np.array(location, dtype=float).ravel()
-        self.dom_ferq = dom_ferq
-        self.magnitude = magnitude
         self.layer = vel_model.get_location_layer(self.location)
+        self.name = name
+        self.magnitude = magnitude
+        self.wavelet_name = wavelet_name
+        self.wavelet_parameters = wavelet_parameters
 
     def plot(self, **kwargs):
         plot_points_3d(self.location, **kwargs)
@@ -137,22 +134,23 @@ class DilatCenter(object):
 
 class RotatCenter(object):
     # A class for sources-centers of rotation.
-
     def __init__(
             self,
-            axis,
             vel_model,
+            location,
+            axis,
             name=DEFAULT_SOURCE_NAME,
-            location=DEFAULT_LOCATION,
-            dom_ferq=DEFAULT_FREQUENCY,  # dominant frequency in the Ricker wavelet (Hz)
-            magnitude=DEFAULT_MAGNITUDE
+            magnitude=DEFAULT_MAGNITUDE,
+            wavelet_name=DEFAULT_WAVELET_NAME,
+            **wavelet_parameters
     ):
-        self.name = name
         self.location = np.array(location, dtype=float).ravel()
-        self.dom_ferq = dom_ferq
-        self.magnitude = magnitude
         self.layer = vel_model.get_location_layer(self.location)
-        self.axis = axis / np.linalg.norm(axis)  # axis of rotation
+        self.axis = axis
+        self.name = name
+        self.magnitude = magnitude
+        self.wavelet_name = wavelet_name
+        self.wavelet_parameters = wavelet_parameters
 
     def plot(self, **kwargs):
         plot_points_3d(self.location, **kwargs)
