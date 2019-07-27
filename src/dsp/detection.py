@@ -108,7 +108,7 @@ def detect_by_threshold(x, threshold, axis=1, normalize=False, replace_threshold
 
     _det = deepcopy(det)
     _det -= threshold
-    picks = _det.argmax(axis=axis, keepdims=True)
+    picks = _det.argmax(axis=axis)
 
     if not replace_threshold:
         value = det.max(axis=axis, keepdims=True)
