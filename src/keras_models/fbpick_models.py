@@ -1,7 +1,7 @@
 from keras.layers import Conv2D, MaxPooling2D, UpSampling2D
 from keras.layers import GlobalAveragePooling2D, GlobalMaxPooling2D, AveragePooling2D
 
-from keras.layers import Conv1D, MaxPooling1D, UpSampling1D, GlobalAveragePooling1D, GlobalMaxPooling1D,
+from keras.layers import Conv1D, MaxPooling1D, UpSampling1D, GlobalAveragePooling1D, GlobalMaxPooling1D
 from keras.layers import AveragePooling1D
 
 from keras.layers import Activation
