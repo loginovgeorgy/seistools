@@ -6,6 +6,7 @@ from obspy.io.segy.core import _read_segy
 
 
 SEGYIO_HEADER_ITEMS = {
+    'TRACE_SEQUENCE_LINE':                              "SEQWL",
     'EnergySourcePoint':                                "SPID",
     'SourceX':                                          "SRCX",
     'SourceY':                                          "SRCY",

@@ -151,6 +151,7 @@ def moving_average_1d(x, window, axis=1, window_type='left'):
         x = np.flip(x, axis=axis)
 
     average = convolve(x, f, mode=mode, axes=axis)
+    average = np.real(average)
 
     slc = [slice(None)] * len(x.shape)
 
