@@ -65,7 +65,8 @@ def model_conv1d(
         dropout=.1,
         batch_norm=True,
         pooling=None,
-        lr=.001
+        lr=.001,
+        decay=.0,
 ):
     input_img = Input(shape=(shape, channels))
 
@@ -104,7 +105,7 @@ def model_conv1d(
         beta_1=0.9,
         beta_2=0.999,
         epsilon=None,
-        decay=0.0,
+        decay=decay,
         amsgrad=False
     )
 
