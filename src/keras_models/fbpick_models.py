@@ -31,6 +31,7 @@ def conv1d_block(
         activation,
         dropout=None,
         batch_norm=True,
+        acivation_after_batch=False,
         pooling=None,
         upsampling=None,
         pooling_type='max',
@@ -43,8 +44,13 @@ def conv1d_block(
         activation=None,
         padding='same'
     )(layer)
-    x = Activation(activation)(x)
-    x = BatchNormalization()(x) if batch_norm else x
+    if acivation_after_batch:
+        x = BatchNormalization()(x) if batch_norm else x
+        x = Activation(activation)(x)
+    else:
+        x = Activation(activation)(x)
+        x = BatchNormalization()(x) if batch_norm else x
+
     x = Dropout(dropout, seed=seed)(x) if dropout else x
     x = POOLING[pooling_type](pooling) if pooling else x
     x = UpSampling1D(upsampling) if upsampling else x
@@ -64,6 +70,7 @@ def model_conv1d(
         last_kernel_size=32,
         dropout=.1,
         batch_norm=True,
+        acivation_after_batch=False,
         pooling=None,
         lr=.001,
         decay=.0,
@@ -79,6 +86,7 @@ def model_conv1d(
             activation,
             dropout=dropout,
             batch_norm=batch_norm,
+            acivation_after_batch=acivation_after_batch,
             pooling=pooling,
             upsampling=None,
             pooling_type='max',
@@ -92,6 +100,7 @@ def model_conv1d(
         last_activation,
         dropout=dropout,
         batch_norm=batch_norm,
+        acivation_after_batch=acivation_after_batch,
         pooling=None,
         upsampling=None,
         pooling_type='max',
