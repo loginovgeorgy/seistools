@@ -43,7 +43,7 @@ def conv1d_block(
         activation=None,
         padding='same'
     )(layer)
-    x = Activation(activation)
+    x = Activation(activation)(x)
     x = BatchNormalization()(x) if batch_norm else x
     x = Dropout(dropout, seed=seed)(x) if dropout else x
     x = POOLING[pooling_type](pooling) if pooling else x
