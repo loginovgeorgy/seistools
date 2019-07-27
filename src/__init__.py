@@ -6,5 +6,5 @@ from .plot_seismic import plot_traces
 from .smti import *
 from .seislet import seismic_signal
 from .plot_maps import *
-
+from .fbpick import *
 from .keras_models import *
