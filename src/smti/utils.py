@@ -18,6 +18,18 @@ def moment_convert(m):
     return m
 
 
+def from3x3to6(m):
+    return np.array([m[0, 0], m[1, 1], m[2, 2], m[1, 2], m[0, 2], m[0, 1]])
+
+
+def from6to3x3(m):
+    return np.array([
+        [m[0], m[3], m[4]],
+        [m[3], m[1], m[5]],
+        [m[4], m[5], m[2]],
+    ])
+
+
 def init_equidistant_sphere(n=256):
     """
 
@@ -40,7 +52,7 @@ def init_equidistant_sphere(n=256):
     )
 
 
-def focal_projection(m, dx=.02):
+def focal_projection(m, dx=.02, return_grid=False):
     """
     m must be voigt-like notation [m11 m22 m33 m23 m13 m12]
 
@@ -75,7 +87,9 @@ def focal_projection(m, dx=.02):
     u3 = (vij1 * m[4] + vij2 * m[3] + vij3 * m[2]) * vij3
     u = u1 + u2 + u3
     u[r2 > 1] = np.nan
-    return u, vij1, vij2, vij3
+    if return_grid:
+        return u, vij1, vij2, vij3
+    return u
 
 
 def pol2cart(th, r):

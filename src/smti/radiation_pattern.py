@@ -13,7 +13,7 @@ def _full_to_voigt(g):
         ])
 
 
-def radiation_operator(sou, rec, notation='full'):
+def radiation_operator(sou, rec, notation=9):
     unit_vec = np.array(rec - sou, dtype=np.float32, ndmin=2)
     # unit_vec *= ((unit_vec ** 2).sum(axis=1, keepdims=True) + 1e-17) ** (-2)
     dist = np.sqrt((unit_vec ** 2).sum(axis=1, keepdims=True)) + 1e-17
@@ -22,19 +22,15 @@ def radiation_operator(sou, rec, notation='full'):
     gp = np.einsum('pi, pk, pl, p -> pikl', unit_vec, unit_vec, unit_vec, 1 / np.squeeze(dist))
     gs_right = np.einsum('ik, pl, p -> pikl', np.eye(3, 3), unit_vec, 1 / np.squeeze(dist))
     gs = gs_right - gp
-    if notation == 'full':
+    if notation == 9:
         return gp.reshape(-1, 9), gs.reshape(-1, 9)
 
-    if notation == 'voigt':
+    if notation == 6:
         return _full_to_voigt(gp.reshape(-1, 9)), _full_to_voigt(gs.reshape(-1, 9))
 
 
 def calculate_wave_amplitude(sou, rec, m, vp, vs, rho, reshape=False):
-    if len(m.ravel()) == 9:
-        notation = 'full'
-
-    if len(m.ravel()) == 6:
-        notation = 'voigt'
+    notation = len(m.ravel())
 
     gp, gs = radiation_operator(sou, rec, notation=notation)
     gp = gp / (4 * np.pi * rho * (vp ** 3))

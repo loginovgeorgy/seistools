@@ -1,13 +1,5 @@
 import numpy as np
-
-
-def _moment_matrix(m):
-    _m = np.array([
-        [m[0], m[1], m[2]],
-        [m[1], m[3], m[4]],
-        [m[2], m[4], m[5]]
-    ])
-    return _m
+from .utils import from6to3x3
 
 
 def _shear_moment(strike, dip, rake, ds, n):
@@ -34,7 +26,7 @@ def _shear_moment(strike, dip, rake, ds, n):
     m23 = - (sin(strike) * cos(dip) * cos(rake) - cos(strike) * cos(2 * dip) * sin(rake))
     m33 = + (sin(2 * dip) * sin(rake))
 
-    return ds * n * np.array([m11, m12, m13, m22, m23, m33])
+    return ds * n * np.array([m11, m22, m33, m12, m13, m23])
 
 
 def _opening_moment(strike, dip, dn, n, ng):
@@ -63,7 +55,7 @@ def _opening_moment(strike, dip, dn, n, ng):
     m23 = - dn * n * cos(strike) * sin(2 * dip)
     m33 = + dn * (ng + 2 * n * (cos(dip) ** 2))
 
-    return np.array([m11, m12, m13, m22, m23, m33])
+    return np.array([m11, m22, m33, m12, m13, m23])
 
 
 def create_general_moment(strike, dip, rake, ds=1, dn=0, a=1, rho=1, vp=1.4, vs=1, radians=False):
@@ -105,5 +97,5 @@ def create_general_moment(strike, dip, rake, ds=1, dn=0, a=1, rho=1, vp=1.4, vs=
 
     m = _shear_moment(strike, dip, rake, ds, lam) + _opening_moment(strike, dip, dn, lam, mu)
     m = m / np.abs(a)
-    return _moment_matrix(m)
+    return from6to3x3(m)
 
