@@ -51,6 +51,8 @@ def plot_traces(
         alpha=.5,
         mask_alpha=.5,
         mask_cmap=None,
+        mask_vmin=0,
+        mask_vmax=1.1,
         dist_for_3c=.5,
         font_size=20,
         ax=None,
@@ -235,8 +237,8 @@ def plot_traces(
             extent=extent,
             cmap=mask_cmap,
             alpha=mask_alpha,
-            vmin=0,
-            vmax=1.5,
+            vmin=mask_vmin,
+            vmax=mask_vmax,
         )
 
         ax.imshow(mask, **kwargs)
