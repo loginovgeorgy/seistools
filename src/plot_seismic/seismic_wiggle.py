@@ -49,6 +49,8 @@ def plot_traces(
         picks_curve=False,
         picks_legend=True,
         alpha=.5,
+        map_alpha=.5,
+        map_cmap=None,
         dist_for_3c=.5,
         font_size=20,
         ax=None,
@@ -217,7 +219,8 @@ def plot_traces(
                 )
 
     if not isinstance(mask, type(None)):
-        c_map = plt.cm.Greys
+        if isinstance(map_cmap, type(None)):
+            map_cmap = plt.cm.Greys
         # c_map.set_bad('green', 1.)
         extent = (time_lim[0], time_lim[1], -.5, traces.shape[0] - .5)
 
@@ -230,7 +233,8 @@ def plot_traces(
             aspect='auto',
             origin='lower',
             extent=extent,
-            cmap=c_map,
+            cmap=map_cmap,
+            alpha=map_alpha,
             vmin=0,
             vmax=1.5,
         )
