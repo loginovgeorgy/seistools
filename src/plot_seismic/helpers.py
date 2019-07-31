@@ -177,7 +177,7 @@ def input_chek_picks_color(picks, picks_colormap, picks_line_style, picks_curve_
         picks_curve_line_style = 'solid'
 
     if isinstance(picks_colormap, type(None)):
-        return {x: PICKS_COLORMAP[i] for i, x in enumerate(picks)}
+        return {x: PICKS_COLORMAP(i) for i, x in enumerate(picks)}
 
     if isinstance(picks_colormap, str):
         if not (picks_colormap in COLOR_ABBREVIATIONS):
@@ -190,7 +190,7 @@ def input_chek_picks_color(picks, picks_colormap, picks_line_style, picks_curve_
             return {x: picks_colormap for x in picks}
 
     if type(picks_colormap).__name__ == 'ListedColormap':
-        return {x: picks_colormap[i] for i, x in enumerate(picks)}
+        return {x: picks_colormap(i) for i, x in enumerate(picks)}
 
     raise ValueError('the given colormap is undefined - "{}"'.format(picks_colormap))
 
