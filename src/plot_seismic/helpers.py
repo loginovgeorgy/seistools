@@ -1,6 +1,8 @@
 import numpy as np
+import pylab as plt
 
 COLOR_ABBREVIATIONS = ['b', 'g', 'r', 'c', 'm', 'y', 'k', 'w']
+PICKS_COLORMAP = plt.cm.tab10
 
 TRACE_COLORS = {
     0: [.6, 0, 0],
@@ -164,3 +166,25 @@ def input_check_color_dicts(no_of_components, **kwargs):
                     )
 
     return result.values()
+
+
+def input_chek_picks_color(picks, picks_colormap):
+    if isinstance(picks_colormap, type(None)):
+        return {x: PICKS_COLORMAP[i] for i, x in enumerate(picks)}
+
+    if isinstance(picks_colormap, str):
+        if not (picks_colormap in COLOR_ABBREVIATIONS):
+            raise ValueError(
+                "'{}' items must be one of {}"
+                " or an array like [r, g, b] or [r, g, b, a]. "
+                "The given was '{}'".format('picks_colormap', COLOR_ABBREVIATIONS, picks_colormap)
+            )
+        else:
+            return {x: picks_colormap for x in picks}
+
+    if type(picks_colormap).__name__ == 'ListedColormap':
+        return {x: picks_colormap[i] for i, x in enumerate(picks)}
+
+    raise ValueError('the given colormap is undefined - "{}"'.format(picks_colormap))
+
+

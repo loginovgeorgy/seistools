@@ -1,11 +1,11 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from .helpers import insert_zeros_in_trace, input_check, input_check_color_dicts
+from .helpers import insert_zeros_in_trace, input_check, input_check_color_dicts, input_chek_picks_color
 from functools import wraps
 
 MARKERS = ['s', 'D', 'd', 'o', '.', 'x', '+']
 
-COLORMAP = plt.cm.tab10
+
 
 
 def set_plt_params(func):
@@ -48,6 +48,7 @@ def plot_traces(
         picks_on_amplitude=False,
         picks_curve=False,
         picks_legend=True,
+        picks_colormap=None,
         alpha=.5,
         mask_alpha=.5,
         mask_cmap=None,
@@ -72,6 +73,8 @@ def plot_traces(
             fill_negative=fill_negative,
         )
     )
+
+    picks_colormap = input_chek_picks_color(picks, picks_colormap)
 
     if isinstance(ax, type(None)):
         fig, ax = plt.subplots(figsize=(fig_width, fig_height), facecolor='w')
@@ -175,8 +178,8 @@ def plot_traces(
                 x, y = _get_x_y([pick_time, pick_amplitude])
                 ax.plot(x,
                         y,
-                        color=COLORMAP(ip),
-                        markeredgecolor=COLORMAP(ip),
+                        color=picks_colormap[label],
+                        markeredgecolor=picks_colormap[label],
                         markerfacecolor='None',
                         marker=marker,
                         linestyle=line_style,
@@ -201,9 +204,9 @@ def plot_traces(
                 ax.plot(
                     x,
                     y,
-                    color=COLORMAP(ip),
+                    color=picks_colormap[label],
                     label=label,
-                    markeredgecolor=COLORMAP(ip),
+                    markeredgecolor=picks_colormap[label],
                     markerfacecolor='None',
                     marker=marker,
                     linestyle='solid',
@@ -212,9 +215,9 @@ def plot_traces(
                 ax.plot(
                     np.nan,
                     np.nan,
-                    color=COLORMAP(ip),
+                    color=picks_colormap[label],
                     label=label,
-                    markeredgecolor=COLORMAP(ip),
+                    markeredgecolor=picks_colormap[label],
                     markerfacecolor='None',
                     marker=MARKERS[ip],
                     linestyle='None'
