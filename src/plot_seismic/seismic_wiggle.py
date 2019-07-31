@@ -49,6 +49,8 @@ def plot_traces(
         picks_curve=False,
         picks_legend=True,
         picks_colormap=None,
+        picks_line_style='dashed',
+        picks_curve_line_style='solid',
         alpha=.5,
         mask_alpha=.5,
         mask_cmap=None,
@@ -74,7 +76,11 @@ def plot_traces(
         )
     )
 
-    picks_colormap = input_chek_picks_color(picks, picks_colormap)
+    picks_colormap, picks_line_style, picks_curve_line_style = input_chek_picks_color(
+        picks, picks_colormap,
+        picks_line_style,
+        picks_curve_line_style
+    )
 
     if isinstance(ax, type(None)):
         fig, ax = plt.subplots(figsize=(fig_width, fig_height), facecolor='w')
@@ -173,7 +179,7 @@ def plot_traces(
                     pick_amplitude = [off - .3, off + .3]
                     pick_time = [pick_time, pick_time]
                     marker = None
-                    line_style = 'dashed'
+                    line_style = picks_line_style
 
                 x, y = _get_x_y([pick_time, pick_amplitude])
                 ax.plot(x,
@@ -209,7 +215,7 @@ def plot_traces(
                     markeredgecolor=picks_colormap[label],
                     markerfacecolor='None',
                     marker=marker,
-                    linestyle='solid',
+                    linestyle=picks_curve_line_style,
                 )
             else:
                 ax.plot(

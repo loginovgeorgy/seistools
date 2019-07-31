@@ -168,7 +168,14 @@ def input_check_color_dicts(no_of_components, **kwargs):
     return result.values()
 
 
-def input_chek_picks_color(picks, picks_colormap):
+def input_chek_picks_color(picks, picks_colormap, picks_line_style, picks_curve_line_style):
+
+    if isinstance(picks_line_style, type(None)):
+        picks_line_style = 'dashed'
+
+    if isinstance(picks_line_style, type(None)):
+        picks_curve_line_style = 'solid'
+
     if isinstance(picks_colormap, type(None)):
         return {x: PICKS_COLORMAP[i] for i, x in enumerate(picks)}
 
