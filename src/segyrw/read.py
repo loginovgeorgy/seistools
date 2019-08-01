@@ -10,12 +10,6 @@ from io import BytesIO, IOBase
 # endian='=' # Native
 
 
-BYTES_FOR_TEXTUAL_HEADER = 3200
-BYTES_FOR_SGY_HEADER = 400
-BYTES_FOR_TRACE_HEADER = 240
-BYTES_FOR_HEADER = BYTES_FOR_TEXTUAL_HEADER + BYTES_FOR_SGY_HEADER
-
-
 def ibm2ieee(ibm_float):
     """
     ibm2ieee2(ibm_float)
