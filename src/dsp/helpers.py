@@ -166,6 +166,21 @@ def moving_average_1d(x, window, axis=1, window_type='left'):
     return average[tuple(slc)]
 
 
+def calculate_convolution(x, f, axis=1, mode='full'):
+    x = cast_input_to_traces(x, ndmin=2)
+    ns = x.shape[axis]
+
+    f = cast_input_to_traces(f, ndmin=len(x.shape))
+    f = f.transpose(
+        np.roll(
+            np.arange(len(x.shape)),
+            axis + 1
+        )
+    )
+
+    return convolve(x, f, mode=mode, axes=axis)
+
+
 def edge_preserve_smoothing(signal, window, verbose=False):
     # TODO Rebuild to boost speed
     if window <= 0:
