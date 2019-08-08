@@ -5,6 +5,8 @@ from .rt_coefficients import iso_rt_coefficients
 from .segment import Segment
 from .. import seislet
 
+import warnings
+
 WAVECODE = {0: 'vp', 1: 'vs',
             'vp': 0, 'vs': 1}
 
@@ -396,16 +398,21 @@ class Ray(object):
 
         return np.array(snell)
 
-    def compute_ray_amplitude(self):
+    def compute_ray_amplitude(self, survey2D=False):
+        """Computes vector of the ray's amplitude
+
+        :param survey2D: boolean variable which indicates if ray amplitude should be computed as in 2.5D problem
+        :return: displacement vector in the receiver point (in global coordinate system)
+        """
 
         # This method computes amplitude vector in frequency domain. Assuming that the ray passes through N + 1 layers
         # amplitude of P-wave in the observation point can be found using formula:
         #
         # U = psi0 * 1 / v_1**3 / rho_1
         # = t / (4 * np.pi * s*_1) *
-        # * П(sqrt(|det M(i, s*_i) / det M(i, s*_i-1) )|, i = 2, i = N) *
+        # * Product(sqrt(|det M(i, s*_i) / det M(i, s*_i-1) )|, i = 2, i = N) *
         # * sqrt( |det M(N + 1, s) / det M(N + 1, s*_N)| ) *
-        # * П( k_i )
+        # * Product( k_i )
         #
         # Here s*_i denote i-th point of intersection of the ray with a boundary, k_i is either reflection of
         # transmission coefficient and M(k, s) is matrix M (explained below) in k-th segment evaluated at point s.
@@ -428,77 +435,57 @@ class Ray(object):
         # three-dimensional inhomogeneous media //Bulletin of the Seismological Society of America. – 1980. – vol. 70. –
         # №. 1. – pp. 47-77.
 
+        # If survey2D is True all computations are performed as in 2.5D case.
+
         # So, let's get started:
 
-        # dist = 0  # arc length of the ray
-        M = np.zeros((2, 2))  # matrix M
-
-        # Set first segment and layer:
-
+        # Set the first segment and layer:
         first_segment = self.segments[0]
         first_layer = self.segments[0].layer
 
-        # Let's evaluate dist and M in the end of the first segment assuming that c11 = c22 = c12 = 0:
+        # Compute amplitude in the end point of the first segment:
+        U = self.source.source_radiation(first_segment.receiver, first_segment.vtype)
 
-        dist = first_segment.get_distance() # this will be distance along the ray
-
-        M[0, 0] = 1 / (first_layer.get_velocity(1)[first_segment.vtype] * dist)
-        M[1, 1] = 1 / (first_layer.get_velocity(1)[first_segment.vtype] * dist)
-
-        # Now we are ready to write down ray amplitude in the end of the first segment. It will be written in terms of
-        # ray-centered coordinates, so let's set corresponding unit vectors:
-
-        t = first_segment.get_vector()  # unit vector pointed in the direction of wave's propagation
-
-        # We cannot distinguish SV and SH polarization if t is strictly vertical. In that case we'll just set e1 and
-        # e2 coincident with i ang j unit vectors of the global Cartesian coordinates:
-
-        if t[2] == 1:
-
-            e1 = np.array([1, 0, 0])
-            e2 = np.array([0, 1, 0])
-
-        else:
-
-            e2 = np.array([t[1], - t[0], 0]) / np.sqrt(t[1] ** 2 + t[0] ** 2)  # SH-polarized unit vector
-            e1 = np.cross(e2, t)  # SV-polarized unit vector
-
-        # In the first segment the polarization vector depends only on the source. But we should also take into account
-        # the raycode.
-
-        if self.segments[0].vtype == 'vp':
-
-            U = self.source.psi0(first_segment.receiver, t) * t / dist
-
-        # if self.segments[0].vtype == 'vs':
-        else:
-
-            U = (self.source.psi0(first_segment.receiver, e1) * e1 +
-                 self.source.psi0(first_segment.receiver, e2) * e2) / dist
-
-        # Now there are two opportunities. First, the ray can consist of just one segment. Second, it can have multiple
-        # segments.
-
-        if len(self.segments) == 1:
-            # If there is only one segment, calculate the amplitude in
-            # the receiver and return it.
-
-            U = U / (4 * np.pi * first_layer.get_velocity(0)[first_segment.vtype]**3 * first_layer.get_density())
+        # Now there are two variants:
+        if len(self.segments) == 1:  # if there is only one segment, return amplitude
 
             return U
 
-        else:
+        else:  # if there are more segments, we have to perform all computations according to the formula above
 
-            # If there are some boundaries on the ray's path, we shall need to carry out more complicated calculations.
+            dist = first_segment.get_distance()  # distance along the ray, s in all commented formulae
 
-            for i in np.arange(1, len(self.segments), 1):
+            M = np.zeros((2, 2))
+            M[0, 0] = 1 / (first_layer.get_velocity(1)[first_segment.vtype] * dist)  # matrix M in the end of the first
+            M[1, 1] = 1 / (first_layer.get_velocity(1)[first_segment.vtype] * dist)  # segment
 
-                # Set current and previous segments and layers:
+            # Ray-centered triplet:
+            t = first_segment.get_vector()  # unit vector pointed in the direction of wave's propagation
+
+            if t[2] == 1:  # if t is strictly vertical we cannot distinguish SV- and SH-polarized waves analytically:
+                e1 = np.array([1, 0, 0])
+                e2 = np.array([0, 1, 0])
+
+            else:  # if not, we can:
+                e2 = np.array([t[1], - t[0], 0]) / np.sqrt(t[1] ** 2 + t[0] ** 2)  # SH-polarized unit vector
+                e1 = np.cross(e2, t)  # SV-polarized unit vector
+
+            for i in np.arange(1, len(self.segments), 1):  # cycle over all remaining segments
+
+                if np.linalg.norm(U) == 0:  # If amplitude becomes zero, return it:
+
+                    warnings.warn("Zero amplitude in the start point of segment №{}.\n U = {}".format(i + 1, U))
+                    return U
+
+                # If not, proceed further:
+                # Set current and previous segments, layers and velocities:
                 prev_segment = self.segments[i - 1]
                 prev_layer = self.segments[i - 1].layer
+                prev_vel =prev_layer.get_velocity(0)[prev_segment.vtype]
 
                 curr_segment = self.segments[i]
                 curr_layer = self.segments[i].layer
+                curr_vel = curr_layer.get_velocity(0)[curr_segment.vtype]
 
                 # At every boundary matrix M changes according to special boundary conditions which take form:
                 # M' = S W.T M W S + u* G D G,
@@ -512,40 +499,37 @@ class Ray(object):
                 # Let's form up necessary entities.
 
                 # First, let's understand what happens at the boundary: reflection or transmission.
-
                 if prev_layer == curr_layer:
-
                     rt_sign = - 1
 
                 else:
-
                     rt_sign = 1
 
                 # Curvature matrix and matrix of transition to the local system:
-
                 D, loc_sys = prev_segment.end_horizon.get_local_properties(
                     prev_segment.receiver[0:2],
-                    prev_segment.get_vector()
+                    prev_segment.get_vector(),
+                    survey2D=survey2D
                 )
 
                 # cosines of inc_angle and tr_angle:
                 cos_inc = abs(np.dot(prev_segment.get_vector(), loc_sys[:, 2]))
                 cos_out = abs(np.dot(curr_segment.get_vector(), loc_sys[:, 2]))
 
-                S = np.array([[rt_sign * cos_inc / cos_out, 0],
-                              [0, 1]])
-                G = np.array([[- rt_sign * 1 / cos_out, 0],
-                              [0, 1]])
-
-                u = cos_inc / prev_layer.get_velocity(0)[prev_segment.vtype] -\
-                    rt_sign * cos_out / curr_layer.get_velocity(0)[curr_segment.vtype]
+                S = np.array([
+                    [rt_sign * cos_inc / cos_out, 0],
+                    [0, 1]
+                ])
+                G = np.array([
+                    [- rt_sign * 1 / cos_out, 0],
+                    [0, 1]
+                ])
+                u = cos_inc / prev_vel - rt_sign * cos_out / curr_vel
 
                 # The incident ray's e2 vector can make angle with the d2 so that:
-
                 # dot(e2, d2) = sin(omega)
 
                 # The matrix W is a rotation matrix:
-
                 # W = np.array([[ cos(omega), sin(omega)],
                 #               [ - sin(omega), cos(omega)]])
 
@@ -559,7 +543,6 @@ class Ray(object):
 
                 # Since all layers are homogeneous and isotropic the general solution for matrix M (i.e. its form)
                 # remains the same:
-
                 # M[0, 0] = (v*s + c_22) / ( (v*s + c_11)*(v*s + c_22) - c_12**2 ),
                 # M[1, 1] = (v*s + c_11) / ( (v*s + c_11)*(v*s + c_22) - c_12**2 ),
                 # M[0, 1] = - c_12 / ( (v*s + c_11)*(v*s + c_22) - c_12**2 ),
@@ -569,263 +552,75 @@ class Ray(object):
                 # (i.e. M'). Note that new matrix M is related to the new triplet t, e1, e2 where e2 is coincident with
                 # d2.
 
-                M = np.dot(np.dot(S, np.dot(W.T, np.dot(M, W))), S) + u * np.dot(np.dot(G, D), G)
+                M = np.einsum("ij, jk, kl, lm, mn", S, np.transpose(W), M, W, S) + u * np.einsum("ik, kl, ln", G, D, G)
                 N = np.linalg.inv(M)
 
                 # Remember that:
-
                 # N[0, 0] = v * s + c_11
                 # N[1, 1] = v * s + c_22
                 # N[0, 1] = c_12
                 # N[1, 0] = c_12
 
-                # So, all equations for c_ij are linear!
-                # s = dist, v = v'.
-
-                c_11 = N[0, 0] - curr_layer.get_velocity(1)[curr_segment.vtype] * dist
-                c_22 = N[1, 1] - curr_layer.get_velocity(1)[curr_segment.vtype] * dist
+                # So, all equations for c_ij are linear and they have explicit solution:
+                c_11 = N[0, 0] - curr_vel * dist
+                c_22 = N[1, 1] - curr_vel * dist
                 c_12 = N[0, 1]
 
                 # Now we have a new value of M. Let's introduce / re-evaluate ratio
                 # det_rat = det M(i, s*_i) / det M(i, s*_i-1)
-                # Now we know only the denominator:
 
-                det_rat = 1 / np.linalg.det(M)
-
-                # And we have to not forget about transmission coefficient. In order to compute it we have to rewrite
-                # existing vector of polarization U in the local coordinate system. Remember that we've already
-                # found necessary transition matrix.
+                det_rat = 1 / np.linalg.det(M)  # now we have only denominator
 
                 # Reflection / transmission coefficients are computed in local coordinate system. We have to find
                 # slowness and polarization of the incident wave in this system:
-
                 inc_slowness = np.dot(
                     np.transpose(loc_sys),
-                    t / prev_layer.get_velocity(0)[prev_segment.vtype]
+                    t / prev_vel
                 )
                 inc_polariz = np.dot(np.transpose(loc_sys), U)
-
-                # It would be convenient to give parameters of the layers explicitly:
-
-                vp1 = self.velmod.layers[self.raycode[i - 1][1]].get_velocity(0)["vp"]
-                vs1 = self.velmod.layers[self.raycode[i - 1][1]].get_velocity(0)["vs"]
-                rho1 = self.velmod.layers[self.raycode[i - 1][1]].get_density()
-
-                vp2 = self.velmod.layers[self.raycode[i - 1][1] + self.raycode[i - 1][0]].get_velocity(0)["vp"]
-                vs2 = self.velmod.layers[self.raycode[i - 1][1] + self.raycode[i - 1][0]].get_velocity(0)["vs"]
-                rho2 = self.velmod.layers[self.raycode[i - 1][1] + self.raycode[i - 1][0]].get_density()
 
                 ampl_coeff = iso_rt_coefficients(
                     inc_slowness=inc_slowness,
                     inc_polariz=inc_polariz,
                     rt_signum=rt_sign,
-                    vp1=vp1,
-                    vs1=vs1,
-                    rho1=rho1,
-                    vp2=vp2,
-                    vs2=vs2,
-                    rho2=rho2
+                    vp1=self.velmod.layers[self.raycode[i - 1][1]].get_velocity(0)["vp"],
+                    vs1=self.velmod.layers[self.raycode[i - 1][1]].get_velocity(0)["vs"],
+                    rho1=self.velmod.layers[self.raycode[i - 1][1]].get_density(),
+                    vp2=self.velmod.layers[self.raycode[i - 1][1] + self.raycode[i - 1][0]].get_velocity(0)["vp"],
+                    vs2=self.velmod.layers[self.raycode[i - 1][1] + self.raycode[i - 1][0]].get_velocity(0)["vs"],
+                    rho2=self.velmod.layers[self.raycode[i - 1][1] + self.raycode[i - 1][0]].get_density()
                 )
 
                 # Let's go further, to the next boundary:
-
                 dist = dist + curr_segment.get_distance()
 
-                M[0, 0] = (curr_layer.get_velocity(1)[curr_segment.vtype] * dist + c_22) / \
-                          ((curr_layer.get_velocity(1)[curr_segment.vtype] * dist + c_11) *
-                           (curr_layer.get_velocity(1)[curr_segment.vtype] * dist + c_22) - c_12**2)
+                M[0, 0] = (curr_vel * dist + c_22) / ((curr_vel * dist + c_11) * (curr_vel * dist + c_22) - c_12**2)
+                M[1, 1] = (curr_vel * dist + c_11) / ((curr_vel * dist + c_11) * (curr_vel * dist + c_22) - c_12**2)
+                M[0, 1] = - c_12 / ((curr_vel * dist + c_11) * (curr_vel * dist + c_22) - c_12**2)
+                M[1, 0] = M[0, 1]
 
-                M[1, 1] = (curr_layer.get_velocity(1)[curr_segment.vtype] * dist + c_11) / \
-                          ((curr_layer.get_velocity(1)[curr_segment.vtype] * dist + c_11) *
-                           (curr_layer.get_velocity(1)[curr_segment.vtype] * dist + c_22) - c_12**2)
+                det_rat = det_rat * np.linalg.det(M)  # full value of the detRat
 
-                M[0, 1] = - c_12 / \
-                          ((curr_layer.get_velocity(1)[curr_segment.vtype] * dist + c_11) *
-                           (curr_layer.get_velocity(1)[curr_segment.vtype] * dist + c_22) - c_12**2)
-
-                M[1, 0 ] = M[0, 1]
-
-                # Full value of the detRat:
-
-                det_rat = det_rat * np.linalg.det(M)
-
-                # That's all for this segment. We are almost ready to rewrite the value of amlitude. But first consider
-                # the following.
-                # ampl_coeff is a list of 6 coefficients which specify the amplitude changes of the wave. They are
-                # related to t, e1, e2 triplets of the outgoing waves. But we work just with one of them.
-
-                # Let's specify its triplet. We should take into account that e2 = d2 where d2 is a vector from the
-                # local coordinate system.
-
+                # New ray-centered triplet. Note that e2 = d2 where d2 is a vector from the local coordinate system:
                 t = curr_segment.get_vector()
                 e2 = loc_sys[:, 1]
                 e1 = np.cross(e2, t)
 
-                # Finally, everything depends on the current wavetype:
-
-                if curr_segment.vtype == 'vp':
+                # Compute amplitude in the end of current segment:
+                if curr_segment.vtype == "vp":
 
                     U = np.linalg.norm(U) * ampl_coeff[0] * np.sqrt(abs(det_rat)) * t
 
-                if curr_segment.vtype == 'vs':
+                if curr_segment.vtype == "vs":
 
                     U = (np.linalg.norm(U) * ampl_coeff[1] * e1 +
                          np.linalg.norm(U) * ampl_coeff[2] * e2) * np.sqrt(abs(det_rat))
 
-                # Let's go to the next layer!
-
-            # We've computed the amplitude in the cycle above. Let's return it's value, but before that we have
-            # to add some coefficients related to the source's layer:
-
-            U = U / (4 * np.pi * first_layer.get_velocity(0)[first_segment.vtype]**3 * first_layer.get_density())
+                # That's all for this layer.
 
             return U
 
-    def compute_coefficients(self):
-
-        first_segment = self.segments[0]
-
-        t = first_segment.get_vector()  # unit vector pointed in the direction of wave's propagation
-
-        if t[2] == 1:
-
-            e1 = np.array([1, 0, 0])
-            e2 = np.array([0, 1, 0])
-
-        else:
-
-            e2 = np.array([t[1], - t[0], 0]) / np.sqrt(t[1] ** 2 + t[0] ** 2)  # SH-polarized unit vector
-            e1 = np.cross(e2, t)  # SV-polarized unit vector
-
-        if self.segments[0].vtype == 'vp':
-
-            U = self.source.psi0(first_segment.receiver, t) * t
-
-        else:
-
-            U = self.source.psi0(first_segment.receiver, e1) * e1 +\
-                self.source.psi0(first_segment.receiver, e2) * e2
-
-        if len(self.segments) == 1:
-
-            return np.array([])
-
-        else:
-
-            refl_trans_coeff = np.zeros(len(self.segments) - 1, dtype = complex)
-
-            for i in np.arange(1, len(self.segments), 1):
-
-                prev_segment = self.segments[i - 1]
-                prev_layer = self.segments[i - 1].layer
-
-                curr_segment = self.segments[i]
-                curr_layer = self.segments[i].layer
-
-                if prev_layer == curr_layer:
-
-                    rt_sign = - 1
-
-                else:
-
-                    rt_sign = 1
-
-                _, loc_sys = prev_segment.end_horizon.get_local_properties(
-                    prev_segment.receiver[0:2],
-                    prev_segment.get_vector()
-                )
-
-                inc_slowness = np.dot(
-                    np.transpose(loc_sys),
-                    t / prev_layer.get_velocity(0)[prev_segment.vtype]
-                )
-                inc_polariz = np.dot(np.transpose(loc_sys), U)
-
-                vp1 = self.velmod.layers[self.raycode[i - 1][1]].get_velocity(0)["vp"]
-                vs1 = self.velmod.layers[self.raycode[i - 1][1]].get_velocity(0)["vs"]
-                rho1 = self.velmod.layers[self.raycode[i - 1][1]].get_density()
-
-                vp2 = self.velmod.layers[self.raycode[i - 1][1] + self.raycode[i - 1][0]].get_velocity(0)["vp"]
-                vs2 = self.velmod.layers[self.raycode[i - 1][1] + self.raycode[i - 1][0]].get_velocity(0)["vs"]
-                rho2 = self.velmod.layers[self.raycode[i - 1][1] + self.raycode[i - 1][0]].get_density()
-
-                ampl_coeff = iso_rt_coefficients(
-                    inc_slowness=inc_slowness,
-                    inc_polariz=inc_polariz,
-                    rt_signum=rt_sign,
-                    vp1=vp1,
-                    vs1=vs1,
-                    rho1=rho1,
-                    vp2=vp2,
-                    vs2=vs2,
-                    rho2=rho2
-                )
-
-                t = curr_segment.get_vector()
-                e2 = loc_sys[:, 1]
-                e1 = np.cross(e2, t)
-
-                if curr_segment.vtype == 'vp':
-
-                    refl_trans_coeff[i - 1] = ampl_coeff[0]
-
-                    U = np.linalg.norm(U) * ampl_coeff[0] * t
-
-                if curr_segment.vtype == 'vs':
-
-                    refl_trans_coeff[i - 1] = np.sqrt(ampl_coeff[1] ** 2 + ampl_coeff[2] ** 2)
-
-                    U = np.linalg.norm(U) * ampl_coeff[1] * e1 +\
-                        np.linalg.norm(U) * ampl_coeff[2] * e2
-
-            return refl_trans_coeff
-
-    def get_inc_cosines(self):
-
-        if len(self.segments) == 1:
-
-            return np.array([])
-
-        else:
-
-            inc_cosines = np.zeros(len(self.segments) - 1)
-
-            for i in np.arange(1, len(self.segments), 1):
-
-                prev_segment = self.segments[i - 1]
-
-                normal = prev_segment.end_horizon.get_normal(prev_segment.receiver[0:2])
-
-                inc_cosines[i - 1] = abs(np.dot(prev_segment.get_vector(), normal))
-
-            return inc_cosines
-
-    def get_recorded_amplitude(self, times):
-        # returns amplitude vector in the receiver in a particular time moment t.
-        # Here I use theory presented in: Popov, M.M. Ray theory and gaussian beam method for geophysicists /
-        # M. M. Popov. - Salvador: EDUFBA, 2002. – 172 p.
-
-        # We use formula: A = Ricker(t - tau) * U)
-        # where tau is time of the first break (i.e. traveltime along the ray), Ricker is
-        # the Ricker wavelet with dispersion given in the Source  and U is a constant vector: self.ray_amplitude.
-
-        # return seislet.seismic_signal(signal="ricker",
-        #                               t=times,
-        #                               f=self.source.fr_dom) * np.dot(self.receiver.orientation.T, self.ray_amplitude)
-
-        tau = self.get_travel_time()
-        sigma = np.sqrt(2) / self.source.fr_dom / 2 / np.pi
-
-        time_set = np.transpose(np.array([times - tau]))  # we assume that times can be either scalar or vector of time
-        # moments; transposition is performed for sake of multiplication below.
-
-        return np.transpose(2 / np.sqrt(3 * sigma) / np.pi ** (1 / 4) *\
-                            (1 - (time_set/ sigma)**2) *\
-                            np.exp(- time_set**2 / (2 * sigma**2)) *\
-                            np.dot(self.receiver.orientation.T, self.ray_amplitude))  # we transpose the result so that
-        # its zeroth component would correspond to x-component of recoded displacement at any time moment in times
-
-    def spreading(self, curv_factor, inv_bool):
+    def compute_spreading(self, inv_bool, survey2D=False):
         # Computes only geometrical spreading along the ray in the observation point. All comments are above.
 
         # curv_factor is an array of two boolean variables. curv_factor[0] indicates if we have to consider curvature
@@ -869,67 +664,62 @@ class Ray(object):
 
             for i in np.arange(1, len(self.segments), 1):
 
+                # Set current and previous segments, layers and velocities:
                 prev_segment = self.segments[i - 1]
                 prev_layer = self.segments[i - 1].layer
+                prev_vel = prev_layer.get_velocity(0)[prev_segment.vtype]
 
                 curr_segment = self.segments[i]
                 curr_layer = self.segments[i].layer
+                curr_vel = curr_layer.get_velocity(0)[curr_segment.vtype]
 
                 if prev_layer == curr_layer:
-
                     rt_sign = - 1
 
                 else:
-
                     rt_sign = 1
 
                 D, loc_sys = prev_segment.end_horizon.get_local_properties(
                     prev_segment.receiver[0:2],
-                    prev_segment.get_vector()
+                    prev_segment.get_vector(),
+                    survey2D=survey2D
                 )
 
                 cos_inc = abs(np.dot(prev_segment.get_vector(), loc_sys[:, 2]))
                 cos_out = abs(np.dot(curr_segment.get_vector(), loc_sys[:, 2]))
 
-                S = np.array([[rt_sign * cos_inc / cos_out, 0],
-                              [0, 1]])
-                G = np.array([[- rt_sign * 1 / cos_out, 0],
-                              [0, 1]])
-
-                u = cos_inc / prev_layer.get_velocity(0)[prev_segment.vtype] - \
-                    rt_sign * cos_out / curr_layer.get_velocity(0)[curr_segment.vtype]
+                S = np.array([
+                    [rt_sign * cos_inc / cos_out, 0],
+                    [0, 1]
+                ])
+                G = np.array([
+                    [- rt_sign * 1 / cos_out, 0],
+                    [0, 1]
+                ])
+                u = cos_inc / prev_vel - rt_sign * cos_out / curr_vel
 
                 W = np.array([
                     [np.dot(e2, loc_sys[:, 1]), np.dot(e1, loc_sys[:, 1])],
                     [- np.dot(e1, loc_sys[:, 1]), np.dot(e2, loc_sys[:, 1])]
                 ])
 
-                M = np.dot(np.dot(S, np.dot(W.T, np.dot(M, W))), S) + u * np.dot(np.dot(G, D), G)
+                M = np.einsum("ij, jk, kl, lm, mn", S, np.transpose(W), M, W, S) + u * np.einsum("ik, kl, ln", G, D, G)
                 N = np.linalg.inv(M)
 
-                c_11 = N[0, 0] - curr_layer.get_velocity(1)[curr_segment.vtype] * dist
-                c_22 = N[1, 1] - curr_layer.get_velocity(1)[curr_segment.vtype] * dist
+                c_11 = N[0, 0] - curr_vel * dist
+                c_22 = N[1, 1] - curr_vel * dist
                 c_12 = N[0, 1]
 
-                det_rat = 1 / np.linalg.det(M)
+                det_rat = 1 / np.linalg.det(M)  # now we have only denominator
 
                 dist = dist + curr_segment.get_distance()
 
-                M[0, 0] = (curr_layer.get_velocity(1)[curr_segment.vtype] * dist + c_22) / \
-                          ((curr_layer.get_velocity(1)[curr_segment.vtype] * dist + c_11) *
-                           (curr_layer.get_velocity(1)[curr_segment.vtype] * dist + c_22) - c_12**2)
+                M[0, 0] = (curr_vel * dist + c_22) / ((curr_vel * dist + c_11) * (curr_vel * dist + c_22) - c_12 ** 2)
+                M[1, 1] = (curr_vel * dist + c_11) / ((curr_vel * dist + c_11) * (curr_vel * dist + c_22) - c_12 ** 2)
+                M[0, 1] = - c_12 / ((curr_vel * dist + c_11) * (curr_vel * dist + c_22) - c_12 ** 2)
+                M[1, 0] = M[0, 1]
 
-                M[1, 1] = (curr_layer.get_velocity(1)[curr_segment.vtype] * dist + c_11) / \
-                          ((curr_layer.get_velocity(1)[curr_segment.vtype] * dist + c_11) *
-                           (curr_layer.get_velocity(1)[curr_segment.vtype] * dist + c_22) - c_12**2)
-
-                M[0, 1] = - c_12 / \
-                          ((curr_layer.get_velocity(1)[curr_segment.vtype] * dist + c_11) *
-                           (curr_layer.get_velocity(1)[curr_segment.vtype] * dist + c_22) - c_12**2)
-
-                M[1, 0 ] = M[0, 1]
-
-                det_rat = det_rat * np.linalg.det(M)
+                det_rat = det_rat * np.linalg.det(M)  # full value of the detRat
 
                 t = curr_segment.get_vector()
                 e2 = loc_sys[:, 1]
@@ -942,6 +732,129 @@ class Ray(object):
                 J = J / abs(det_rat)
 
             return J
+
+    def compute_coefficients(self, survey2D=False):
+
+        first_segment = self.segments[0]
+        U = self.source.source_radiation(first_segment.receiver, first_segment.vtype)
+
+        t = first_segment.get_vector()  # unit vector pointed in the direction of wave's propagation
+
+        if t[2] == 1:
+            e1 = np.array([1, 0, 0])
+            e2 = np.array([0, 1, 0])
+
+        else:
+            e2 = np.array([t[1], - t[0], 0]) / np.sqrt(t[1] ** 2 + t[0] ** 2)  # SH-polarized unit vector
+            e1 = np.cross(e2, t)  # SV-polarized unit vector
+
+        if len(self.segments) == 1:
+
+            return np.array([])
+
+        else:
+
+            refl_trans_coeff = np.zeros(len(self.segments) - 1, dtype = complex)
+
+            for i in np.arange(1, len(self.segments), 1):
+
+                prev_segment = self.segments[i - 1]
+                prev_layer = self.segments[i - 1].layer
+                prev_vel = prev_layer.get_velocity(0)[prev_segment.vtype]
+
+                curr_segment = self.segments[i]
+                curr_layer = self.segments[i].layer
+                curr_vel = curr_layer.get_velocity(0)[curr_segment.vtype]
+
+                if prev_layer == curr_layer:
+                    rt_sign = - 1
+
+                else:
+                    rt_sign = 1
+
+                _, loc_sys = prev_segment.end_horizon.get_local_properties(
+                    prev_segment.receiver[0:2],
+                    prev_segment.get_vector(),
+                    survey2D=survey2D
+                )
+
+                inc_slowness = np.dot(
+                    np.transpose(loc_sys),
+                    t / prev_vel
+                )
+                inc_polariz = np.dot(np.transpose(loc_sys), U)
+
+                ampl_coeff = iso_rt_coefficients(
+                    inc_slowness=inc_slowness,
+                    inc_polariz=inc_polariz,
+                    rt_signum=rt_sign,
+                    vp1=self.velmod.layers[self.raycode[i - 1][1]].get_velocity(0)["vp"],
+                    vs1=self.velmod.layers[self.raycode[i - 1][1]].get_velocity(0)["vs"],
+                    rho1=self.velmod.layers[self.raycode[i - 1][1]].get_density(),
+                    vp2=self.velmod.layers[self.raycode[i - 1][1] + self.raycode[i - 1][0]].get_velocity(0)["vp"],
+                    vs2=self.velmod.layers[self.raycode[i - 1][1] + self.raycode[i - 1][0]].get_velocity(0)["vs"],
+                    rho2=self.velmod.layers[self.raycode[i - 1][1] + self.raycode[i - 1][0]].get_density()
+                )
+
+                t = curr_segment.get_vector()
+                e2 = loc_sys[:, 1]
+                e1 = np.cross(e2, t)
+
+                if curr_segment.vtype == "vp":
+
+                    refl_trans_coeff[i - 1] = ampl_coeff[0]
+                    U = np.linalg.norm(U) * ampl_coeff[0] * t
+
+                if curr_segment.vtype == "vs":
+
+                    refl_trans_coeff[i - 1] = np.sqrt(ampl_coeff[1] ** 2 + ampl_coeff[2] ** 2)
+                    U = np.linalg.norm(U) * ampl_coeff[1] * e1 +\
+                        np.linalg.norm(U) * ampl_coeff[2] * e2
+
+            return refl_trans_coeff
+
+    def get_inc_cosines(self, survey2D=False):
+
+        if len(self.segments) == 1:
+
+            return np.array([])
+
+        else:
+
+            inc_cosines = np.zeros(len(self.segments) - 1)
+
+            for i in np.arange(1, len(self.segments), 1):
+
+                prev_segment = self.segments[i - 1]
+
+                _, loc_sys = prev_segment.end_horizon.get_local_properties(
+                    prev_segment.receiver[0:2],
+                    prev_segment.get_vector(),
+                    survey2D=survey2D
+                )
+
+                inc_cosines[i - 1] = abs(np.dot(prev_segment.get_vector(), loc_sys[:, 2]))
+
+            return inc_cosines
+
+    def get_recorded_amplitude(self, times):
+
+        # Let's generate our wavelet:
+        wavelet = seislet.seismic_signal(
+            signal=self.source.wavelet_name,
+            t=times,
+            tau=self.get_travel_time(),
+            **self.source.wavelet_parameters
+        )
+
+        # Receiver's sensitivity axes may not correspond to those of the global coordinate system. So, ray amplitude
+        # vector must be rotated:
+        rec_amplitude = np.dot(self.receiver.orientation.T, self.ray_amplitude)
+        rec_amplitude = np.real(rec_amplitude)  # it can be complex, but seismographs detect only real component
+
+        # We want to see array with shape (3, len(times)) so that its zeroth component would correspond to X-axis
+        # record, second component - to Y-axis record and the third component - to Z-axis record:
+        return wavelet * np.reshape(rec_amplitude, (3, 1))
 
 
 class RaycodeError(Exception):

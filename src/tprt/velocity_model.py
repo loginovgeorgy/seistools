@@ -2,7 +2,8 @@ import numpy as np
 import pylab as plt
 from mpl_toolkits.mplot3d import Axes3D
 from .units import Units
-from src.tprt import Layer, FlatHorizon
+from .layer import Layer
+from .horizon import FlatHorizon
 
 class VelocityModel(object):
     def __init__(self, velocity, density, name, horizons):
@@ -51,6 +52,13 @@ class VelocityModel(object):
 
         return self.layers[layer_num]
 
-    def plot(self, ax):
+    def plot(self, **kwargs):
+        if not np.any(kwargs.get('ax')):
+            fig = plt.figure()
+            ax = Axes3D(fig)
+        else:
+            ax = kwargs['ax']
+            kwargs.pop('ax')
+            
         for l in self.layers[:-1]:
             l.bottom.plot(ax=ax)

@@ -177,14 +177,6 @@ def iso_rt_coefficients(inc_slowness, inc_polariz, rt_signum, vp1, vs1, rho1, vp
         return rp, rs1, rs2
 
 
-# Define error that will occur if incident slowness in iso_rt_coefficietns(...) does not lie in vertical plane (e.g. it
-# is given in global coordinates, not in local ones).
-class IncidentSlownessError(Exception):
-    """Exception raised for errors in the input."""
-
-    def __init__(self, msg):
-        self.message = msg
-
 # def rt_coefficients_alt(vp1, vs1, rho1, vp2, vs2, rho2, cos_inc, inc_polariz, inc_vel, rt_signum):
 #
 #     # Для решения поставленной задачи потребуются матрицы упругих модулей сред 1 и 2:
