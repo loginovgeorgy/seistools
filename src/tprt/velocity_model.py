@@ -5,6 +5,7 @@ from .units import Units
 from .layer import Layer
 from .horizon import FlatHorizon
 
+
 class VelocityModel(object):
     def __init__(self, velocity, density, name, horizons):
         self.horizons = sorted(horizons, key=lambda h: h.get_depth([0.0,0.0]))

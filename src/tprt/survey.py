@@ -2,6 +2,7 @@ import numpy as np
 from tqdm import tqdm_notebook
 from .ray import Ray
 
+
 class Survey:
     def __init__(self, sources, receivers, vel_mod):
         """
@@ -40,7 +41,6 @@ class Survey:
                 self.amplitudes[i] = ray.ray_amplitude
                 self.traveltimes[i] = ray.traveltime
                 p_bar.update()
-            
 
     def plot(self, **kwargs):
         if not np.any(kwargs.get('ax')):

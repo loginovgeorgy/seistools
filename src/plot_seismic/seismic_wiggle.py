@@ -126,8 +126,8 @@ def plot_traces(
         _set_time_lim = ax.set_ylim
         _set_traces_lim = ax.set_xlim
         _set_traces_label = ax.set_xlabel
-        _set_trace_ticks = ax.set_yticks
-        _set_trace_tick_labels = ax.ax.set_xticklabels
+        _set_trace_ticks = ax.set_xticks
+        _set_trace_tick_labels = ax.set_xticklabels
         _set_grid_axis = 'x'
 
     time = np.arange(traces.shape[1]) * dt
