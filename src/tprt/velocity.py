@@ -16,8 +16,8 @@ class ISOVelocity(Velocity):
         self.dvp = np.array([0, 0])
         self.dvs = np.array([0, 0])
 
-    def get_velocity(self, x):
+    def get_velocity(self, x=None):
         return {'vp': self.vp, 'vs': self.vs}
 
-    def get_dv(self, x):
+    def get_dv(self, x=None):
         return {'vp': self.dvp, 'vs': self.dvs}
