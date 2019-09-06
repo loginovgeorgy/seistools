@@ -1,22 +1,26 @@
-from keras.layers import Conv2D, MaxPooling2D, UpSampling2D
-from keras.layers import GlobalAveragePooling2D, GlobalMaxPooling2D, AveragePooling2D
-
-from keras.layers import Conv1D, MaxPooling1D, UpSampling1D, GlobalAveragePooling1D, GlobalMaxPooling1D
-from keras.layers import AveragePooling1D
-
-from keras.layers import Activation
-
-from keras.layers import Input, Dense, Flatten, Reshape, Permute, BatchNormalization, Dropout, Concatenate, merge
-from keras.optimizers import RMSprop
-from keras.models import model_from_json, Model
-from keras.layers.advanced_activations import LeakyReLU
-from keras.layers import Lambda
-from keras.losses import binary_crossentropy, sparse_categorical_crossentropy
 import numpy as np
 from .losses import *
-import keras
-import tensorflow
 
+try:
+    from keras.layers import Conv2D, MaxPooling2D, UpSampling2D
+    from keras.layers import GlobalAveragePooling2D, GlobalMaxPooling2D, AveragePooling2D
+
+    from keras.layers import Conv1D, MaxPooling1D, UpSampling1D, GlobalAveragePooling1D, GlobalMaxPooling1D
+    from keras.layers import AveragePooling1D
+
+    from keras.layers import Activation
+
+    from keras.layers import Input, Dense, Flatten, Reshape, Permute, BatchNormalization, Dropout, Concatenate, merge
+    from keras.optimizers import RMSprop
+    from keras.models import model_from_json, Model
+    from keras.layers.advanced_activations import LeakyReLU
+    from keras.layers import Lambda
+    from keras.losses import binary_crossentropy, sparse_categorical_crossentropy
+
+    import keras
+    import tensorflow
+except ImportError:
+    print('Keras not imported')
 
 POOLING = {
     'max': MaxPooling1D,

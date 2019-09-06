@@ -1,8 +1,16 @@
-import segyio
 import pandas as pd
 import numpy as np
 from tqdm import tqdm_notebook as tqdm
-from obspy.io.segy.core import _read_segy
+
+try:
+    import segyio
+except ImportError:
+    print('segyio not imported')
+
+try:
+    from obspy.io.segy.core import _read_segy
+except ImportError:
+    print('obspy not imported')
 
 
 SEGYIO_HEADER_ITEMS = {

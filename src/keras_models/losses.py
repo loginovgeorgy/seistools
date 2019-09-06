@@ -1,6 +1,11 @@
-import keras
-from keras.losses import binary_crossentropy, sparse_categorical_crossentropy
-from  itertools import product
+from itertools import product
+
+try:
+    import keras
+    from keras.losses import binary_crossentropy, sparse_categorical_crossentropy
+
+except ImportError:
+    print('Keras not imported')
 
 
 def weighted_categorical_crossentropy2(weights):

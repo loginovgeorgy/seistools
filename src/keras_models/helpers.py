@@ -1,9 +1,17 @@
-import keras
 from IPython.display import clear_output
 import pylab as plt
-from keras.models import model_from_json
 from itertools import product
-import tensorflow
+try:
+    import keras
+    from keras.models import model_from_json
+except ImportError:
+    print('Keras not imported')
+
+try:
+    import tensorflow
+except ImportError:
+    print('tensorflow not imported')
+
 
 
 class PlotLosses(keras.callbacks.Callback):
