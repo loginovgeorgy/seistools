@@ -418,6 +418,7 @@ def palette_tau_hist_vertical(
         min_sigma=3,
         max_sigma=5,
         hold_v_max=None,
+        return_hist=False,
 ):
     def _bin_label(bin, style):
         if style == 'full':
@@ -448,7 +449,7 @@ def palette_tau_hist_vertical(
             histograms[tag][c] = {}
 
             vals = df_cur[c].values / dt
-            hist, bin_edges = np.histogram(vals / dt, range=tau_lim, bins=bins)
+            hist, bin_edges = np.histogram(vals, range=tau_lim, bins=bins)
             hist = np.log10(hist + .1)
             de = np.diff(bin_edges)[0]
             bin_edges = bin_edges[:-1][hist > 0]
@@ -554,6 +555,9 @@ def palette_tau_hist_vertical(
     ax.set_xlim(tau_lim)
     ax.set_xlabel('Tau, s')
     ax.grid(True)
+
+    if return_hist:
+        return histograms
 
 ###################################### Trash
 def plot_3c_data(rec, ax, j):
