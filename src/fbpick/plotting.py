@@ -415,8 +415,8 @@ def palette_tau_hist_vertical(
         bin_label='mid',
         dt=1,
         ytick_freq=2,
-        min_sigma=3,
-        max_sigma=5,
+        min_sigma=1,
+        max_sigma=3,
         hold_v_max=None,
         return_hist=False,
 ):
