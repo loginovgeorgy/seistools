@@ -6,84 +6,91 @@ from copy import deepcopy
 EPS = 1e-16
 
 
-def detection_stalta(x, window_short, window_long, axis=1, drop_edges=True):
+def detection_stalta(x, window_short, window_long, time_axis=1, drop_edges=True, betta=EPS, gradient=True):
     """
     Calculate STA/LTA detection function
     :param x: signal
     :param window_short:
     :param window_long:
-    :param axis: axis along to perform filtering (axis of time samples)
+    :param time_axis: axis along to perform filtering (axis of time samples)
     :param drop_edges: drop region with partial window overlapping
+    :param betta: stabilisation constant
+    :param gradient: perform gradient along time axis
     :return:
         detection function
     """
     x = np.squeeze(x)
-    short = moving_average_1d(x ** 2, window_short, window_type='left', axis=axis)
-    long = moving_average_1d(x ** 2, window_long, window_type='left', axis=axis)
-    det = short / (long + EPS)
+    short = moving_average_1d(x ** 2, window_short, window_type='left', axis=time_axis)
+    long = moving_average_1d(x ** 2, window_long, window_type='left', axis=time_axis)
+    det = short / (long + betta)
 
-    det = np.abs(np.gradient(det, axis=axis))
+    if gradient:
+        det = np.abs(np.gradient(det, axis=time_axis))
 
     if drop_edges:
         slc = [slice(None)] * len(x.shape)
-        slc[axis] = slice(0, window_long)
+        slc[time_axis] = slice(0, window_long)
         det[tuple(slc)] = 0
 
     return det
 
 
-def detection_mer(x, window, axis=1, drop_edges=True):
+def detection_mer(x, window, time_axis=1, drop_edges=True, betta=EPS, modify=False):
     """
     Calculate MER detection function
     :param x: signal
     :param window:
-    :param axis: axis along to perform filtering (axis of time samples)
+    :param time_axis: axis along to perform filtering (axis of time samples)
     :param drop_edges: drop region with partial window overlapping
+    :param betta: stabilisation constant
+    :param modify: perform  (np.abs(x) * det) ** 3
     :return:
         detection function
     """
     x = deepcopy(x)
     x = cast_input_to_traces(x)
 
-    left = moving_average_1d(x ** 2, window, axis=axis, window_type='left')
-    right = moving_average_1d(x ** 2, window, axis=axis, window_type='right')
+    left = moving_average_1d(x ** 2, window, axis=time_axis, window_type='left')
+    right = moving_average_1d(x ** 2, window, axis=time_axis, window_type='right')
 
-    det = right / (left + EPS)
-    det = (np.abs(x) * det) ** 3
+    det = right / (left + betta)
+    if modify:
+        det = (np.abs(x) * det) ** 3
 
     if drop_edges:
-        ns = x.shape[axis]
+        ns = x.shape[time_axis]
         slc = [slice(None)] * len(x.shape)
-        slc[axis] = slice(0, window)
+        slc[time_axis] = slice(0, window)
         det[tuple(slc)] = 0
-        slc[axis] = slice(ns - window, ns)
+        slc[time_axis] = slice(ns - window, ns)
         det[tuple(slc)] = 0
 
     return det
 
 
-def detection_em(x, window, axis=1, drop_edges=True):
+def detection_em(x, window, time_axis=1, drop_edges=True, betta=EPS):
     """
     Calculate EM detection function
     :param x: signal
     :param window:
-    :param axis: axis along to perform filtering (axis of time samples)
+    :param time_axis: axis along to perform filtering (axis of time samples)
     :param drop_edges: drop region with partial window overlapping
+    :param betta: stabilisation constant
     :return:
         detection function
     """
     x = deepcopy(x)
     x = cast_input_to_traces(x)
 
-    s_diff = np.gradient(x, axis=axis)
-    h = moving_average_1d(np.abs(s_diff), window, axis=axis, window_type='left')
-    h_log = np.log10(h + EPS)
-    det = np.gradient(h_log, axis=axis)
+    s_diff = np.gradient(x, axis=time_axis)
+    h = moving_average_1d(np.abs(s_diff), window, axis=time_axis, window_type='left')
+    h_log = np.log10(h + betta)
+    det = np.gradient(h_log, axis=time_axis)
     det = np.abs(det)
 
     if drop_edges:
         slc = [slice(None)] * len(x.shape)
-        slc[axis] = slice(0, window)
+        slc[time_axis] = slice(0, window)
         det[tuple(slc)] = 0
 
     return det
