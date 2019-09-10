@@ -1,6 +1,8 @@
 import numpy as np
 import pylab as plt
 
+
+MARKERS = ['s', 'D', 'd', 'o', '.', 'x', '+']
 COLOR_ABBREVIATIONS = ['b', 'g', 'r', 'c', 'm', 'y', 'k', 'w']
 PICKS_COLORMAP = plt.cm.tab10
 
@@ -168,8 +170,8 @@ def input_check_color_dicts(no_of_components, **kwargs):
     return result.values()
 
 
-def input_chek_picks_color(picks, picks_colormap, picks_line_style, picks_curve_line_style):
-
+def input_check_picks_color(picks, picks_colormap, picks_line_style, picks_curve_line_style):
+    j_color = np.arange(10).tolist() * len(picks)
     if isinstance(picks_line_style, type(None)):
         picks_line_style = 'dashed'
 
@@ -177,7 +179,7 @@ def input_chek_picks_color(picks, picks_colormap, picks_line_style, picks_curve_
         picks_curve_line_style = 'solid'
 
     if isinstance(picks_colormap, type(None)):
-        return {x: PICKS_COLORMAP(i) for i, x in enumerate(picks)}, picks_line_style, picks_curve_line_style
+        return {x: PICKS_COLORMAP(i) for i, x in zip(j_color, picks)}, picks_line_style, picks_curve_line_style
 
     if isinstance(picks_colormap, str):
         if not (picks_colormap in COLOR_ABBREVIATIONS):
@@ -194,4 +196,37 @@ def input_chek_picks_color(picks, picks_colormap, picks_line_style, picks_curve_
 
     raise ValueError('the given colormap is undefined - "{}"'.format(picks_colormap))
 
+
+def input_check_picks_markers(picks, picks_marker):
+    j_color = np.arange(len(MARKERS)).tolist() * len(picks)
+
+    if isinstance(picks_marker, type(None)):
+        return {x: None for i, x in zip(j_color, picks)}
+
+    if isinstance(picks_marker, bool):
+        if picks_marker:
+            return {x: MARKERS[i] for i, x in zip(j_color, picks)}
+        else:
+            return {x: None for i, x in zip(j_color, picks)}
+
+    if isinstance(picks_marker, str):
+        if not (picks_marker in MARKERS):
+            raise ValueError(
+                "'{}' items must be one of {}"
+                "The given was '{}'".format('picks_colormap', MARKERS, picks_marker)
+            )
+        else:
+            return {x: picks_marker for x in picks}
+
+    if isinstance(picks_marker, list):
+        if len(np.setdiff1d(picks_marker, MARKERS)):
+            raise ValueError(
+                "'{}' items must be one of {}"
+                "The given was '{}'".format('picks_colormap', MARKERS, picks_marker)
+            )
+        else:
+            j_color = np.arange(len(picks_marker)).tolist() * len(picks)
+            return {x: picks_marker[i] for i, x in zip(j_color, picks)}
+
+    # raise ValueError('the given colormap is undefined - "{}"'.format(picks_markermap))
 

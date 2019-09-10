@@ -1,9 +1,9 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from .helpers import insert_zeros_in_trace, input_check, input_check_color_dicts, input_chek_picks_color
+from .helpers import insert_zeros_in_trace, input_check, input_check_color_dicts, input_check_picks_color, \
+    input_check_picks_markers
 from functools import wraps
 
-MARKERS = ['s', 'D', 'd', 'o', '.', 'x', '+']
 
 
 
@@ -49,9 +49,11 @@ def plot_traces(
         picks_curve=False,
         picks_legend=True,
         picks_colormap=None,
+        picks_facecolor=None,
         picks_line_style='dashed',
         picks_curve_line_style='solid',
         picks_marker=True,
+        picks_curve_marker=True,
         alpha=.5,
         mask_alpha=.5,
         mask_cmap=None,
@@ -78,12 +80,20 @@ def plot_traces(
         )
     )
 
-    picks_colormap, picks_line_style, picks_curve_line_style = input_chek_picks_color(
+    picks_colormap, picks_line_style, picks_curve_line_style = input_check_picks_color(
         picks, picks_colormap,
         picks_line_style,
         picks_curve_line_style
     )
 
+    picks_facecolor, _, _ = input_check_picks_color(
+        picks, picks_facecolor,
+        picks_line_style,
+        picks_curve_line_style
+    )
+
+    picks_marker = input_check_picks_markers(picks, picks_marker)
+    picks_curve_marker = input_check_picks_markers(picks, picks_curve_marker)
     if isinstance(ax, type(None)):
         fig, ax = plt.subplots(figsize=(fig_width, fig_height), facecolor='w')
 
@@ -173,15 +183,13 @@ def plot_traces(
             for ip, label in enumerate(picks):
                 p = picks[label]
                 pick_time = p[jt] * dt + start_time
-                if (traces.shape[2] == 1) & picks_marker:
+                if (traces.shape[2] == 1) & (not isinstance(picks_marker[ip], type(None))):
                     pick_amplitude = off + trace[np.int32(p[jt])] * picks_on_amplitude
-                    marker = MARKERS[ip]
-                    line_style = 'None'
+                    marker = picks_marker[ip]
                 else:
                     pick_amplitude = [off - .3, off + .3]
                     pick_time = [pick_time, pick_time]
                     marker = None
-                    line_style = picks_line_style
 
                 x, y = _get_x_y([pick_time, pick_amplitude])
                 ax.plot(
@@ -191,7 +199,7 @@ def plot_traces(
                     markeredgecolor=picks_colormap[label],
                     markerfacecolor='None',
                     marker=marker,
-                    linestyle=line_style,
+                    linestyle=picks_line_style,
                 )
 
     if picks:
@@ -201,9 +209,9 @@ def plot_traces(
                 p = np.int32(picks[label])
                 pick_times = p * dt + start_time
 
-                if (traces.shape[2] == 1) & picks_marker:
+                if (traces.shape[2] == 1) & (not isinstance(picks_curve_marker[ip], type(None))):
                     pick_amplitudes = offset + traces[j_traces, p, 0] * picks_on_amplitude
-                    marker = MARKERS[ip]
+                    marker = picks_curve_marker[ip]
                 else:
                     pick_amplitudes = np.insert(offset - .5, np.arange(len(offset))+1, offset + .5)
                     pick_times = np.insert(pick_times, np.arange(len(offset))+1, pick_times)
@@ -228,7 +236,7 @@ def plot_traces(
                     label=label,
                     markeredgecolor=picks_colormap[label],
                     markerfacecolor='None',
-                    marker=MARKERS[ip],
+                    marker=picks_marker[ip],
                     linestyle='None'
                 )
 
