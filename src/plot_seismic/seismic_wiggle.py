@@ -201,7 +201,7 @@ def plot_traces(
                     markeredgecolor=picks_marker_color[label],
                     markerfacecolor=picks_marker_fill[label],
                     marker=marker,
-                    makersize=picks_marker_size,
+                    markersize=picks_marker_size,
                     linestyle=picks_dash_style,
                 )
 
