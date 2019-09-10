@@ -173,17 +173,17 @@ def plot_traces(
             for ip, label in enumerate(picks):
                 p = picks[label]
                 pick_time = p[jt] * dt + start_time
-                if (traces.shape[2] == 1) & picks_marker:
-                    print(1)
-                    pick_amplitude = off + trace[np.int32(p[jt])] * picks_on_amplitude
-                    marker = MARKERS[ip]
-                    line_style = 'None'
-                else:
-                    print(2)
-                    pick_amplitude = [off - .3, off + .3]
-                    pick_time = [pick_time, pick_time]
-                    marker = None
-                    line_style = picks_line_style
+                # if (traces.shape[2] == 1) & picks_marker:
+                #     print(1)
+                #     pick_amplitude = off + trace[np.int32(p[jt])] * picks_on_amplitude
+                #     marker = MARKERS[ip]
+                #     line_style = 'None'
+                # else:
+                #     print(2)
+                pick_amplitude = [off - .3, off + .3]
+                pick_time = [pick_time, pick_time]
+                marker = None
+                line_style = picks_line_style
 
                 x, y = _get_x_y([pick_time, pick_amplitude])
                 ax.plot(
