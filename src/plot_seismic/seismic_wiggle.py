@@ -236,7 +236,7 @@ def plot_traces(
                     label=label,
                     markeredgecolor=picks_colormap[label],
                     markerfacecolor='None',
-                    marker=picks_marker[ip],
+                    marker=picks_marker[label],
                     linestyle='None'
                 )
 
