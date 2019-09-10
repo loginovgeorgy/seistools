@@ -183,9 +183,9 @@ def plot_traces(
             for ip, label in enumerate(picks):
                 p = picks[label]
                 pick_time = p[jt] * dt + start_time
-                if (traces.shape[2] == 1) & (not isinstance(picks_marker[ip], type(None))):
+                if (traces.shape[2] == 1) & (not isinstance(picks_marker[label], type(None))):
                     pick_amplitude = off + trace[np.int32(p[jt])] * picks_on_amplitude
-                    marker = picks_marker[ip]
+                    marker = picks_marker[label]
                 else:
                     pick_amplitude = [off - .3, off + .3]
                     pick_time = [pick_time, pick_time]
@@ -209,9 +209,9 @@ def plot_traces(
                 p = np.int32(picks[label])
                 pick_times = p * dt + start_time
 
-                if (traces.shape[2] == 1) & (not isinstance(picks_curve_marker[ip], type(None))):
+                if (traces.shape[2] == 1) & (not isinstance(picks_curve_marker[label], type(None))):
                     pick_amplitudes = offset + traces[j_traces, p, 0] * picks_on_amplitude
-                    marker = picks_curve_marker[ip]
+                    marker = picks_curve_marker[label]
                 else:
                     pick_amplitudes = np.insert(offset - .5, np.arange(len(offset))+1, offset + .5)
                     pick_times = np.insert(pick_times, np.arange(len(offset))+1, pick_times)
