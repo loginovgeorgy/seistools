@@ -51,6 +51,7 @@ def plot_traces(
         picks_colormap=None,
         picks_line_style='dashed',
         picks_curve_line_style='solid',
+        picks_marker=True,
         alpha=.5,
         mask_alpha=.5,
         mask_cmap=None,
@@ -172,7 +173,7 @@ def plot_traces(
             for ip, label in enumerate(picks):
                 p = picks[label]
                 pick_time = p[jt] * dt + start_time
-                if traces.shape[2] == 1:
+                if (traces.shape[2] == 1) & picks_marker:
                     pick_amplitude = off + trace[np.int32(p[jt])] * picks_on_amplitude
                     marker = MARKERS[ip]
                     line_style = 'None'
@@ -183,14 +184,15 @@ def plot_traces(
                     line_style = picks_line_style
 
                 x, y = _get_x_y([pick_time, pick_amplitude])
-                ax.plot(x,
-                        y,
-                        color=picks_colormap[label],
-                        markeredgecolor=picks_colormap[label],
-                        markerfacecolor='None',
-                        marker=marker,
-                        linestyle=line_style,
-                        )
+                ax.plot(
+                    x,
+                    y,
+                    color=picks_colormap[label],
+                    markeredgecolor=picks_colormap[label],
+                    markerfacecolor='None',
+                    marker=marker,
+                    linestyle=line_style,
+                )
 
     if picks:
         j_traces = np.arange(traces.shape[0])
