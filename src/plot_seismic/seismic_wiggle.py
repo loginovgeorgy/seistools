@@ -268,9 +268,9 @@ def plot_traces(
 
         ax.imshow(mask, **kwargs)
 
-    _set_time_label(time_label)
+    _set_time_label(time_label, fontsize=font_size)
     _set_time_lim(time_lim)
-    _set_traces_label(traces_label)
+    _set_traces_label(traces_label, fontsize=font_size)
     _set_traces_lim(traces_lim)
     _set_trace_ticks(offset[::offset_ticks_freq])
     _set_trace_ticks(np.arange(traces.shape[0] - 1) + .5, minor=True)
