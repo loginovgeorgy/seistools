@@ -274,7 +274,7 @@ def plot_traces(
     _set_trace_ticks(offset[::offset_ticks_freq])
     _set_trace_ticks(np.arange(traces.shape[0] - 1) + .5, minor=True)
     _set_trace_tick_labels(offset_ticks[::offset_ticks_freq])
-
+    ax.tick_params(axis='both', which='major', labelsize=font_size)
     ax.grid(which='minor', axis=_set_grid_axis)
     ax.set_title(title)
 

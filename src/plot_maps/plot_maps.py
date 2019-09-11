@@ -200,7 +200,7 @@ def plot_map(
     ax.set_xlabel(x_label, fontsize=font_size)
     ax.set_xlim(x_lim)
     ax.set_ylim(y_lim)
-
+    ax.tick_params(axis='both', which='major', labelsize=font_size)
     if title:
         ax.set_title(title)
 
