@@ -228,5 +228,31 @@ def input_check_picks_markers(picks, picks_marker):
             j_color = np.arange(len(picks_marker)).tolist() * len(picks)
             return {x: picks_marker[i] for i, x in zip(j_color, picks)}
 
-    # raise ValueError('the given colormap is undefined - "{}"'.format(picks_markermap))
+
+def input_check_marker_curve(picks, picks_curve):
+    if isinstance(picks_curve, type(None)):
+        return {x: False for x in picks}
+
+    if isinstance(picks_curve, bool):
+        if picks_curve:
+            return {x: True for x in picks}
+        else:
+            return {x: False for x in picks}
+
+    if isinstance(picks_curve, list):
+        if len(picks_curve) != len(picks):
+            raise ValueError("the picks len is {} and the picks_curve len {}".format(len(picks), len(picks_curve)))
+
+    if isinstance(picks_curve, dict):
+        if len(np.setdiff1d(list(picks_curve.keys()), list(picks.keys()))) > 0:
+            raise ValueError(
+                "the picks keys are {} and "
+                "the picks_curve keys are {}".format(
+                    list(picks.keys()),
+                    list(picks_curve.keys())
+                )
+            )
+
+        return {k: bool(picks_curve[k]) for k in picks_curve}
+
 

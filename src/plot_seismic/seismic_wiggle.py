@@ -1,10 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from .helpers import insert_zeros_in_trace, input_check, input_check_color_dicts, input_check_picks_color, \
-    input_check_picks_markers
+    input_check_picks_markers, input_check_marker_curve
 from functools import wraps
-
-
 
 
 
@@ -84,6 +82,7 @@ def plot_traces(
         )
     )
 
+    # TODO special dict for picks properties
     picks_marker_color, picks_dash_style, picks_curve_line_style = input_check_picks_color(
         picks, picks_marker_color,
         picks_dash_style,
@@ -96,6 +95,8 @@ def plot_traces(
 
     picks_marker = input_check_picks_markers(picks, picks_marker)
     picks_curve_marker = input_check_picks_markers(picks, picks_curve_marker)
+
+    picks_curve = input_check_marker_curve(picks, picks_curve)
     if isinstance(ax, type(None)):
         fig, ax = plt.subplots(figsize=(fig_width, fig_height), facecolor='w')
 
@@ -209,7 +210,7 @@ def plot_traces(
     if picks:
         j_traces = np.arange(traces.shape[0])
         for ip, label in enumerate(picks):
-            if picks_curve:
+            if picks_curve[label]:
                 p = np.int32(picks[label])
                 pick_times = p * dt + start_time
 
