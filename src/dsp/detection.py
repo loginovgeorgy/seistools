@@ -96,12 +96,12 @@ def detection_em(x, window, time_axis=1, drop_edges=True, betta=EPS):
     return det
 
 
-def detect_by_threshold(x, threshold, axis=1, normalize=False, replace_threshold=False, error_picks=-1):
+def detect_by_threshold(x, threshold, time_axis=1, normalize=False, replace_threshold=False, error_picks=-1):
     """
     Detect argument of value per threshold
     :param x:
     :param threshold:
-    :param axis:
+    :param time_axis:
     :param normalize:
     :param replace_threshold: provide picking anyway
     :param error_picks: cast errors to value
@@ -111,14 +111,14 @@ def detect_by_threshold(x, threshold, axis=1, normalize=False, replace_threshold
     det = cast_input_to_traces(x)
 
     if normalize:
-        det = normalize_traces(det, axis=axis, shift_type=None, scale_type='max')
+        det = normalize_traces(det, axis=time_axis, shift_type=None, scale_type='max')
 
     _det = deepcopy(det)
     _det -= threshold
-    picks = _det.argmax(axis=axis)
+    picks = _det.argmax(axis=time_axis)
 
     if not replace_threshold:
-        value = det.max(axis=axis, keepdims=True)
+        value = det.max(axis=time_axis, keepdims=True)
         idx = value < threshold
         picks[idx] = error_picks
 

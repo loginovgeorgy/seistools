@@ -252,7 +252,7 @@ def plot_traces(
 
         mask /= np.nanmax(np.abs(mask))
         if time_vertical:
-            extent = (time_lim[1], -.5, traces.shape[0] - .5, time_lim[0], time_lim[1])
+            extent = ( -.5, traces.shape[0] - .5, time_lim[0], time_lim[1])
             mask = mask.T
 
         kwargs = dict(
