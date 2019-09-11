@@ -57,6 +57,7 @@ def plot_traces(
         picks_curve_style_dash=False,
         picks_curve_line_style='solid',
         picks_curve_marker=True,
+        offset_tick_rotation=0,
         alpha=.5,
         mask_alpha=.5,
         mask_cmap=None,
@@ -271,7 +272,7 @@ def plot_traces(
     _set_time_lim(time_lim)
     _set_traces_label(traces_label)
     _set_traces_lim(traces_lim)
-    _set_trace_ticks(offset[::offset_ticks_freq])
+    _set_trace_ticks(offset[::offset_ticks_freq], rotation=offset_tick_rotation)
     _set_trace_ticks(np.arange(traces.shape[0] - 1) + .5, minor=True)
     _set_trace_tick_labels(offset_ticks[::offset_ticks_freq])
     ax.tick_params(axis='both', which='major', labelsize=font_size)
