@@ -181,6 +181,17 @@ def input_check_picks_color(picks, picks_colormap, picks_line_style, picks_curve
     if isinstance(picks_colormap, type(None)):
         return {x: PICKS_COLORMAP(i) for i, x in zip(j_color, picks)}, picks_line_style, picks_curve_line_style
 
+    if isinstance(picks_colormap, dict):
+        if len(np.setdiff1d(list(picks_colormap.keys()), list(picks.keys()))) > 0:
+            raise ValueError(
+                "the picks keys are {} and "
+                "the picks_curve keys are {}".format(
+                    list(picks.keys()),
+                    list(picks_colormap.keys())
+                )
+            )
+        return picks_colormap, picks_line_style, picks_curve_line_style
+
     if isinstance(picks_colormap, str):
         if not (picks_colormap in COLOR_ABBREVIATIONS):
             raise ValueError(
