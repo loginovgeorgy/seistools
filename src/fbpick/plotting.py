@@ -419,6 +419,7 @@ def palette_tau_hist_vertical(
         max_sigma=3,
         hold_v_max=None,
         return_hist=False,
+        ax=None,
 ):
     def _bin_label(bin, style):
         if style == 'full':
@@ -475,7 +476,8 @@ def palette_tau_hist_vertical(
     value_tick_labels = [str(x) for x in value_tick_labels] * len(index)
     value_lim = [0, len(index) * v_max]
 
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=figsize, facecolor='w')
+    if isinstance(ax, type(None)):
+        fig, ax = plt.subplots(nrows=1, ncols=1, figsize=figsize, facecolor='w')
     color = {c: plt.cm.tab10(i) for i, c in enumerate(columns_hist)}
 
     for i, _tag in enumerate(index):
@@ -558,6 +560,7 @@ def palette_tau_hist_vertical(
 
     if return_hist:
         return histograms
+
 
 ###################################### Trash
 def plot_3c_data(rec, ax, j):
