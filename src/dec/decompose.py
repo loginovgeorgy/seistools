@@ -47,7 +47,7 @@ def decompose_theta(factors, theta, df, csc, y_col='Time', suffix='', plot_resul
 
     prefix = y_col + '_F' + str(len(deco_res))
     new_cols = [prefix + suffix]
-    df[prefix + suffix] = A.dot(theta)
+    df[prefix + suffix] = csc.dot(theta)
     for k in deco_res:
         c = k.split('_')[0]
         v = deco_res[k]
