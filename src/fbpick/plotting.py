@@ -424,6 +424,7 @@ def palette_tau_hist(
     ax.set_ylabel('Tau, s')
     ax.grid(True)
 
+
 @set_plt_params
 def palette_tau_hist_vertical(
         df,
