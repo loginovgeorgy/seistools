@@ -420,6 +420,7 @@ def palette_tau_hist_vertical(
         hold_v_max=None,
         return_hist=False,
         ax=None,
+        add_legend=True,
 ):
     def _bin_label(bin, style):
         if style == 'full':
@@ -547,8 +548,8 @@ def palette_tau_hist_vertical(
                     color=color[c],
                     linestyle='dotted',
                 )
-
-    ax.legend(loc=0)
+    if add_legend:
+        ax.legend(loc=0)
     ax.set_yticks(value_ticks)
     ax.set_yticklabels(value_tick_labels)
     ax.set_ylim(value_lim)
