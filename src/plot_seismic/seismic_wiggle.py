@@ -67,6 +67,7 @@ def plot_traces(
         fig_width=10,
         fig_height=10,
         offset_ticks_freq=1,
+        display=False,
 ):
 
     traces, offset, mask, picks = input_check(traces, offset, mask, picks)
@@ -95,8 +96,14 @@ def plot_traces(
 
     picks_marker = input_check_picks_markers(picks, picks_marker)
     picks_curve_marker = input_check_picks_markers(picks, picks_curve_marker)
-
     picks_curve = input_check_marker_curve(picks, picks_curve)
+
+    if display:
+        print('picks_marker', picks_marker)
+        print('picks_marker_fill', picks_marker_fill)
+        print('picks_curve_marker', picks_curve_marker)
+        print('picks_curve', picks_curve)
+
     if isinstance(ax, type(None)):
         fig, ax = plt.subplots(figsize=(fig_width, fig_height), facecolor='w')
 
