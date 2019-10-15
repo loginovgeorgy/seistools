@@ -225,7 +225,7 @@ def plot_colorbar(mappable, cbar_label=''):
     ax = mappable.axes
     fig = ax.figure
     divider = make_axes_locatable(ax)
-    cax = divider.append_axes("right", size="10%", pad=0.04)
+    cax = divider.append_axes("right", size="5%", pad=0.04)
     cbar = fig.colorbar(mappable, cax=cax, fraction=0.022)
     cbar.set_label(cbar_label, rotation=270)
     return cbar
