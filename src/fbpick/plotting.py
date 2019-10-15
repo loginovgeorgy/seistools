@@ -8,6 +8,27 @@ from ipywidgets import interact, interactive, fixed, interact_manual
 import ipywidgets as widgets
 
 MARKERS = ['s', 'D', 'd', 'o', '.', 'x', '+']
+from functools import wraps
+FONT_SIZE = 12
+
+
+def set_plt_params(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        old_font_size = plt.rcParams['font.size']
+        old_serif = plt.rcParams['font.sans-serif']
+
+        plt.rcParams['font.size'] = kwargs.get('font_size', FONT_SIZE)
+        plt.rcParams['font.sans-serif'] = 'Arial'
+
+        try:
+            func(*args, **kwargs)
+        finally:
+            plt.rcParams['font.size'] = old_font_size
+            plt.rcParams['font.sans-serif'] = old_serif
+        return
+
+    return wrapper
 
 
 def _colorbar(mappable, cbar_label=''):
@@ -403,7 +424,7 @@ def palette_tau_hist(
     ax.set_ylabel('Tau, s')
     ax.grid(True)
 
-
+@set_plt_params
 def palette_tau_hist_vertical(
         df,
         columns_hist,
@@ -411,7 +432,7 @@ def palette_tau_hist_vertical(
         tau_lim=(0, 1.6),
         bins=100,
         figsize=(10, 20),
-        fontsize=20,
+        font_size=FONT_SIZE,
         bin_label='mid',
         dt=1,
         ytick_freq=2,
@@ -432,7 +453,6 @@ def palette_tau_hist_vertical(
         if style == 'right':
             return str(np.round(bin.right))
 
-    plt.rcParams.update({'font.size': fontsize})
     if not isinstance(columns_hist, list):
         columns_hist = [columns_hist]
 
@@ -487,7 +507,7 @@ def palette_tau_hist_vertical(
         shift = i * v_max
 
         ax.text(tau_lim[1], i * v_max + v_max / 2, tag,
-                fontsize=fontsize,
+                fontsize=font_size,
                 horizontalalignment='right',
                 verticalalignment='center'
                 )
