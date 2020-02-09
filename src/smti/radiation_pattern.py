@@ -7,9 +7,9 @@ def _full_to_voigt(g):
         g[:, 0],
         g[:, 4],
         g[:, 8],
-        g[:, 1] + g[:, 3],
-        g[:, 2] + g[:, 6],
         g[:, 5] + g[:, 7],
+        g[:, 2] + g[:, 6],
+        g[:, 1] + g[:, 3],
         ])
 
 
@@ -19,8 +19,9 @@ def radiation_operator(sou, rec, notation=9):
     dist = np.sqrt((unit_vec ** 2).sum(axis=1, keepdims=True)) + 1e-17
     unit_vec /= dist
 
-    gp = np.einsum('pi, pk, pl, p -> pikl', unit_vec, unit_vec, unit_vec, 1 / np.squeeze(dist))
-    gs_right = np.einsum('ik, pl, p -> pikl', np.eye(3, 3), unit_vec, 1 / np.squeeze(dist))
+    dist = np.array(np.squeeze(dist), ndmin=1)
+    gp = np.einsum('pi, pk, pl, p -> pikl', unit_vec, unit_vec, unit_vec, 1 / dist)
+    gs_right = np.einsum('ik, pl, p -> pikl', np.eye(3, 3), unit_vec, 1 / dist)
     gs = gs_right - gp
     if notation == 9:
         return gp.reshape(-1, 9), gs.reshape(-1, 9)

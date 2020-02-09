@@ -15,7 +15,7 @@ def _shear_moment(strike, dip, rake, ds, n):
     :param dip: δ
     :param rake: λ
     :param ds: the magnitude of the shear (DS) dislocation
-    :return: np.array([m11, m12, m13, m22, m23, m33])
+    :return: np.array([m11, m22, m33, m23, m13, m12])
     """
     from numpy import sin, cos
 
@@ -26,7 +26,7 @@ def _shear_moment(strike, dip, rake, ds, n):
     m23 = - (sin(strike) * cos(dip) * cos(rake) - cos(strike) * cos(2 * dip) * sin(rake))
     m33 = + (sin(2 * dip) * sin(rake))
 
-    return ds * n * np.array([m11, m22, m33, m12, m13, m23])
+    return ds * n * np.array([m11, m22, m33, m23, m13, m12])
 
 
 def _opening_moment(strike, dip, dn, n, ng):
@@ -43,7 +43,7 @@ def _opening_moment(strike, dip, dn, n, ng):
     :param rake:
     :param n:
     :param ng:
-    :return:
+    :return: np.array([m11, m22, m33, m23, m13, m12])
     """
 
     from numpy import sin, cos
@@ -55,7 +55,7 @@ def _opening_moment(strike, dip, dn, n, ng):
     m23 = - dn * n * cos(strike) * sin(2 * dip)
     m33 = + dn * (ng + 2 * n * (cos(dip) ** 2))
 
-    return np.array([m11, m22, m33, m12, m13, m23])
+    return np.array([m11, m22, m33, m23, m13, m12])
 
 
 def create_general_moment(strike, dip, rake, ds=1, dn=0, a=1, rho=1, vp=1.4, vs=1, radians=False):
@@ -70,7 +70,7 @@ def create_general_moment(strike, dip, rake, ds=1, dn=0, a=1, rho=1, vp=1.4, vs=
     N - 1st Lame's C. (lambda), Pa (rho * (Vp**2 - 2*Vs**2)) or (Ev / (1+v) / (1-2v)) Young E and Poisson v
     η - 2nd Lame's C. (mu), Pa (rho * Vs**2)
 
-    output: m = np.array([m11, m12, m13, m22, m23, m33])
+    output: m = np.array([m11, m22, m33, m23, m13, m12])
 
     :param strike: strike (ϕ), rad (fault plane azimuth)
     :param dip: dip (δ), rad, (fault plane plunge)

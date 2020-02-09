@@ -19,14 +19,16 @@ def moment_convert(m):
 
 
 def from3x3to6(m):
-    return np.array([m[0, 0], m[1, 1], m[2, 2], m[1, 2], m[0, 2], m[0, 1]])
+    return np.array(
+            [m[0, 0], m[1, 1], m[2, 2], m[1, 2], m[0, 2], m[0, 1]]
+        )
 
 
 def from6to3x3(m):
     return np.array([
-        [m[0], m[3], m[4]],
-        [m[3], m[1], m[5]],
-        [m[4], m[5], m[2]],
+        [m[0], m[5], m[4]],
+        [m[5], m[1], m[3]],
+        [m[4], m[3], m[2]],
     ])
 
 
